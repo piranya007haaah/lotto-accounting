@@ -1,0 +1,121 @@
+import { allowedLineUserIds, isDevAuthBypassEnabled, requireEnv } from "./env";
+import { HttpError } from "./http";
+import { supabaseAdmin } from "./supabase";
+import type { AuthUser } from "./types";
+
+interface VerifiedIdToken {
+  sub: string;
+  name?: string;
+  picture?: string;
+  exp: number;
+}
+
+/** cache ผลตรวจ token ไว้สั้น ๆ กันยิง LINE ทุก request */
+const tokenCache = new Map<string, { token: VerifiedIdToken; expiresAt: number }>();
+const TOKEN_CACHE_TTL_MS = 5 * 60 * 1000;
+
+function pruneCache() {
+  if (tokenCache.size < 500) return;
+  const now = Date.now();
+  for (const [key, value] of tokenCache) {
+    if (value.expiresAt <= now) tokenCache.delete(key);
+  }
+  if (tokenCache.size >= 500) tokenCache.clear();
+}
+
+/** ตรวจ ID token กับ LINE — เอกสาร: https://developers.line.biz/en/reference/line-login/#verify-id-token */
+async function verifyIdToken(idToken: string): Promise<VerifiedIdToken> {
+  const cached = tokenCache.get(idToken);
+  if (cached && cached.expiresAt > Date.now()) return cached.token;
+
+  const response = await fetch("https://api.line.me/oauth2/v2.1/verify", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      id_token: idToken,
+      client_id: requireEnv("LINE_LOGIN_CHANNEL_ID"),
+    }),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new HttpError(401, `ตรวจสอบการล็อกอิน LINE ไม่ผ่าน ${detail}`.trim(), "invalid_id_token");
+  }
+
+  const token = (await response.json()) as VerifiedIdToken;
+  if (!token?.sub) {
+    throw new HttpError(401, "LINE ID token ไม่มีข้อมูลผู้ใช้", "invalid_id_token");
+  }
+
+  pruneCache();
+  const expiresAt = Math.min(Date.now() + TOKEN_CACHE_TTL_MS, (token.exp ?? 0) * 1000 || Infinity);
+  tokenCache.set(idToken, { token, expiresAt });
+  return token;
+}
+
+/** หา (หรือสร้าง) แถวผู้ใช้จาก LINE userId */
+export async function getOrCreateUser(profile: {
+  lineUserId: string;
+  displayName?: string | null;
+  pictureUrl?: string | null;
+}): Promise<AuthUser> {
+  const allowed = allowedLineUserIds();
+  if (allowed && !allowed.includes(profile.lineUserId)) {
+    throw new HttpError(403, "บัญชี LINE นี้ยังไม่ได้รับสิทธิ์ใช้งานระบบ", "not_allowed");
+  }
+
+  const supabase = supabaseAdmin();
+  const { data, error } = await supabase
+    .from("app_users")
+    .upsert(
+      {
+        line_user_id: profile.lineUserId,
+        display_name: profile.displayName ?? null,
+        picture_url: profile.pictureUrl ?? null,
+        last_seen_at: new Date().toISOString(),
+      },
+      { onConflict: "line_user_id" },
+    )
+    .select("id, line_user_id, display_name, picture_url, is_active")
+    .single();
+
+  if (error) throw new HttpError(500, `บันทึกข้อมูลผู้ใช้ไม่สำเร็จ: ${error.message}`);
+  if (!data.is_active) {
+    throw new HttpError(403, "บัญชีนี้ถูกปิดการใช้งาน", "user_disabled");
+  }
+
+  return {
+    id: data.id as string,
+    lineUserId: data.line_user_id as string,
+    displayName: data.display_name as string | null,
+    pictureUrl: data.picture_url as string | null,
+  };
+}
+
+/**
+ * ดึงผู้ใช้ปัจจุบันจาก request
+ * ปกติ: header `Authorization: Bearer <LINE ID token>` ที่ได้จาก liff.getIDToken()
+ * ตอน dev: ตั้ง DEV_AUTH_BYPASS=true แล้วส่ง header `x-dev-line-user-id` แทนได้
+ */
+export async function requireUser(request: Request): Promise<AuthUser> {
+  if (isDevAuthBypassEnabled()) {
+    const devUserId = request.headers.get("x-dev-line-user-id");
+    if (devUserId) {
+      return getOrCreateUser({ lineUserId: devUserId, displayName: `dev:${devUserId}` });
+    }
+  }
+
+  const header = request.headers.get("authorization") ?? "";
+  const idToken = header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : "";
+  if (!idToken) {
+    throw new HttpError(401, "กรุณาเข้าสู่ระบบด้วย LINE ก่อน", "no_token");
+  }
+
+  const token = await verifyIdToken(idToken);
+  return getOrCreateUser({
+    lineUserId: token.sub,
+    displayName: token.name ?? null,
+    pictureUrl: token.picture ?? null,
+  });
+}
