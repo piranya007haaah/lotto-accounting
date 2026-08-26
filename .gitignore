@@ -14,3 +14,6 @@ next-env.d.ts
 .vercel
 .netlify
 tsconfig.tsbuildinfo
+
+# Claude Code — permission เฉพาะเครื่อง ไม่ต้องแชร์
+.claude/settings.local.json
