@@ -7,6 +7,25 @@ export interface AuthUser {
   lineUserId: string;
   displayName: string | null;
   pictureUrl: string | null;
+  /** ผู้ดูแลระบบ — กำหนดสิทธิ์ให้สมาชิกคนอื่นได้ (มาจาก LINE_ADMIN_USER_IDS) */
+  isAdmin: boolean;
+  /** เห็นรายการและสรุปยอดของทุกคน (อ่านอย่างเดียว) — ค่าเริ่มต้นคือเห็นเฉพาะของตัวเอง */
+  canViewAll: boolean;
+}
+
+/** แถวผู้ใช้ที่หน้าผู้ดูแลเอาไปแสดง */
+export interface MemberRow {
+  id: string;
+  line_user_id: string;
+  display_name: string | null;
+  picture_url: string | null;
+  is_active: boolean;
+  can_view_all: boolean;
+  approved_at: string | null;
+  last_seen_at: string | null;
+  created_at: string;
+  /** เติมจากฝั่ง server ตาม LINE_ADMIN_USER_IDS */
+  is_admin: boolean;
 }
 
 export interface SiteRow {
@@ -40,6 +59,8 @@ export interface TransactionRow {
 
 export interface TransactionWithSite extends TransactionRow {
   site: Pick<SiteRow, "id" | "name" | "color"> | null;
+  /** เจ้าของรายการ — มีค่าเฉพาะตอนดูข้ามบัญชีด้วยสิทธิ์ can_view_all */
+  owner?: { display_name: string | null } | null;
 }
 
 /** ผลที่อ่านได้จากรูป หลังผ่านการปรับค่าให้พร้อมใช้แล้ว */

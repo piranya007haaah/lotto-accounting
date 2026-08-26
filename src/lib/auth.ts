@@ -1,4 +1,4 @@
-import { allowedLineUserIds, isDevAuthBypassEnabled, requireEnv } from "./env";
+import { allowedLineUserIds, isAdminLineUserId, isDevAuthBypassEnabled, requireEnv } from "./env";
 import { HttpError } from "./http";
 import { supabaseAdmin } from "./supabase";
 import type { AuthUser } from "./types";
@@ -65,24 +65,28 @@ export async function getOrCreateUser(profile: {
     throw new HttpError(403, "บัญชี LINE นี้ยังไม่ได้รับสิทธิ์ใช้งานระบบ", "not_allowed");
   }
 
+  const isAdmin = isAdminLineUserId(profile.lineUserId);
+
+  const payload: Record<string, unknown> = {
+    line_user_id: profile.lineUserId,
+    display_name: profile.displayName ?? null,
+    picture_url: profile.pictureUrl ?? null,
+    last_seen_at: new Date().toISOString(),
+  };
+  // ผู้ดูแลเปิดใช้งานให้เสมอ — กันกรณีเผลอกดปิดสิทธิ์ตัวเองแล้วเข้าระบบไม่ได้อีก
+  if (isAdmin) payload.is_active = true;
+
   const supabase = supabaseAdmin();
   const { data, error } = await supabase
     .from("app_users")
-    .upsert(
-      {
-        line_user_id: profile.lineUserId,
-        display_name: profile.displayName ?? null,
-        picture_url: profile.pictureUrl ?? null,
-        last_seen_at: new Date().toISOString(),
-      },
-      { onConflict: "line_user_id" },
-    )
-    .select("id, line_user_id, display_name, picture_url, is_active")
+    .upsert(payload, { onConflict: "line_user_id" })
+    .select("id, line_user_id, display_name, picture_url, is_active, can_view_all")
     .single();
 
   if (error) throw new HttpError(500, `บันทึกข้อมูลผู้ใช้ไม่สำเร็จ: ${error.message}`);
   if (!data.is_active) {
-    throw new HttpError(403, "บัญชีนี้ถูกปิดการใช้งาน", "user_disabled");
+    // ครอบทั้งคนที่เพิ่งเข้ามาครั้งแรก และคนที่ถูกถอนสิทธิ์ภายหลัง
+    throw new HttpError(403, "บัญชีนี้ยังไม่ได้รับสิทธิ์ใช้งาน — รอผู้ดูแลอนุมัติ", "pending_approval");
   }
 
   return {
@@ -90,6 +94,8 @@ export async function getOrCreateUser(profile: {
     lineUserId: data.line_user_id as string,
     displayName: data.display_name as string | null,
     pictureUrl: data.picture_url as string | null,
+    isAdmin,
+    canViewAll: Boolean(data.can_view_all),
   };
 }
 
@@ -118,4 +124,13 @@ export async function requireUser(request: Request): Promise<AuthUser> {
     displayName: token.name ?? null,
     pictureUrl: token.picture ?? null,
   });
+}
+
+/** เหมือน requireUser แต่ต้องเป็นผู้ดูแลเท่านั้น */
+export async function requireAdmin(request: Request): Promise<AuthUser> {
+  const user = await requireUser(request);
+  if (!user.isAdmin) {
+    throw new HttpError(403, "หน้านี้สำหรับผู้ดูแลเท่านั้น", "not_admin");
+  }
+  return user;
 }

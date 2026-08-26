@@ -49,3 +49,13 @@ export function parseOrThrow<T extends z.ZodType>(schema: T, value: unknown): z.
   }
   return result.data;
 }
+
+/** ผู้ดูแลเปิด/ปิดสิทธิ์ของสมาชิก — ส่งมาอย่างน้อยหนึ่งอย่าง */
+export const memberPatchSchema = z
+  .object({
+    isActive: z.boolean().optional(),
+    canViewAll: z.boolean().optional(),
+  })
+  .refine((v) => v.isActive !== undefined || v.canViewAll !== undefined, {
+    message: "ไม่มีข้อมูลที่จะแก้ไข",
+  });

@@ -13,10 +13,11 @@ export const GET = route(async (request) => {
 
   const summary = await getSummary({
     ownerId: user.id,
+    includeAllOwners: user.canViewAll,
     from,
     to,
     siteId: params.get("siteId"),
   });
 
-  return ok({ label, kind, ...summary });
+  return ok({ label, kind, scope: user.canViewAll ? "all" : "own", ...summary });
 });

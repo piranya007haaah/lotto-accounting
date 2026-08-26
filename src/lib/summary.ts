@@ -5,10 +5,12 @@ import { formatDateKey, formatThaiDate, formatThaiMonth } from "./thai-date";
 import type { SummaryBucket, SummaryResponse, TransactionWithSite } from "./types";
 
 export const TRANSACTION_SELECT =
-  "id, owner_id, site_id, direction, amount, occurred_at, occurred_date, ref_no, bank_name, counterparty, note, image_path, image_hash, ocr_status, ocr_confidence, created_at, site:sites(id, name, color)";
+  "id, owner_id, site_id, direction, amount, occurred_at, occurred_date, ref_no, bank_name, counterparty, note, image_path, image_hash, ocr_status, ocr_confidence, created_at, site:sites(id, name, color), owner:app_users(display_name)";
 
 interface FetchParams {
   ownerId: string;
+  /** true = ดูข้ามทุกบัญชี (ต้องมีสิทธิ์ can_view_all) — ต้องระบุชัดเจนเท่านั้น */
+  includeAllOwners?: boolean;
   from: Date;
   to: Date;
   siteId?: string | null;
@@ -16,17 +18,17 @@ interface FetchParams {
   limit?: number;
 }
 
-/** ดึงรายการในช่วงเวลา (from ≤ x < to) ของผู้ใช้คนเดียว */
+/** ดึงรายการในช่วงเวลา (from ≤ x < to) — ปกติเฉพาะของเจ้าของ เว้นแต่ระบุ includeAllOwners */
 export async function fetchTransactions(params: FetchParams): Promise<TransactionWithSite[]> {
   let query = supabaseAdmin()
     .from("transactions")
     .select(TRANSACTION_SELECT)
-    .eq("owner_id", params.ownerId)
     .gte("occurred_at", params.from.toISOString())
     .lt("occurred_at", params.to.toISOString())
     .order("occurred_at", { ascending: false })
     .limit(params.limit ?? 2000);
 
+  if (!params.includeAllOwners) query = query.eq("owner_id", params.ownerId);
   if (params.siteId) query = query.eq("site_id", params.siteId);
   if (params.direction) query = query.eq("direction", params.direction);
 
@@ -37,10 +39,12 @@ export async function fetchTransactions(params: FetchParams): Promise<Transactio
   return (data ?? []).map((row) => {
     const record = row as Record<string, unknown>;
     const site = record.site;
+    const owner = record.owner;
     return {
       ...(record as unknown as TransactionWithSite),
       amount: Number(record.amount),
       site: Array.isArray(site) ? ((site[0] ?? null) as TransactionWithSite["site"]) : (site as TransactionWithSite["site"]),
+      owner: Array.isArray(owner) ? ((owner[0] ?? null) as TransactionWithSite["owner"]) : (owner as TransactionWithSite["owner"]),
     };
   });
 }

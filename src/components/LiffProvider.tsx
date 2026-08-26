@@ -11,14 +11,26 @@ export interface LineProfile {
   pictureUrl?: string;
 }
 
-type Status = "loading" | "ready" | "error" | "unconfigured";
+type Status = "loading" | "ready" | "error" | "unconfigured" | "pending";
 
 interface AuthContextValue {
   status: Status;
   error: string | null;
   profile: LineProfile | null;
   ocrEnabled: boolean;
+  /** ผู้ดูแลระบบ — เห็นเมนู "สมาชิก" และเข้าหน้า /admin ได้ */
+  isAdmin: boolean;
+  /** เห็นรายการและสรุปยอดของทุกคน (อ่านอย่างเดียว) */
+  canViewAll: boolean;
   api: <T>(path: string, init?: RequestInit) => Promise<T>;
+}
+
+/** Error ที่พก code จาก API มาด้วย เพื่อแยกกรณี "รออนุมัติ" ออกจาก error ทั่วไป */
+export class ApiError extends Error {
+  constructor(message: string, readonly code?: string) {
+    super(message);
+    this.name = "ApiError";
+  }
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -42,6 +54,8 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<LineProfile | null>(null);
   const [ocrEnabled, setOcrEnabled] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [canViewAll, setCanViewAll] = useState(false);
   const tokenRef = useRef<string | null>(null);
   const liffRef = useRef<LiffLike | null>(null);
 
@@ -63,7 +77,10 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
       if (response.status === 401 && liffRef.current) {
         liffRef.current.login({ redirectUri: window.location.href });
       }
-      throw new Error((data.error as string) ?? `เกิดข้อผิดพลาด (${response.status})`);
+      throw new ApiError(
+        (data.error as string) ?? `เกิดข้อผิดพลาด (${response.status})`,
+        data.code as string | undefined,
+      );
     }
     return data as T;
   }, []);
@@ -100,10 +117,14 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
         const me = await api<{
           user: { id: string; displayName: string | null; pictureUrl: string | null };
           ocrEnabled: boolean;
+          isAdmin: boolean;
+          canViewAll: boolean;
         }>("/api/me");
 
         if (cancelled) return;
         setOcrEnabled(me.ocrEnabled);
+        setIsAdmin(me.isAdmin);
+        setCanViewAll(me.canViewAll);
         setProfile((current) =>
           current ?? {
             userId: me.user.id,
@@ -114,8 +135,9 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
         setStatus("ready");
       } catch (caught) {
         if (cancelled) return;
+        const code = caught instanceof ApiError ? caught.code : undefined;
         setError(caught instanceof Error ? caught.message : "เชื่อมต่อไม่สำเร็จ");
-        setStatus("error");
+        setStatus(code === "pending_approval" || code === "not_allowed" ? "pending" : "error");
       }
     })();
 
@@ -150,6 +172,25 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
+  if (status === "pending") {
+    return (
+      <div className="mx-auto flex min-h-dvh max-w-md items-center px-4">
+        <div className="card w-full p-5 text-center">
+          <p className="text-4xl">🕒</p>
+          <h1 className="mt-3 text-lg font-bold">รอผู้ดูแลอนุมัติ</h1>
+          <p className="muted mt-2 text-sm">
+            {profile?.displayName ? `สวัสดีคุณ ${profile.displayName} — ` : ""}
+            บัญชี LINE นี้เข้าระบบแล้ว แต่ยังใช้งานไม่ได้จนกว่าผู้ดูแลจะกดอนุมัติ
+          </p>
+          <p className="muted mt-3 text-sm">แจ้งผู้ดูแลแล้วกดปุ่มด้านล่างเพื่อเช็คอีกครั้ง</p>
+          <button className="btn btn-primary mt-4 w-full" onClick={() => window.location.reload()}>
+            เช็คสถานะอีกครั้ง
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (status === "error") {
     return (
       <div className="mx-auto flex min-h-dvh max-w-md items-center px-4">
@@ -165,7 +206,7 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ status, error, profile, ocrEnabled, api }}>
+    <AuthContext.Provider value={{ status, error, profile, ocrEnabled, isAdmin, canViewAll, api }}>
       {children}
     </AuthContext.Provider>
   );

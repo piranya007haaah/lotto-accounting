@@ -13,6 +13,8 @@ export const GET = route(async (request) => {
       displayName: user.displayName,
       pictureUrl: user.pictureUrl,
     },
+    isAdmin: user.isAdmin,
+    canViewAll: user.canViewAll,
     ocrEnabled: isOcrConfigured(),
     timeZone: APP_TIMEZONE,
   });

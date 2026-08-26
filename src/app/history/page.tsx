@@ -31,7 +31,7 @@ const OCR_LABEL: Record<string, string> = {
 };
 
 export default function HistoryPage() {
-  const { api } = useAuth();
+  const { api, canViewAll} = useAuth();
 
   const [month, setMonth] = useState(() => currentMonthKey());
   const [siteFilter, setSiteFilter] = useState("");
@@ -215,6 +215,11 @@ export default function HistoryPage() {
                       </span>
                       <span className="min-w-0 flex-1 truncate">
                         <SiteBadge name={row.site?.name ?? "—"} color={row.site?.color} />
+                        {canViewAll ? (
+                          <span className="muted block truncate text-[11px]">
+                            👤 {row.owner?.display_name ?? "(ไม่ทราบชื่อ)"}
+                          </span>
+                        ) : null}
                         {row.note ? <span className="muted block truncate text-[11px]">{row.note}</span> : null}
                       </span>
                       <span

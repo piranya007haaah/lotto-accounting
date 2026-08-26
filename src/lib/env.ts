@@ -46,3 +46,18 @@ export function allowedLineUserIds(): string[] | null {
 export function appUrl(): string {
   return env("NEXT_PUBLIC_APP_URL") ?? "http://localhost:3000";
 }
+
+/**
+ * LINE userId ของผู้ดูแล คั่นด้วย comma
+ * ตั้งใน env เท่านั้น (ไม่เก็บใน DB) เพื่อให้ยกระดับสิทธิ์จากในแอปไม่ได้
+ * และผู้ดูแลจะล็อกตัวเองออกจากระบบไม่ได้
+ */
+export function adminLineUserIds(): string[] {
+  const raw = env("LINE_ADMIN_USER_IDS");
+  if (!raw) return [];
+  return raw.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+export function isAdminLineUserId(lineUserId: string): boolean {
+  return adminLineUserIds().includes(lineUserId);
+}

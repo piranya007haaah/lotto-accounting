@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuth } from "./LiffProvider";
 
 const ITEMS = [
   { href: "/", label: "บันทึก", icon: "＋" },
@@ -12,6 +13,8 @@ const ITEMS = [
 
 export function Nav() {
   const pathname = usePathname();
+  const { isAdmin } = useAuth();
+  const items = isAdmin ? [...ITEMS, { href: "/admin", label: "สมาชิก", icon: "☺" }] : ITEMS;
 
   return (
     <nav
@@ -19,7 +22,7 @@ export function Nav() {
       style={{ borderColor: "var(--line)", background: "color-mix(in srgb, var(--card) 92%, transparent)" }}
     >
       <div className="mx-auto flex max-w-md">
-        {ITEMS.map((item) => {
+        {items.map((item) => {
           const active = pathname === item.href;
           return (
             <Link

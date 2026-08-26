@@ -18,6 +18,8 @@ export const GET = route(async (request) => {
 
   const transactions = await fetchTransactions({
     ownerId: user.id,
+    // มีสิทธิ์ can_view_all เท่านั้นจึงเห็นข้ามบัญชี — การเพิ่ม/แก้/ลบยังผูกกับตัวเองเสมอ
+    includeAllOwners: user.canViewAll,
     from,
     to,
     siteId: params.get("siteId"),
