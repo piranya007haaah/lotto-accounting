@@ -1,13 +1,15 @@
 /**
- * ทดสอบการอ่านสลิปด้วย Claude โดยไม่ต้องเปิดเว็บทั้งระบบ
+ * ทดสอบการอ่านสลิปโดยไม่ต้องเปิดเว็บทั้งระบบ
  *
- *   ANTHROPIC_API_KEY=sk-... npx tsx scripts/ocr-smoke.ts ./slip.jpg
+ *   npx tsx scripts/ocr-smoke.ts ./slip.jpg                      → อ่านจาก QR อย่างเดียว
+ *   ANTHROPIC_API_KEY=sk-... npx tsx scripts/ocr-smoke.ts ./slip.jpg  → อ่าน QR + ให้โมเดลอ่านตัวหนังสือ
  *
- * ใช้ตรวจว่า prompt อ่านวันที่ (พ.ศ. → ค.ศ.) และยอดเงินได้ถูกต้องไหม
+ * ใช้ตรวจว่าถอด QR ได้ไหม และ prompt อ่านวันที่ (พ.ศ. → ค.ศ.) กับยอดเงินถูกต้องไหม
  */
 import fs from "node:fs";
 import path from "node:path";
 import { SUPPORTED_IMAGE_TYPES, extractFromImage, type SupportedImageType } from "../src/lib/ocr";
+import { readSlipQr } from "../src/lib/slip-qr";
 
 const EXT_TO_TYPE: Record<string, SupportedImageType> = {
   ".jpg": "image/jpeg",
@@ -30,12 +32,19 @@ async function main() {
     process.exit(1);
   }
 
-  const base64 = fs.readFileSync(target).toString("base64");
-  const started = Date.now();
-  const result = await extractFromImage({ base64, mediaType });
+  const buffer = fs.readFileSync(target);
 
+  const qrStarted = Date.now();
+  const qr = await readSlipQr(buffer);
+  console.log(`— QR ตรวจสอบสลิป (${((Date.now() - qrStarted) / 1000).toFixed(2)} วินาที) —`);
+  console.log(qr ? JSON.stringify(qr, null, 2) : "ไม่พบ QR ตรวจสอบสลิปในรูปนี้");
+
+  const started = Date.now();
+  const result = await extractFromImage({ buffer, mediaType, qr });
+
+  console.log(`\n— ผลรวมที่จะเติมลงฟอร์ม (source = ${result.source}) —`);
   console.log(JSON.stringify(result, null, 2));
-  console.log(`\nใช้เวลา ${((Date.now() - started) / 1000).toFixed(1)} วินาที`);
+  console.log(`\nใช้เวลาทั้งหมด ${((Date.now() - started) / 1000).toFixed(1)} วินาที`);
   if (result.warnings.length > 0) console.log("ข้อควรตรวจ:", result.warnings.join(" | "));
 }
 

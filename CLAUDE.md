@@ -25,7 +25,7 @@
 npm run dev         # รันในเครื่อง (ตั้ง DEV_AUTH_BYPASS=true เพื่อข้าม LINE Login)
 npm run build       # ตรวจว่า build ผ่านก่อน commit
 npm run typecheck   # tsc --noEmit
-npx tsx scripts/ocr-smoke.ts ./slip.jpg   # ทดสอบการอ่านรูปแยกเดี่ยว ๆ
+npx tsx scripts/ocr-smoke.ts ./slip.jpg   # ทดสอบการอ่านรูปแยกเดี่ยว ๆ (ไม่ใส่ API key = ทดสอบ QR อย่างเดียว)
 ```
 
 SQL อยู่ที่ `supabase/migrations/` — รันเรียงตามเลขไฟล์

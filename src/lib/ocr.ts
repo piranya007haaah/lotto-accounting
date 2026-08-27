@@ -3,8 +3,9 @@ import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 import { OCR_EFFORT, OCR_MODEL, isOcrConfigured } from "./env";
 import { HttpError } from "./http";
+import { readSlipQr } from "./slip-qr";
 import { formatDateKey, parseLooseDateTime, toDatetimeLocalValue } from "./thai-date";
-import type { Direction, OcrResult } from "./types";
+import type { Direction, OcrResult, SlipQr } from "./types";
 
 export const SUPPORTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
 export type SupportedImageType = (typeof SUPPORTED_IMAGE_TYPES)[number];
@@ -61,6 +62,8 @@ function anthropic(): Anthropic {
   return client;
 }
 
+const NOT_A_SLIP_WARNING = "รูปนี้อาจไม่ใช่สลิปโอนเงินหรือหน้าจอถอนเงิน";
+
 function cleanNumber(value: number | null): number | null {
   if (value === null || !Number.isFinite(value)) return null;
   const rounded = Math.round(value * 100) / 100;
@@ -105,7 +108,7 @@ export function normalizeExtraction(raw: Extraction): OcrResult {
     : 0;
 
   if (raw.document_type === "other" || raw.document_type === "unreadable") {
-    warnings.push("รูปนี้อาจไม่ใช่สลิปโอนเงินหรือหน้าจอถอนเงิน");
+    warnings.push(NOT_A_SLIP_WARNING);
   }
 
   return {
@@ -120,23 +123,66 @@ export function normalizeExtraction(raw: Extraction): OcrResult {
     confidence,
     documentType: raw.document_type,
     warnings,
+    source: "model",
+    qr: null,
     raw,
   };
 }
 
-/** ส่งรูปให้โมเดลอ่าน แล้วคืนค่าที่พร้อมเติมลงฟอร์ม */
-export async function extractFromImage(params: {
-  base64: string;
-  mediaType: SupportedImageType;
-}): Promise<OcrResult> {
-  if (!isOcrConfigured()) {
-    throw new HttpError(
-      501,
-      "ยังไม่ได้ตั้งค่า ANTHROPIC_API_KEY จึงอ่านรูปอัตโนมัติไม่ได้ — กรอกยอดและวันที่เองได้เลย",
-      "ocr_not_configured",
+/** ผลที่ได้จาก QR อย่างเดียว — เลขที่รายการกับธนาคารแม่นแน่ ที่เหลือต้องกรอกเอง */
+function resultFromQr(qr: SlipQr): OcrResult {
+  return {
+    // มี QR ตรวจสอบสลิปแปลว่าเป็นสลิปโอนเงินจากธนาคารแน่นอน → นับเป็นเงินเข้าเว็บ
+    direction: "deposit",
+    amount: null,
+    occurredAt: null,
+    occurredAtLocal: null,
+    refNo: qr.transRef,
+    bankName: qr.sendingBankName,
+    counterparty: null,
+    siteHint: null,
+    confidence: 0,
+    documentType: "bank_transfer_slip",
+    warnings: ["อ่านเลขที่รายการและธนาคารจาก QR บนสลิปได้แล้ว — ยอดเงินและวันที่ต้องกรอกเอง"],
+    source: "qr",
+    qr,
+    raw: { qr },
+  };
+}
+
+/**
+ * รวมค่าจาก QR เข้ากับค่าที่โมเดลอ่านได้
+ * QR ถอดออกมาตรง ๆ ไม่ผ่านการตีความ จึงชนะค่าที่อ่านจากตัวหนังสือเสมอ
+ */
+function mergeQr(result: OcrResult, qr: SlipQr | null): OcrResult {
+  if (!qr) return result;
+
+  const warnings = result.warnings.filter((warning) => warning !== NOT_A_SLIP_WARNING);
+  if (result.refNo && result.refNo.toUpperCase() !== qr.transRef.toUpperCase()) {
+    warnings.push(
+      `เลขที่รายการที่อ่านจากตัวหนังสือ (${result.refNo}) ไม่ตรงกับใน QR — ใช้ค่าจาก QR แทน ` +
+        "ช่วยตรวจยอดเงินและวันที่อีกครั้ง",
     );
   }
 
+  return {
+    ...result,
+    direction: result.direction ?? "deposit",
+    refNo: qr.transRef,
+    bankName: qr.sendingBankName ?? result.bankName,
+    documentType: "bank_transfer_slip",
+    warnings,
+    source: "qr+model",
+    qr,
+    raw: { model: result.raw, qr },
+  };
+}
+
+/** ส่งรูปให้โมเดลอ่าน — คืน null ถ้าโมเดลปฏิเสธหรืออ่านไม่ออก */
+async function readWithModel(
+  buffer: Buffer,
+  mediaType: SupportedImageType,
+): Promise<Extraction | null> {
   const message = await anthropic().beta.messages.parse({
     model: OCR_MODEL,
     max_tokens: 8000,
@@ -154,7 +200,7 @@ export async function extractFromImage(params: {
         content: [
           {
             type: "image",
-            source: { type: "base64", media_type: params.mediaType, data: params.base64 },
+            source: { type: "base64", media_type: mediaType, data: buffer.toString("base64") },
           },
           { type: "text", text: USER_PROMPT },
         ],
@@ -162,14 +208,46 @@ export async function extractFromImage(params: {
     ],
   });
 
-  if (message.stop_reason === "refusal") {
-    throw new HttpError(422, "โมเดลไม่สามารถอ่านรูปนี้ได้ กรุณากรอกข้อมูลเอง", "ocr_refused");
+  if (message.stop_reason === "refusal") return null;
+  return message.parsed_output ?? null;
+}
+
+/**
+ * อ่านรูปสลิปแล้วคืนค่าที่พร้อมเติมลงฟอร์ม
+ *
+ * ลำดับความน่าเชื่อถือ: QR ตรวจสอบสลิป > ค่าที่โมเดลอ่านจากตัวหนังสือ
+ * รูปที่มี QR จึงได้เลขที่รายการและธนาคารที่ถูกต้องแน่นอนแม้ไม่ได้ตั้งค่า ANTHROPIC_API_KEY
+ */
+export async function extractFromImage(params: {
+  buffer: Buffer;
+  mediaType: SupportedImageType;
+  /** ถ้าถอด QR ไว้แล้ว (เช่นตอนเช็คสลิปซ้ำ) ส่งเข้ามาได้เลย จะได้ไม่ต้องถอดซ้ำ */
+  qr?: SlipQr | null;
+}): Promise<OcrResult> {
+  const qr = params.qr !== undefined ? params.qr : await readSlipQr(params.buffer);
+
+  if (!isOcrConfigured()) {
+    if (qr) return resultFromQr(qr);
+    throw new HttpError(
+      501,
+      "ยังไม่ได้ตั้งค่า ANTHROPIC_API_KEY และรูปนี้ไม่มี QR ตรวจสอบสลิป — กรอกยอดและวันที่เองได้เลย",
+      "ocr_not_configured",
+    );
   }
 
-  const parsed = message.parsed_output;
+  let parsed: Extraction | null = null;
+  try {
+    parsed = await readWithModel(params.buffer, params.mediaType);
+  } catch (error) {
+    // โมเดลล่มหรือโควตาหมด ก็ไม่ควรทิ้งค่าที่ถอดจาก QR ได้แล้ว
+    if (!qr) throw error;
+    console.error("[ocr] เรียกโมเดลไม่สำเร็จ:", error);
+  }
+
   if (!parsed) {
+    if (qr) return resultFromQr(qr);
     throw new HttpError(422, "อ่านรูปไม่สำเร็จ กรุณากรอกข้อมูลเอง", "ocr_empty");
   }
 
-  return normalizeExtraction(parsed);
+  return mergeQr(normalizeExtraction(parsed), qr);
 }
