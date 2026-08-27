@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/LiffProvider";
-import { Alert, EmptyState, SectionTitle, Spinner, StatCard } from "@/components/ui";
-import { formatBahtShort, formatSigned } from "@/lib/format";
+import { Alert, BarRow, Chip, EmptyState, PageHeader, SectionTitle, Spinner, StatCard } from "@/components/ui";
+import { formatSigned } from "@/lib/format";
 import { currentMonthKey } from "@/lib/thai-date";
 import type { SummaryBucket, SummaryResponse } from "@/lib/types";
 
@@ -17,41 +17,26 @@ const MODES: Array<{ value: RangeMode; label: string }> = [
   { value: "year", label: "ทั้งปี" },
 ];
 
-function BarRow({ bucket, max }: { bucket: SummaryBucket & { color?: string | null }; max: number }) {
-  const depositWidth = max > 0 ? (bucket.deposit / max) * 100 : 0;
-  const withdrawWidth = max > 0 ? (bucket.withdraw / max) * 100 : 0;
-
+function SummaryRow({ bucket, max }: { bucket: SummaryBucket & { color?: string | null }; max: number }) {
   return (
-    <div className="py-2">
+    <div className="row py-2.5">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="flex items-center gap-1.5 truncate text-sm font-medium">
-          {bucket.color ? <span className="size-2 shrink-0 rounded-full" style={{ background: bucket.color }} /> : null}
-          {bucket.label}
+        <span className="flex min-w-0 items-center gap-1.5 text-[13.5px] font-semibold">
+          {bucket.color ? (
+            <span className="size-2 flex-none rounded-full" style={{ background: bucket.color }} />
+          ) : null}
+          <span className="truncate">{bucket.label}</span>
         </span>
         <span
-          className="shrink-0 text-sm font-semibold tabular-nums"
+          className="tnum flex-none text-[13.5px] font-bold"
           style={{ color: bucket.net >= 0 ? "var(--color-money-out)" : "var(--color-money-in)" }}
         >
           {formatSigned(bucket.net)}
         </span>
       </div>
-      <div className="mt-1.5 space-y-1">
-        <div className="flex items-center gap-2">
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: "var(--surface)" }}>
-            <div className="h-full rounded-full" style={{ width: `${depositWidth}%`, background: "var(--color-money-in)" }} />
-          </div>
-          <span className="muted w-20 shrink-0 text-right text-[11px] tabular-nums">
-            {formatBahtShort(bucket.deposit)}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: "var(--surface)" }}>
-            <div className="h-full rounded-full" style={{ width: `${withdrawWidth}%`, background: "var(--color-money-out)" }} />
-          </div>
-          <span className="muted w-20 shrink-0 text-right text-[11px] tabular-nums">
-            {formatBahtShort(bucket.withdraw)}
-          </span>
-        </div>
+      <div className="mt-1.5 flex flex-col gap-1">
+        <BarRow value={bucket.deposit} max={max} tone="in" />
+        <BarRow value={bucket.withdraw} max={max} tone="out" />
       </div>
     </div>
   );
@@ -93,26 +78,14 @@ export default function SummaryPage() {
   const maxMonth = Math.max(1, ...(data?.byMonth ?? []).map((b) => Math.max(b.deposit, b.withdraw)));
 
   return (
-    <div className="space-y-4">
-      <header>
-        <h1 className="text-xl font-bold">สรุปยอด</h1>
-        <p className="muted text-xs">{data?.label ?? "—"}</p>
-      </header>
+    <div className="space-y-3.5">
+      <PageHeader title="สรุปยอด" subtitle={data?.label ?? "—"} />
 
-      <div className="flex gap-1.5 overflow-x-auto pb-1">
+      <div className="flex gap-1.5 overflow-x-auto pb-0.5">
         {MODES.map((item) => (
-          <button
-            key={item.value}
-            onClick={() => setMode(item.value)}
-            className="shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold"
-            style={{
-              borderColor: mode === item.value ? "var(--color-brand-600)" : "var(--line)",
-              background: mode === item.value ? "var(--color-brand-600)" : "var(--card)",
-              color: mode === item.value ? "#fff" : "var(--text)",
-            }}
-          >
+          <Chip key={item.value} active={mode === item.value} onClick={() => setMode(item.value)}>
             {item.label}
-          </button>
+          </Chip>
         ))}
       </div>
 
@@ -144,7 +117,7 @@ export default function SummaryPage() {
             <StatCard label="เงินเข้าเว็บ" value={data.totals.deposit} tone="in" />
             <StatCard label="เงินออกจากเว็บ" value={data.totals.withdraw} tone="out" />
             <StatCard label="กำไร / ขาดทุน" value={data.totals.net} signed />
-            <StatCard label="จำนวนรายการ" value={data.totals.count} />
+            <StatCard label="จำนวนรายการ" value={data.totals.count} raw />
           </div>
 
           <section className="card p-4">
@@ -152,9 +125,9 @@ export default function SummaryPage() {
             {data.bySite.length === 0 ? (
               <EmptyState>ยังไม่มีรายการในช่วงนี้</EmptyState>
             ) : (
-              <div className="divide-y" style={{ borderColor: "var(--line)" }}>
+              <div>
                 {data.bySite.map((bucket) => (
-                  <BarRow key={bucket.key} bucket={bucket} max={maxSite} />
+                  <SummaryRow key={bucket.key} bucket={bucket} max={maxSite} />
                 ))}
               </div>
             )}
@@ -163,9 +136,9 @@ export default function SummaryPage() {
           {data.byMonth.length > 1 ? (
             <section className="card p-4">
               <SectionTitle>แยกตามเดือน</SectionTitle>
-              <div className="divide-y" style={{ borderColor: "var(--line)" }}>
+              <div>
                 {data.byMonth.map((bucket) => (
-                  <BarRow key={bucket.key} bucket={bucket} max={maxMonth} />
+                  <SummaryRow key={bucket.key} bucket={bucket} max={maxMonth} />
                 ))}
               </div>
             </section>
@@ -174,15 +147,15 @@ export default function SummaryPage() {
           {data.byDay.length > 1 ? (
             <section className="card p-4">
               <SectionTitle>แยกตามวัน</SectionTitle>
-              <div className="divide-y" style={{ borderColor: "var(--line)" }}>
+              <div>
                 {data.byDay.map((bucket) => (
-                  <BarRow key={bucket.key} bucket={bucket} max={maxDay} />
+                  <SummaryRow key={bucket.key} bucket={bucket} max={maxDay} />
                 ))}
               </div>
             </section>
           ) : null}
 
-          <p className="muted text-center text-[11px]">
+          <p className="dim text-center text-[11px]">
             แถบสีแดง = เงินเข้าเว็บ · แถบสีเขียว = เงินออกจากเว็บ · ตัวเลขขวา = กำไร/ขาดทุน
           </p>
         </>

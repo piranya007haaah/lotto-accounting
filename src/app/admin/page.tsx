@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/LiffProvider";
-import { Alert, EmptyState, SectionTitle, Spinner } from "@/components/ui";
+import { Alert, AvatarCircle, EmptyState, PageHeader, SectionTitle, Spinner } from "@/components/ui";
 import type { MemberRow } from "@/lib/types";
 
 function formatWhen(value: string | null): string {
@@ -27,25 +27,11 @@ function MemberCard({
 }) {
   return (
     <li className="card flex items-center gap-3 p-3">
-      {member.picture_url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={member.picture_url}
-          alt=""
-          className="size-10 shrink-0 rounded-full object-cover"
-        />
-      ) : (
-        <div
-          className="flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-bold"
-          style={{ background: "var(--line)", color: "var(--muted)" }}
-        >
-          {(member.display_name ?? "?").slice(0, 1).toUpperCase()}
-        </div>
-      )}
+      <AvatarCircle name={member.display_name} src={member.picture_url} size={40} />
 
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold">{member.display_name ?? "(ไม่มีชื่อ)"}</p>
-        <p className="muted truncate text-xs">
+        <p className="dim truncate text-xs">
           {member.is_admin
             ? "ผู้ดูแลระบบ"
             : member.is_active
@@ -147,11 +133,8 @@ export default function AdminPage() {
   const active = members.filter((m) => m.is_active);
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-bold">สมาชิก</h1>
-        <p className="muted text-sm">อนุมัติเพื่อนที่เข้ามาใหม่ หรือถอนสิทธิ์ได้ที่นี่</p>
-      </div>
+    <div className="space-y-3.5">
+      <PageHeader title="สมาชิก" subtitle="อนุมัติเพื่อนที่เข้ามาใหม่ หรือถอนสิทธิ์ได้ที่นี่" />
 
       {error ? <Alert tone="error">{error}</Alert> : null}
 

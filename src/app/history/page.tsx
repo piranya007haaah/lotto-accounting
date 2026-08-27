@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/LiffProvider";
-import { Alert, EmptyState, SiteBadge, Spinner } from "@/components/ui";
+import { Alert, EmptyState, PageHeader, SiteBadge, Spinner } from "@/components/ui";
 import { formatBahtShort, parseAmountInput } from "@/lib/format";
 import {
   currentMonthKey,
@@ -151,11 +151,8 @@ export default function HistoryPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <header>
-        <h1 className="text-xl font-bold">รายการทั้งหมด</h1>
-        <p className="muted text-xs">{rows.length} รายการในเดือนที่เลือก</p>
-      </header>
+    <div className="space-y-3.5">
+      <PageHeader title="รายการทั้งหมด" subtitle={`${rows.length} รายการในเดือนที่เลือก`} />
 
       <div className="card space-y-2 p-3">
         <input type="month" className="field" value={month} onChange={(e) => setMonth(e.target.value)} />
@@ -186,19 +183,16 @@ export default function HistoryPage() {
 
         return (
           <section key={dateKey} className="card overflow-hidden">
-            <div
-              className="flex items-baseline justify-between px-4 py-2.5"
-              style={{ background: "var(--surface)" }}
-            >
-              <span className="text-sm font-bold">{formatThaiDate(`${dateKey}T00:00:00Z`)}</span>
-              <span className="text-[11px] tabular-nums">
+            <div className="group-head flex items-baseline justify-between px-4 py-2.5">
+              <span className="text-[13px] font-bold">{formatThaiDate(`${dateKey}T00:00:00Z`)}</span>
+              <span className="tnum text-[11px]">
                 <span style={{ color: "var(--color-money-in)" }}>{formatBahtShort(dayDeposit)}</span>
-                <span className="muted"> / </span>
+                <span className="dim"> / </span>
                 <span style={{ color: "var(--color-money-out)" }}>{formatBahtShort(dayWithdraw)}</span>
               </span>
             </div>
 
-            <ul className="divide-y" style={{ borderColor: "var(--line)" }}>
+            <ul className="divide-y" style={{ borderColor: "var(--divider)" }}>
               {items.map((row) => {
                 const parts = zonedParts(new Date(row.occurred_at));
                 const isOpen = openId === row.id;
@@ -210,20 +204,20 @@ export default function HistoryPage() {
                       onClick={() => toggleOpen(row)}
                       className="flex w-full items-center gap-3 px-4 py-3 text-left"
                     >
-                      <span className="muted w-11 shrink-0 text-xs tabular-nums">
+                      <span className="dim tnum w-10 flex-none text-xs">
                         {pad2(parts.hour)}:{pad2(parts.minute)}
                       </span>
                       <span className="min-w-0 flex-1 truncate">
                         <SiteBadge name={row.site?.name ?? "—"} color={row.site?.color} />
                         {canViewAll ? (
-                          <span className="muted block truncate text-[11px]">
+                          <span className="dim block truncate text-[11px]">
                             👤 {row.owner?.display_name ?? "(ไม่ทราบชื่อ)"}
                           </span>
                         ) : null}
-                        {row.note ? <span className="muted block truncate text-[11px]">{row.note}</span> : null}
+                        {row.note ? <span className="dim block truncate text-[11px]">{row.note}</span> : null}
                       </span>
                       <span
-                        className="shrink-0 text-sm font-bold tabular-nums"
+                        className="tnum flex-none text-sm font-bold"
                         style={{
                           color: row.direction === "deposit" ? "var(--color-money-in)" : "var(--color-money-out)",
                         }}

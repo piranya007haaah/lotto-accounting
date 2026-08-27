@@ -20,7 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="th">
       <body className="min-h-dvh">
         <LiffProvider>
-          <main className="mx-auto w-full max-w-md px-4 pt-4 pb-28">{children}</main>
+          <main className="mx-auto w-full max-w-md px-4 pt-4 pb-26">{children}</main>
           <Nav />
         </LiffProvider>
       </body>

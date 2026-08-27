@@ -4,35 +4,74 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "./LiffProvider";
 
+/** เส้น path ของไอคอน — วาดบน viewBox 24×24 แบบเส้นขอบอย่างเดียว */
 const ITEMS = [
-  { href: "/", label: "บันทึก", icon: "＋" },
-  { href: "/summary", label: "สรุปยอด", icon: "▦" },
-  { href: "/history", label: "รายการ", icon: "☰" },
-  { href: "/sites", label: "เว็บ", icon: "★" },
-];
+  { href: "/", label: "บันทึก", icon: "M12 5v14M5 12h14" },
+  { href: "/summary", label: "สรุปยอด", icon: "M4 20h16M7 16v-5M12 16V7M17 16v-9" },
+  { href: "/history", label: "รายการ", icon: "M4 6h16M4 12h16M4 18h10" },
+  {
+    href: "/sites",
+    label: "เว็บ",
+    icon: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M3 12h18M12 3c-2.4 2.8-2.4 15.2 0 18M12 3c2.4 2.8 2.4 15.2 0 18",
+  },
+] as const;
+
+const ADMIN_ITEM = {
+  href: "/admin",
+  label: "สมาชิก",
+  icon: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
+} as const;
 
 export function Nav() {
   const pathname = usePathname();
   const { isAdmin } = useAuth();
-  const items = isAdmin ? [...ITEMS, { href: "/admin", label: "สมาชิก", icon: "☺" }] : ITEMS;
+  const items = isAdmin ? [...ITEMS, ADMIN_ITEM] : ITEMS;
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-20 border-t backdrop-blur"
-      style={{ borderColor: "var(--line)", background: "color-mix(in srgb, var(--card) 92%, transparent)" }}
+      className="fixed inset-x-0 bottom-0 z-20 border-t backdrop-blur-md"
+      style={{
+        borderColor: "var(--line)",
+        background: "color-mix(in srgb, var(--card) 94%, transparent)",
+      }}
     >
-      <div className="mx-auto flex max-w-md">
+      <div className="mx-auto flex max-w-md px-2 pt-1.5 pb-3.5">
         {items.map((item) => {
           const active = pathname === item.href;
           return (
             <Link
               key={item.href}
               href={item.href}
-              className="flex flex-1 flex-col items-center gap-0.5 py-3 text-xs font-medium"
-              style={{ color: active ? "var(--color-brand-600)" : "var(--muted)" }}
+              aria-current={active ? "page" : undefined}
+              className="flex flex-1 flex-col items-center gap-[3px] py-1"
             >
-              <span className="text-base leading-none">{item.icon}</span>
-              {item.label}
+              <span
+                className="flex h-[27px] w-[42px] items-center justify-center rounded-full transition-colors"
+                style={{ background: active ? "var(--nav-active)" : "transparent" }}
+              >
+                <svg
+                  width="19"
+                  height="19"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke={active ? "var(--color-brand-600)" : "var(--dim)"}
+                  strokeWidth="1.9"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d={item.icon} />
+                </svg>
+              </span>
+              <span
+                className="text-[10.5px]"
+                style={{
+                  color: active ? "var(--color-brand-600)" : "var(--dim)",
+                  fontWeight: active ? 700 : 500,
+                }}
+              >
+                {item.label}
+              </span>
             </Link>
           );
         })}

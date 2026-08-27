@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/LiffProvider";
-import { Alert, SectionTitle, Spinner, StatCard } from "@/components/ui";
-import { formatBahtShort, parseAmountInput } from "@/lib/format";
+import { Alert, AvatarCircle, SectionTitle, Spinner } from "@/components/ui";
+import { formatBahtShort, formatSigned, parseAmountInput } from "@/lib/format";
 import { compressImage } from "@/lib/image-client";
 import { formatThaiDateTime, toDatetimeLocalValue } from "@/lib/thai-date";
 import type { Direction, OcrResult, OcrStatus, SiteRow, SummaryResponse } from "@/lib/types";
@@ -214,29 +214,56 @@ export default function EntryPage() {
   const directionMismatch = ocr?.direction && ocr.direction !== direction;
 
   return (
-    <div className="space-y-4">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold">บันทึกรายการ</h1>
-          <p className="muted text-xs">{profile?.displayName ?? "ผู้ใช้"}</p>
+    <div className="space-y-3.5">
+      <header className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="page-title">บันทึกรายการ</h1>
+          <p className="page-sub truncate">สวัสดี {profile?.displayName ?? "ผู้ใช้"}</p>
         </div>
-        <Link href="/summary" className="btn btn-ghost px-3 py-1.5 text-xs">
-          ดูสรุปยอด
-        </Link>
+        <AvatarCircle name={profile?.displayName} src={profile?.pictureUrl} />
       </header>
 
       {today ? (
-        <div className="grid grid-cols-3 gap-2">
-          <StatCard label="วันนี้ เข้าเว็บ" value={today.totals.deposit} tone="in" />
-          <StatCard label="วันนี้ ออกจากเว็บ" value={today.totals.withdraw} tone="out" />
-          <StatCard label="สุทธิ" value={today.totals.net} signed />
-        </div>
+        <Link href="/summary" className="hero">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="text-xs font-medium" style={{ color: "var(--color-brand-200)" }}>
+              สุทธิวันนี้ (กำไร/ขาดทุน)
+            </p>
+            <span className="text-[11px]" style={{ color: "var(--color-brand-200)" }}>
+              ดูสรุปยอด ›
+            </span>
+          </div>
+          <p
+            className="tnum mt-0.5 mb-3 text-[30px] leading-tight font-bold"
+            style={{ color: today.totals.net < 0 ? "var(--on-dark-in)" : "var(--on-dark-out)" }}
+          >
+            {formatSigned(today.totals.net)}
+          </p>
+          <div className="flex gap-6">
+            <div>
+              <p className="text-[11px]" style={{ color: "var(--color-brand-200)" }}>
+                เข้าเว็บวันนี้
+              </p>
+              <p className="tnum mt-px text-[15px] font-semibold" style={{ color: "var(--on-dark-in)" }}>
+                {formatBahtShort(today.totals.deposit)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px]" style={{ color: "var(--color-brand-200)" }}>
+                ออกจากเว็บวันนี้
+              </p>
+              <p className="tnum mt-px text-[15px] font-semibold" style={{ color: "var(--on-dark-out)" }}>
+                {formatBahtShort(today.totals.withdraw)}
+              </p>
+            </div>
+          </div>
+        </Link>
       ) : null}
 
       {loadError ? <Alert tone="error">{loadError}</Alert> : null}
-      {saved ? <Alert tone="success">{saved}</Alert> : null}
+      {saved ? <Alert tone="success">✓ {saved}</Alert> : null}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-3.5">
         <div className="card p-4 space-y-4">
           <div>
             <span className="field-label">ประเภทรายการ</span>
@@ -248,9 +275,10 @@ export default function EntryPage() {
                     type="button"
                     key={option.value}
                     onClick={() => setDirection(option.value)}
-                    className="rounded-xl border px-3 py-2.5 text-left"
+                    className="rounded-xl px-3 py-2.5 text-left"
                     style={{
-                      borderColor: active ? option.color : "var(--line)",
+                      border: "1.5px solid",
+                      borderColor: active ? option.color : "var(--line-strong)",
                       background: active ? "color-mix(in srgb, " + option.color + " 10%, transparent)" : "transparent",
                     }}
                   >
@@ -260,7 +288,7 @@ export default function EntryPage() {
                     >
                       {option.label}
                     </span>
-                    <span className="muted block text-[11px]">{option.hint}</span>
+                    <span className="dim block text-[11px]">{option.hint}</span>
                   </button>
                 );
               })}
@@ -284,7 +312,7 @@ export default function EntryPage() {
                 </option>
               ))}
             </select>
-            <Link href="/sites" className="muted mt-1.5 inline-block text-xs underline">
+            <Link href="/sites" className="link-sm mt-[7px] inline-block">
               เพิ่ม / แก้ไขรายชื่อเว็บ
             </Link>
           </div>
@@ -294,7 +322,7 @@ export default function EntryPage() {
           <SectionTitle
             action={
               previewUrl ? (
-                <button type="button" className="text-xs underline muted" onClick={clearImage}>
+                <button type="button" className="link-sm" onClick={clearImage}>
                   ลบรูป
                 </button>
               ) : null
@@ -325,12 +353,11 @@ export default function EntryPage() {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex w-full flex-col items-center gap-1 rounded-xl border border-dashed py-8"
-              style={{ borderColor: "var(--line)" }}
+              className="dropzone flex flex-col items-center gap-1 px-3 py-7"
             >
               <span className="text-2xl">🧾</span>
               <span className="text-sm font-semibold">เลือกรูปจากเครื่อง / ถ่ายรูป</span>
-              <span className="muted text-xs">
+              <span className="dim text-[11.5px]">
                 {ocrEnabled ? "ระบบจะอ่านวันที่และยอดเงินให้อัตโนมัติ" : "กรอกยอดและวันที่เองด้านล่าง"}
               </span>
             </button>

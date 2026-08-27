@@ -148,7 +148,12 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
 
   if (status === "loading") {
     return (
-      <div className="flex min-h-dvh items-center justify-center px-6">
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-3 px-6">
+        <span
+          className="size-[22px] animate-spin rounded-full border-[2.5px]"
+          style={{ borderColor: "var(--color-brand-200)", borderTopColor: "var(--color-brand-600)" }}
+          aria-hidden
+        />
         <p className="muted text-sm">กำลังเข้าสู่ระบบด้วย LINE…</p>
       </div>
     );
@@ -156,13 +161,13 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
 
   if (status === "unconfigured") {
     return (
-      <div className="mx-auto flex min-h-dvh max-w-md items-center px-4">
-        <div className="card w-full p-5">
-          <h1 className="text-lg font-bold">ยังตั้งค่าไม่ครบ</h1>
-          <p className="muted mt-2 text-sm">
+      <div className="mx-auto flex min-h-dvh max-w-md items-center px-5">
+        <div className="card w-full px-5 py-6" style={{ borderRadius: "1.125rem" }}>
+          <h1 className="text-[18px] font-bold">ยังตั้งค่าไม่ครบ</h1>
+          <p className="muted mt-2.5 text-[13.5px] leading-relaxed">
             ยังไม่ได้ตั้ง <code>NEXT_PUBLIC_LIFF_ID</code> จึงเข้าสู่ระบบด้วย LINE ไม่ได้
           </p>
-          <ol className="muted mt-3 list-decimal space-y-1 pl-5 text-sm">
+          <ol className="muted mt-3.5 list-decimal space-y-1.5 pl-5 text-[13.5px] leading-relaxed">
             <li>สร้าง LINE Login channel ที่ LINE Developers</li>
             <li>เพิ่ม LIFF app ชี้มาที่ URL ของเว็บนี้ เปิด scope openid + profile</li>
             <li>ใส่ LIFF ID ลงใน .env.local แล้ว build ใหม่</li>
@@ -174,15 +179,15 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
 
   if (status === "pending") {
     return (
-      <div className="mx-auto flex min-h-dvh max-w-md items-center px-4">
-        <div className="card w-full p-5 text-center">
-          <p className="text-4xl">🕒</p>
-          <h1 className="mt-3 text-lg font-bold">รอผู้ดูแลอนุมัติ</h1>
-          <p className="muted mt-2 text-sm">
+      <div className="mx-auto flex min-h-dvh max-w-md items-center px-5">
+        <div className="card w-full px-5 py-6 text-center" style={{ borderRadius: "1.125rem" }}>
+          <p className="text-[38px] leading-none">🕒</p>
+          <h1 className="mt-3 text-[18px] font-bold">รอผู้ดูแลอนุมัติ</h1>
+          <p className="muted mt-2 text-[13.5px] leading-relaxed">
             {profile?.displayName ? `สวัสดีคุณ ${profile.displayName} — ` : ""}
             บัญชี LINE นี้เข้าระบบแล้ว แต่ยังใช้งานไม่ได้จนกว่าผู้ดูแลจะกดอนุมัติ
           </p>
-          <p className="muted mt-3 text-sm">แจ้งผู้ดูแลแล้วกดปุ่มด้านล่างเพื่อเช็คอีกครั้ง</p>
+          <p className="muted mt-3 text-[13.5px]">แจ้งผู้ดูแลแล้วกดปุ่มด้านล่างเพื่อเช็คอีกครั้ง</p>
           <button className="btn btn-primary mt-4 w-full" onClick={() => window.location.reload()}>
             เช็คสถานะอีกครั้ง
           </button>
@@ -193,10 +198,12 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
 
   if (status === "error") {
     return (
-      <div className="mx-auto flex min-h-dvh max-w-md items-center px-4">
-        <div className="card w-full p-5">
-          <h1 className="text-lg font-bold">เข้าสู่ระบบไม่สำเร็จ</h1>
-          <p className="mt-2 text-sm text-red-600">{error}</p>
+      <div className="mx-auto flex min-h-dvh max-w-md items-center px-5">
+        <div className="card w-full px-5 py-6" style={{ borderRadius: "1.125rem" }}>
+          <h1 className="text-[18px] font-bold">เข้าสู่ระบบไม่สำเร็จ</h1>
+          <p className="mt-2.5 text-[13.5px] leading-relaxed" style={{ color: "var(--color-money-in)" }}>
+            {error}
+          </p>
           <button className="btn btn-primary mt-4 w-full" onClick={() => window.location.reload()}>
             ลองใหม่
           </button>

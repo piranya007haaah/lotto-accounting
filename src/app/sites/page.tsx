@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/LiffProvider";
-import { Alert, EmptyState, SectionTitle, Spinner } from "@/components/ui";
+import { Alert, EmptyState, PageHeader, SectionTitle, Spinner } from "@/components/ui";
 import type { SiteRow } from "@/lib/types";
 
 const COLORS = ["#2563eb", "#dc2626", "#059669", "#d97706", "#7c3aed", "#0891b2", "#db2777", "#65a30d"];
@@ -88,11 +88,8 @@ export default function SitesPage() {
   const mine = sites.filter((site) => site.owner_id !== null);
 
   return (
-    <div className="space-y-4">
-      <header>
-        <h1 className="text-xl font-bold">จัดการเว็บ</h1>
-        <p className="muted text-xs">รายชื่อที่จะขึ้นใน dropdown ตอนบันทึกรายการ</p>
-      </header>
+    <div className="space-y-3.5">
+      <PageHeader title="จัดการเว็บ" subtitle="รายชื่อที่จะขึ้นใน dropdown ตอนบันทึกรายการ" />
 
       {error ? <Alert tone="error">{error}</Alert> : null}
 
@@ -131,7 +128,7 @@ export default function SitesPage() {
       {mine.length > 0 ? (
         <section className="card p-4">
           <SectionTitle>เว็บของฉัน</SectionTitle>
-          <ul className="divide-y" style={{ borderColor: "var(--line)" }}>
+          <ul className="divide-y-0" style={{ borderColor: "var(--line)" }}>
             {mine.map((site) => (
               <li key={site.id} className="flex items-center gap-3 py-2.5">
                 <span className="size-3 shrink-0 rounded-full" style={{ background: site.color ?? "#9ca3af" }} />
@@ -160,7 +157,7 @@ export default function SitesPage() {
           <EmptyState>ยังไม่มีเว็บกลาง</EmptyState>
         ) : (
           <>
-            <ul className="divide-y" style={{ borderColor: "var(--line)" }}>
+            <ul className="divide-y-0" style={{ borderColor: "var(--line)" }}>
               {shared.map((site) => (
                 <li key={site.id} className="flex items-center gap-3 py-2.5">
                   <span className="size-3 shrink-0 rounded-full" style={{ background: site.color ?? "#9ca3af" }} />

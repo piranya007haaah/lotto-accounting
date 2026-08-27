@@ -6,6 +6,7 @@
 
   --color-brand-50: #eef4ff;
   --color-brand-100: #d9e5ff;
+  --color-brand-200: #c7d8ff;
   --color-brand-500: #3b6fe0;
   --color-brand-600: #2d59c4;
   --color-brand-700: #24479c;
@@ -15,11 +16,25 @@
 }
 
 :root {
-  --surface: #f6f7fb;
+  --surface: #f2f4f8;
   --card: #ffffff;
-  --line: #e6e8f0;
-  --text: #111827;
-  --muted: #6b7280;
+  /* เส้นขอบการ์ด — บางและนุ่ม */
+  --line: #e7eaf2;
+  /* เส้นขอบช่องกรอก — เข้มกว่านิดให้เห็นขอบชัด */
+  --line-strong: #dfe4ee;
+  /* เส้นคั่นระหว่างแถวในลิสต์ — จางที่สุด */
+  --divider: #f0f2f7;
+  --text: #10182b;
+  --muted: #667085;
+  /* ข้อความลำดับสาม: placeholder, คำอธิบายใต้ปุ่ม */
+  --dim: #98a2b3;
+  /* พื้นอ่อนสำหรับแถบหัวกลุ่ม / กรอบรูปตัวอย่าง */
+  --subtle: #f2f4f8;
+  /* พื้นวงกลมไอคอนของเมนูที่กำลังเปิดอยู่ */
+  --nav-active: #e3ecff;
+  /* สีเงินเข้า/ออก เวลาอยู่บนพื้นเข้ม (การ์ดไล่สี) */
+  --on-dark-in: #ffb4b4;
+  --on-dark-out: #7ff0c2;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -27,8 +42,13 @@
     --surface: #0f1117;
     --card: #171a23;
     --line: #262a36;
+    --line-strong: #2f3444;
+    --divider: #20242e;
     --text: #e9eaf0;
     --muted: #9aa0ae;
+    --dim: #6f7686;
+    --subtle: #1c202b;
+    --nav-active: #1e2a45;
   }
 }
 
@@ -43,6 +63,11 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* ตัวเลขเงินต้องเรียงตรงหลักกันทุกแถว */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
 /* ------- ชิ้นส่วน UI ที่ใช้ซ้ำทั้งแอป ------- */
 .card {
   background: var(--card);
@@ -50,9 +75,31 @@ body {
   border-radius: 1rem;
 }
 
+/* หัวข้อของแต่ละหน้า */
+.page-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+.page-sub {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin: 0.125rem 0 0;
+}
+
+/* หัวข้อย่อยในการ์ด */
+.card-title {
+  font-size: 0.84375rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
 .field-label {
   display: block;
-  font-size: 0.8125rem;
+  font-size: 0.78125rem;
   font-weight: 600;
   color: var(--muted);
   margin-bottom: 0.375rem;
@@ -61,12 +108,16 @@ body {
 .field {
   width: 100%;
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: 0.75rem;
-  padding: 0.75rem 0.875rem;
-  font-size: 1rem;
+  padding: 0.6875rem 0.875rem;
+  font-size: 0.9375rem;
   color: var(--text);
   outline: none;
+}
+
+.field::placeholder {
+  color: var(--dim);
 }
 
 .field:focus {
@@ -96,11 +147,12 @@ body {
 .btn-primary {
   background: var(--color-brand-600);
   color: #fff;
+  box-shadow: 0 4px 12px rgb(45 89 196 / 0.25);
 }
 
 .btn-ghost {
   background: var(--card);
-  border-color: var(--line);
+  border-color: var(--line-strong);
   color: var(--text);
 }
 
@@ -110,10 +162,104 @@ body {
   color: #dc2626;
 }
 
+/* ลิงก์ข้อความเล็ก ๆ ที่แทรกอยู่ในการ์ด เช่น "ลบรูป" "เพิ่ม / แก้ไขรายชื่อเว็บ" */
+.link-sm {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ปุ่มกลมสำหรับเลือกช่วงเวลา/ตัวกรอง */
+.chip {
+  flex: none;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--card);
+  color: var(--muted);
+  padding: 0.4375rem 0.875rem;
+  font-size: 0.78125rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.chip-active {
+  border-color: var(--color-brand-600);
+  background: var(--color-brand-600);
+  color: #fff;
+}
+
+/* การ์ดไล่สีด้านบนหน้าบันทึก */
+.hero {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-radius: 1.125rem;
+  padding: 1rem 1.125rem;
+  color: #fff;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--color-brand-700), var(--color-brand-600) 55%, var(--color-brand-500));
+  box-shadow: 0 10px 24px rgb(45 89 196 / 0.28);
+}
+
+/* แถวในลิสต์ที่มีเส้นคั่นบาง ๆ */
+.row {
+  border-bottom: 1px solid var(--divider);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+/* แถบหัวกลุ่มวันที่ในหน้ารายการ */
+.group-head {
+  background: var(--subtle);
+}
+
+/* กรอบเส้นประสำหรับปุ่มเลือกรูป */
+.dropzone {
+  width: 100%;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: 0.75rem;
+  background: none;
+  cursor: pointer;
+}
+
+/* แถบสัดส่วนในหน้าสรุปยอด */
+.bar-track {
+  flex: 1;
+  height: 0.375rem;
+  border-radius: 999px;
+  background: var(--subtle);
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+
 .muted {
   color: var(--muted);
 }
 
+.dim {
+  color: var(--dim);
+}
+
 .divider {
   border-top: 1px solid var(--line);
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  background: var(--subtle);
+  padding: 0.0625rem 0.3125rem;
+  border-radius: 0.3125rem;
 }
