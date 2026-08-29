@@ -14,6 +14,7 @@ import {
   StatCard,
 } from "@/components/ui";
 import { formatSigned } from "@/lib/format";
+import { bankMark } from "@/lib/thai-banks";
 import { currentMonthKey } from "@/lib/thai-date";
 import type { BankBucket, SiteRow, SummaryBucket, SummaryResponse } from "@/lib/types";
 
@@ -83,12 +84,33 @@ function SummaryRow({
   );
 }
 
+/** สีตัวอักษรบนป้ายธนาคาร — สีแบรนด์อ่อนอย่างเหลืองกรุงศรีต้องใช้ตัวหนังสือสีเข้ม */
+function inkOn(hex: string): string {
+  const value = hex.replace("#", "");
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(value.slice(i, i + 2), 16) / 255);
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luminance > 0.6 ? "#1a1a1a" : "#ffffff";
+}
+
 /** เงินที่ถอนออกจากเว็บ เข้าบัญชีธนาคารไหนไปเท่าไหร่ */
 function BankRow({ bucket, max }: { bucket: BankBucket; max: number }) {
+  const mark = bankMark(bucket.key);
   return (
     <div className="row py-2.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="truncate text-[13.5px] font-semibold">{bucket.key}</span>
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-2 text-[13.5px] font-semibold">
+          <span
+            className="emoji-tile h-[18px] px-1.5 text-[9px] font-bold tracking-wide"
+            style={
+              mark
+                ? { background: mark.color, color: inkOn(mark.color) }
+                : { background: "var(--accent-tint)", color: "var(--muted)" }
+            }
+          >
+            {mark?.short ?? "—"}
+          </span>
+          <span className="truncate">{bucket.key}</span>
+        </span>
         <span className="dim flex-none text-[11px]">{bucket.count} รายการ</span>
       </div>
       <div className="mt-1.5">
