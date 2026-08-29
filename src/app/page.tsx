@@ -401,10 +401,10 @@ export default function EntryPage() {
                   {ocr.qr.sendingBankName ? ` · ${ocr.qr.sendingBankName}` : ""}
                 </Alert>
               ) : null}
-              {/* ความมั่นใจเป็นของค่าที่อ่านจากตัวหนังสือ — ถ้าได้มาจาก QR ล้วนก็ไม่มีอะไรให้วัด */}
-              {ocr.source !== "qr" ? (
+              {/* ได้มาจาก QR ล้วนก็ไม่มีอะไรให้เตือนเพิ่ม — ที่อ่านจากตัวหนังสือถึงต้องให้ตรวจ */}
+              {ocr.sources.some((source) => source !== "qr") ? (
                 <Alert tone={ocr.confidence >= 0.7 ? "success" : "warn"}>
-                  อ่านข้อมูลจากรูปแล้ว (ความมั่นใจ {Math.round(ocr.confidence * 100)}%) — ตรวจสอบก่อนบันทึกด้วย
+                  อ่านข้อมูลจากรูปแล้ว — ตรวจสอบก่อนบันทึกด้วย
                 </Alert>
               ) : null}
               {ocr.warnings.map((warning) => (

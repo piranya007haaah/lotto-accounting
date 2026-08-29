@@ -77,6 +77,8 @@ export interface SlipQr {
   crcVerified: boolean;
 }
 
+export type OcrSource = "qr" | "vision" | "model";
+
 /** ผลที่อ่านได้จากรูป หลังผ่านการปรับค่าให้พร้อมใช้แล้ว */
 export interface OcrResult {
   direction: Direction | null;
@@ -90,8 +92,13 @@ export interface OcrResult {
   confidence: number;
   documentType: string;
   warnings: string[];
-  /** ค่าที่ได้มาจากไหน — "qr" คืออ่านเองในเครื่องล้วน ไม่ได้เรียกโมเดล */
-  source: "qr" | "model" | "qr+model";
+  /**
+   * ค่านี้ผ่านตัวอ่านอะไรมาบ้าง เรียงตามลำดับที่ทำงาน
+   *   qr     — ถอด QR ตรวจสอบสลิปเองในเครื่อง (แม่นที่สุด ไม่มีค่าใช้จ่าย)
+   *   vision — Google Cloud Vision อ่านตัวหนังสือ
+   *   model  — Claude สำรอง เรียกเฉพาะตอนสองตัวบนได้ค่าไม่ครบ
+   */
+  sources: OcrSource[];
   qr: SlipQr | null;
   raw: unknown;
 }

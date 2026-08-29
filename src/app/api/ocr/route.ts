@@ -86,10 +86,22 @@ export const POST = route(async (request) => {
 
   const imagePath = await uploadTemp(user.id, buffer, mediaType);
 
+  // ชื่อเว็บของผู้ใช้ ไว้จับคู่กับข้อความบนภาพเพื่อเลือก dropdown ให้อัตโนมัติ
+  const { data: sites } = await supabaseAdmin()
+    .from("sites")
+    .select("name")
+    .or(`owner_id.is.null,owner_id.eq.${user.id}`)
+    .eq("is_active", true);
+
   let ocr: OcrResult | null = null;
   let ocrError: string | null = null;
   try {
-    ocr = await extractFromImage({ buffer, mediaType, qr });
+    ocr = await extractFromImage({
+      buffer,
+      mediaType,
+      qr,
+      siteNames: (sites ?? []).map((site) => site.name),
+    });
   } catch (error) {
     ocrError =
       error instanceof HttpError

@@ -1,11 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
-import { OCR_EFFORT, OCR_MODEL, isOcrConfigured } from "./env";
+import { OCR_EFFORT, OCR_MODEL, isOcrConfigured, isVisionConfigured, modelSupportsEffort } from "./env";
+import { readImageText } from "./google-vision";
 import { HttpError } from "./http";
 import { readSlipQr } from "./slip-qr";
+import { extractSlipFields, type SlipFields } from "./slip-text";
 import { formatDateKey, parseLooseDateTime, toDatetimeLocalValue } from "./thai-date";
-import type { Direction, OcrResult, SlipQr } from "./types";
+import type { Direction, OcrResult, OcrSource, SlipQr } from "./types";
 
 export const SUPPORTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
 export type SupportedImageType = (typeof SUPPORTED_IMAGE_TYPES)[number];
@@ -63,6 +65,8 @@ function anthropic(): Anthropic {
 }
 
 const NOT_A_SLIP_WARNING = "รูปนี้อาจไม่ใช่สลิปโอนเงินหรือหน้าจอถอนเงิน";
+const AMOUNT_WARNING = "อ่านยอดเงินจากรูปไม่ได้ กรุณากรอกเอง";
+const DATE_WARNING = "อ่านวันที่จากรูปไม่ได้ กรุณาเลือกวันที่เอง";
 
 function cleanNumber(value: number | null): number | null {
   if (value === null || !Number.isFinite(value)) return null;
@@ -83,7 +87,7 @@ export function normalizeExtraction(raw: Extraction): OcrResult {
   const warnings: string[] = [];
 
   const amount = cleanNumber(raw.amount);
-  if (amount === null) warnings.push("อ่านยอดเงินจากรูปไม่ได้ กรุณากรอกเอง");
+  if (amount === null) warnings.push(AMOUNT_WARNING);
 
   // ใช้ค่าที่โมเดลแปลงมาก่อน ถ้าไม่ได้ค่อยถอยไปอ่านจากข้อความดิบบนสลิป
   const fromIso = parseLooseDateTime(raw.datetime_iso);
@@ -91,7 +95,7 @@ export function normalizeExtraction(raw: Extraction): OcrResult {
     [raw.date_text, raw.time_text].filter(Boolean).join(" ") || null,
   );
   const occurred = fromIso ?? fromText;
-  if (!occurred) warnings.push("อ่านวันที่จากรูปไม่ได้ กรุณาเลือกวันที่เอง");
+  if (!occurred) warnings.push(DATE_WARNING);
 
   // กันกรณีโมเดลลืมแปลง พ.ศ. → ตรวจซ้ำกับข้อความที่เห็นบนสลิป
   if (fromIso && fromText && formatDateKey(fromIso) !== formatDateKey(fromText)) {
@@ -123,30 +127,49 @@ export function normalizeExtraction(raw: Extraction): OcrResult {
     confidence,
     documentType: raw.document_type,
     warnings,
-    source: "model",
+    sources: ["model"],
     qr: null,
     raw,
   };
 }
 
-/** ผลที่ได้จาก QR อย่างเดียว — เลขที่รายการกับธนาคารแม่นแน่ ที่เหลือต้องกรอกเอง */
-function resultFromQr(qr: SlipQr): OcrResult {
+/** ประกอบ OcrResult จากค่าที่อ่านได้ — จุดเดียวที่รู้ว่า field ไหนมาจากตัวอ่านไหน */
+function buildResult(input: {
+  fields: SlipFields | null;
+  qr: SlipQr | null;
+  sources: OcrSource[];
+  extraWarnings?: string[];
+  raw: unknown;
+}): OcrResult {
+  const { fields, qr } = input;
+  const warnings = [...(input.extraWarnings ?? [])];
+
+  const amount = fields?.amount ?? null;
+  const occurred = fields?.occurredAt ?? null;
+  if (amount === null) warnings.push(AMOUNT_WARNING);
+  if (!occurred) warnings.push(DATE_WARNING);
+
+  // มี QR ตรวจสอบสลิปแปลว่าเป็นสลิปโอนเงินจากธนาคารแน่นอน → นับเป็นเงินเข้าเว็บ
+  const direction: Direction | null = qr ? "deposit" : (fields?.direction ?? null);
+
+  // ความมั่นใจตรงนี้วัดจาก "ได้ค่าครบไหม" ไม่ใช่ความมั่นใจของตัว OCR เอง
+  const confidence = amount !== null && occurred ? 0.9 : amount !== null || occurred ? 0.5 : 0;
+
   return {
-    // มี QR ตรวจสอบสลิปแปลว่าเป็นสลิปโอนเงินจากธนาคารแน่นอน → นับเป็นเงินเข้าเว็บ
-    direction: "deposit",
-    amount: null,
-    occurredAt: null,
-    occurredAtLocal: null,
-    refNo: qr.transRef,
-    bankName: qr.sendingBankName,
+    direction,
+    amount,
+    occurredAt: occurred ? occurred.toISOString() : null,
+    occurredAtLocal: occurred ? toDatetimeLocalValue(occurred) : null,
+    refNo: qr?.transRef ?? fields?.refNo ?? null,
+    bankName: qr?.sendingBankName ?? fields?.bankName ?? null,
     counterparty: null,
-    siteHint: null,
-    confidence: 0,
-    documentType: "bank_transfer_slip",
-    warnings: ["อ่านเลขที่รายการและธนาคารจาก QR บนสลิปได้แล้ว — ยอดเงินและวันที่ต้องกรอกเอง"],
-    source: "qr",
+    siteHint: fields?.siteHint ?? null,
+    confidence,
+    documentType: qr ? "bank_transfer_slip" : (fields?.direction === "withdraw" ? "website_withdraw" : "other"),
+    warnings,
+    sources: input.sources,
     qr,
-    raw: { qr },
+    raw: input.raw,
   };
 }
 
@@ -172,9 +195,42 @@ function mergeQr(result: OcrResult, qr: SlipQr | null): OcrResult {
     bankName: qr.sendingBankName ?? result.bankName,
     documentType: "bank_transfer_slip",
     warnings,
-    source: "qr+model",
+    sources: result.sources.includes("qr") ? result.sources : ["qr", ...result.sources],
     qr,
-    raw: { model: result.raw, qr },
+  };
+}
+
+/**
+ * เติมช่องที่ยังว่างด้วยค่าที่โมเดลอ่านได้ — ไม่ทับค่าเดิมที่ได้มาแล้ว
+ * เพราะโมเดลถูกเรียกก็ต่อเมื่อขั้นก่อนหน้าอ่านไม่ครบอยู่แล้ว
+ */
+function fillGapsFromModel(base: OcrResult, fromModel: OcrResult): OcrResult {
+  const amount = base.amount ?? fromModel.amount;
+  const occurredAt = base.occurredAt ?? fromModel.occurredAt;
+  const occurredAtLocal = base.occurredAtLocal ?? fromModel.occurredAtLocal;
+
+  const warnings = base.warnings.filter(
+    (warning) =>
+      !(warning === AMOUNT_WARNING && amount !== null) && !(warning === DATE_WARNING && occurredAt),
+  );
+  for (const warning of fromModel.warnings) {
+    if (!warnings.includes(warning)) warnings.push(warning);
+  }
+
+  return {
+    ...base,
+    amount,
+    occurredAt,
+    occurredAtLocal,
+    direction: base.direction ?? fromModel.direction,
+    refNo: base.refNo ?? fromModel.refNo,
+    bankName: base.bankName ?? fromModel.bankName,
+    counterparty: base.counterparty ?? fromModel.counterparty,
+    siteHint: base.siteHint ?? fromModel.siteHint,
+    confidence: Math.max(base.confidence, fromModel.confidence),
+    warnings,
+    sources: [...base.sources, "model"],
+    raw: { ...(base.raw as object), model: fromModel.raw },
   };
 }
 
@@ -188,7 +244,8 @@ async function readWithModel(
     max_tokens: 8000,
     system: SYSTEM_PROMPT,
     output_config: {
-      effort: OCR_EFFORT,
+      // Haiku ไม่รับ effort — ส่งไปจะได้ 400 กลับมา
+      ...(modelSupportsEffort(OCR_MODEL) ? { effort: OCR_EFFORT } : {}),
       format: betaZodOutputFormat(Extraction),
     },
     // ถ้าโมเดลหลักปฏิเสธคำขอ ให้ฝั่งเซิร์ฟเวอร์สลับไปโมเดลสำรองอัตโนมัติ
@@ -215,39 +272,72 @@ async function readWithModel(
 /**
  * อ่านรูปสลิปแล้วคืนค่าที่พร้อมเติมลงฟอร์ม
  *
- * ลำดับความน่าเชื่อถือ: QR ตรวจสอบสลิป > ค่าที่โมเดลอ่านจากตัวหนังสือ
- * รูปที่มี QR จึงได้เลขที่รายการและธนาคารที่ถูกต้องแน่นอนแม้ไม่ได้ตั้งค่า ANTHROPIC_API_KEY
+ * ทำสามชั้นตามลำดับความน่าเชื่อถือและค่าใช้จ่าย
+ *   1. QR ตรวจสอบสลิป  — ในเครื่อง ฟรี แม่นที่สุด แต่ได้แค่เลขที่รายการกับธนาคาร
+ *   2. Google Vision    — อ่านยอดเงินกับวันที่ 1,000 ภาพแรกต่อเดือนฟรี
+ *   3. Claude           — เรียกเฉพาะตอนสองชั้นบนยังได้ค่าไม่ครบ จึงแทบไม่ถูกเรียก
  */
 export async function extractFromImage(params: {
   buffer: Buffer;
   mediaType: SupportedImageType;
   /** ถ้าถอด QR ไว้แล้ว (เช่นตอนเช็คสลิปซ้ำ) ส่งเข้ามาได้เลย จะได้ไม่ต้องถอดซ้ำ */
   qr?: SlipQr | null;
+  /** ชื่อเว็บของผู้ใช้ ไว้จับคู่กับข้อความบนภาพเพื่อเลือก dropdown ให้อัตโนมัติ */
+  siteNames?: string[];
 }): Promise<OcrResult> {
   const qr = params.qr !== undefined ? params.qr : await readSlipQr(params.buffer);
 
-  if (!isOcrConfigured()) {
-    if (qr) return resultFromQr(qr);
-    throw new HttpError(
-      501,
-      "ยังไม่ได้ตั้งค่า ANTHROPIC_API_KEY และรูปนี้ไม่มี QR ตรวจสอบสลิป — กรอกยอดและวันที่เองได้เลย",
-      "ocr_not_configured",
-    );
+  let fields: SlipFields | null = null;
+  let text: string | null = null;
+  const warnings: string[] = [];
+
+  if (isVisionConfigured()) {
+    try {
+      text = await readImageText(params.buffer.toString("base64"));
+      if (text) fields = extractSlipFields(text, { siteNames: params.siteNames });
+    } catch (error) {
+      // Vision ล่มหรือโควตาหมด ยังมี QR กับ Claude ให้ถอยไปได้ อย่าทิ้งทั้งคำขอ
+      console.error("[ocr] Google Vision ล้มเหลว:", error);
+      warnings.push(
+        error instanceof HttpError ? error.message : "อ่านตัวหนังสือบนรูปไม่สำเร็จ",
+      );
+    }
+  }
+
+  const base = buildResult({
+    fields,
+    qr,
+    sources: [...(qr ? (["qr"] as const) : []), ...(fields ? (["vision"] as const) : [])],
+    extraWarnings: warnings,
+    raw: { qr, vision: fields ? { fields, text } : null },
+  });
+
+  // ครบแล้วก็จบตรงนี้ ไม่ต้องเสียเงินเรียกโมเดล
+  const complete = base.amount !== null && base.occurredAt !== null;
+  if (complete || !isOcrConfigured()) {
+    if (base.sources.length === 0) {
+      throw new HttpError(
+        501,
+        "ยังไม่ได้ตั้งค่า GOOGLE_VISION_API_KEY และรูปนี้ไม่มี QR ตรวจสอบสลิป — กรอกยอดและวันที่เองได้เลย",
+        "ocr_not_configured",
+      );
+    }
+    return base;
   }
 
   let parsed: Extraction | null = null;
   try {
     parsed = await readWithModel(params.buffer, params.mediaType);
   } catch (error) {
-    // โมเดลล่มหรือโควตาหมด ก็ไม่ควรทิ้งค่าที่ถอดจาก QR ได้แล้ว
-    if (!qr) throw error;
+    // โมเดลล่มหรือโควตาหมด ก็ไม่ควรทิ้งค่าที่อ่านได้แล้ว
+    if (base.sources.length === 0) throw error;
     console.error("[ocr] เรียกโมเดลไม่สำเร็จ:", error);
   }
 
   if (!parsed) {
-    if (qr) return resultFromQr(qr);
+    if (base.sources.length > 0) return base;
     throw new HttpError(422, "อ่านรูปไม่สำเร็จ กรุณากรอกข้อมูลเอง", "ocr_empty");
   }
 
-  return mergeQr(normalizeExtraction(parsed), qr);
+  return mergeQr(fillGapsFromModel(base, normalizeExtraction(parsed)), qr);
 }

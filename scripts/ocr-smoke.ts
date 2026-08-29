@@ -1,10 +1,11 @@
 /**
  * ทดสอบการอ่านสลิปโดยไม่ต้องเปิดเว็บทั้งระบบ
  *
- *   npx tsx scripts/ocr-smoke.ts ./slip.jpg                      → อ่านจาก QR อย่างเดียว
- *   ANTHROPIC_API_KEY=sk-... npx tsx scripts/ocr-smoke.ts ./slip.jpg  → อ่าน QR + ให้โมเดลอ่านตัวหนังสือ
+ *   npx tsx scripts/ocr-smoke.ts ./slip.jpg                            → QR อย่างเดียว
+ *   GOOGLE_VISION_API_KEY=... npx tsx scripts/ocr-smoke.ts ./slip.jpg  → QR + Vision (เส้นทางจริง)
+ *   เพิ่ม ANTHROPIC_API_KEY=sk-... เพื่อทดสอบตัวสำรองด้วย
  *
- * ใช้ตรวจว่าถอด QR ได้ไหม และ prompt อ่านวันที่ (พ.ศ. → ค.ศ.) กับยอดเงินถูกต้องไหม
+ * ใช้ตรวจว่าถอด QR ได้ไหม และอ่านวันที่ (พ.ศ. → ค.ศ.) กับยอดเงินถูกต้องไหม
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -42,7 +43,7 @@ async function main() {
   const started = Date.now();
   const result = await extractFromImage({ buffer, mediaType, qr });
 
-  console.log(`\n— ผลรวมที่จะเติมลงฟอร์ม (source = ${result.source}) —`);
+  console.log(`\n— ผลรวมที่จะเติมลงฟอร์ม (sources = ${result.sources.join(" → ")}) —`);
   console.log(JSON.stringify(result, null, 2));
   console.log(`\nใช้เวลาทั้งหมด ${((Date.now() - started) / 1000).toFixed(1)} วินาที`);
   if (result.warnings.length > 0) console.log("ข้อควรตรวจ:", result.warnings.join(" | "));
