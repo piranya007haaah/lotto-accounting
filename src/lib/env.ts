@@ -20,13 +20,7 @@ export const APP_TIMEZONE = env("APP_TIMEZONE") ?? "Asia/Bangkok";
 /** ชื่อ storage bucket ที่เก็บรูปสลิป */
 export const STORAGE_BUCKET = env("SUPABASE_STORAGE_BUCKET") ?? "slips";
 
-/** โมเดลที่ใช้อ่านรูป */
-export const OCR_MODEL = env("OCR_MODEL") ?? "claude-opus-5";
-
-/** ระดับความละเอียดในการคิดของโมเดล (low พอสำหรับอ่านสลิป) */
-export const OCR_EFFORT = (env("OCR_EFFORT") ?? "low") as "low" | "medium" | "high" | "xhigh" | "max";
-
-/** API key ของ Google Cloud Vision — ตัวหลักที่ใช้อ่านตัวหนังสือบนรูป */
+/** API key ของ Google Cloud Vision — ตัวที่ใช้อ่านตัวหนังสือบนรูป */
 export function GOOGLE_VISION_API_KEY(): string | undefined {
   return env("GOOGLE_VISION_API_KEY");
 }
@@ -35,15 +29,7 @@ export function isVisionConfigured(): boolean {
   return Boolean(GOOGLE_VISION_API_KEY());
 }
 
-/** Claude เป็นตัวสำรอง เรียกเฉพาะตอน Vision อ่านยอดเงินหรือวันที่ไม่ได้ */
-export function isOcrConfigured(): boolean {
-  return Boolean(env("ANTHROPIC_API_KEY"));
-}
 
-/** Haiku ไม่รับ output_config.effort — ส่งไปจะได้ 400 กลับมา */
-export function modelSupportsEffort(model: string): boolean {
-  return !model.includes("haiku");
-}
 
 /** ข้าม LINE Login ได้เฉพาะตอน dev และต้องเปิดสวิตช์เองเท่านั้น */
 export function isDevAuthBypassEnabled(): boolean {

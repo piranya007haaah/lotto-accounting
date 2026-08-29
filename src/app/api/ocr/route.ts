@@ -96,12 +96,7 @@ export const POST = route(async (request) => {
   let ocr: OcrResult | null = null;
   let ocrError: string | null = null;
   try {
-    ocr = await extractFromImage({
-      buffer,
-      mediaType,
-      qr,
-      siteNames: (sites ?? []).map((site) => site.name),
-    });
+    ocr = await extractFromImage({ buffer, qr, siteNames: (sites ?? []).map((site) => site.name) });
   } catch (error) {
     ocrError =
       error instanceof HttpError

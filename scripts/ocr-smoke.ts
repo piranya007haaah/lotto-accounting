@@ -3,7 +3,6 @@
  *
  *   npx tsx scripts/ocr-smoke.ts ./slip.jpg                            → QR อย่างเดียว
  *   GOOGLE_VISION_API_KEY=... npx tsx scripts/ocr-smoke.ts ./slip.jpg  → QR + Vision (เส้นทางจริง)
- *   เพิ่ม ANTHROPIC_API_KEY=sk-... เพื่อทดสอบตัวสำรองด้วย
  *
  * ใช้ตรวจว่าถอด QR ได้ไหม และอ่านวันที่ (พ.ศ. → ค.ศ.) กับยอดเงินถูกต้องไหม
  */
@@ -41,7 +40,7 @@ async function main() {
   console.log(qr ? JSON.stringify(qr, null, 2) : "ไม่พบ QR ตรวจสอบสลิปในรูปนี้");
 
   const started = Date.now();
-  const result = await extractFromImage({ buffer, mediaType, qr });
+  const result = await extractFromImage({ buffer, qr });
 
   console.log(`\n— ผลรวมที่จะเติมลงฟอร์ม (sources = ${result.sources.join(" → ")}) —`);
   console.log(JSON.stringify(result, null, 2));
