@@ -6,16 +6,15 @@ import { parseOrThrow, siteInputSchema } from "@/lib/validation";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** เว็บที่ผู้ใช้เห็น = เว็บกลาง (owner_id null) + เว็บที่ตัวเองเพิ่ม */
+/** รายชื่อเว็บใช้ร่วมกันทั้งระบบ — ทุกคนที่ล็อกอินเห็นชุดเดียวกัน */
 export const GET = route(async (request) => {
-  const user = await requireUser(request);
+  await requireUser(request);
   const includeInactive = new URL(request.url).searchParams.get("all") === "1";
 
   // select * เผื่อฐานข้อมูลที่ยังไม่มีคอลัมน์ emoji — แถวที่ไม่มีก็แค่ไม่มี key นั้น
   let query = supabaseAdmin()
     .from("sites")
     .select("*")
-    .or(`owner_id.is.null,owner_id.eq.${user.id}`)
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
 
@@ -27,11 +26,11 @@ export const GET = route(async (request) => {
 });
 
 export const POST = route(async (request) => {
-  const user = await requireUser(request);
+  await requireUser(request);
   const input = parseOrThrow(siteInputSchema, await request.json());
 
   const payload: Record<string, unknown> = {
-    owner_id: user.id,
+    owner_id: null,
     name: input.name,
     color: input.color ?? null,
     note: input.note ?? null,

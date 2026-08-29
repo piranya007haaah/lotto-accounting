@@ -143,6 +143,11 @@ export function BarRow({ value, max, tone }: { value: number; max: number; tone:
   );
 }
 
+/** พื้นหลังอ่อนของกล่อง emoji — เจือสีประจำเว็บลงบนสีการ์ด */
+export function siteTint(color?: string | null): string {
+  return `color-mix(in srgb, ${color ?? "var(--accent)"} 38%, var(--card))`;
+}
+
 /** ชื่อเว็บ — มี emoji เป็นกล่องสี pastel, ไม่มีก็เป็นจุดสีแบบเดิม */
 export function SiteBadge({
   name,
@@ -156,10 +161,7 @@ export function SiteBadge({
   return (
     <span className="flex min-w-0 items-center gap-2 text-[13.5px] font-semibold">
       {emoji ? (
-        <span
-          className="emoji-tile size-6 text-[13px]"
-          style={{ background: `color-mix(in srgb, ${color ?? "var(--accent)"} 38%, var(--card))` }}
-        >
+        <span className="emoji-tile size-6 text-[13px]" style={{ background: siteTint(color) }}>
           {emoji}
         </span>
       ) : (

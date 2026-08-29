@@ -306,6 +306,27 @@ body {
   border-radius: 0.6875rem;
 }
 
+/* ช่องพิมพ์อิโมจิ — แตะแล้วเรียกแป้นพิมพ์ขึ้นมาเลือกได้เอง */
+.emoji-input {
+  flex: none;
+  border-radius: 0.6875rem;
+  padding: 0;
+  text-align: center;
+  /* ต่ำกว่า 16px ซาฟารีจะซูมหน้าจอตอนโฟกัส */
+  font-size: 17px;
+  line-height: 1;
+  color: var(--text);
+  outline: none;
+}
+
+.emoji-input::placeholder {
+  color: var(--dim);
+}
+
+.emoji-input:focus {
+  box-shadow: 0 0 0 3px var(--accent-tint);
+}
+
 /* แถวในลิสต์ที่มีเส้นคั่นบาง ๆ */
 .row {
   border-bottom: 1px solid var(--divider);

@@ -30,6 +30,7 @@ export interface MemberRow {
 
 export interface SiteRow {
   id: string;
+  /** ไม่ใช้แล้ว — เว็บทุกแถวเป็นของส่วนกลาง (ดู migration 0006) */
   owner_id: string | null;
   name: string;
   note: string | null;

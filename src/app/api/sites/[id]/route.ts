@@ -8,9 +8,9 @@ export const dynamic = "force-dynamic";
 
 type Context = { params: Promise<{ id: string }> };
 
-/** แก้ได้เฉพาะเว็บที่ตัวเองเพิ่ม (เว็บกลางแก้ไม่ได้) */
+/** รายชื่อเว็บเป็นของส่วนกลาง — ใครที่ล็อกอินอยู่ก็แก้ได้ */
 export const PATCH = route(async (request: Request, context: Context) => {
-  const user = await requireUser(request);
+  await requireUser(request);
   const { id } = await context.params;
   const input = parseOrThrow(sitePatchSchema, await request.json());
 
@@ -24,13 +24,7 @@ export const PATCH = route(async (request: Request, context: Context) => {
   if (Object.keys(patch).length === 0) throw new HttpError(400, "ไม่มีข้อมูลที่จะแก้ไข");
 
   const update = (value: Record<string, unknown>) =>
-    supabaseAdmin()
-      .from("sites")
-      .update(value)
-      .eq("id", id)
-      .eq("owner_id", user.id)
-      .select("*")
-      .maybeSingle();
+    supabaseAdmin().from("sites").update(value).eq("id", id).select("*").maybeSingle();
 
   let result = await update(patch);
 
@@ -47,19 +41,18 @@ export const PATCH = route(async (request: Request, context: Context) => {
     if (result.error.code === "23505") throw new HttpError(409, "มีเว็บชื่อนี้อยู่แล้ว");
     throw new HttpError(500, `แก้ไขเว็บไม่สำเร็จ: ${result.error.message}`);
   }
-  if (!result.data) throw new HttpError(404, "ไม่พบเว็บนี้ หรือเป็นเว็บกลางที่แก้ไม่ได้");
+  if (!result.data) throw new HttpError(404, "ไม่พบเว็บนี้");
   return ok({ site: result.data });
 });
 
 export const DELETE = route(async (request: Request, context: Context) => {
-  const user = await requireUser(request);
+  await requireUser(request);
   const { id } = await context.params;
 
   const { error, count } = await supabaseAdmin()
     .from("sites")
     .delete({ count: "exact" })
-    .eq("id", id)
-    .eq("owner_id", user.id);
+    .eq("id", id);
 
   if (error) {
     if (error.code === "23503") {
@@ -67,6 +60,6 @@ export const DELETE = route(async (request: Request, context: Context) => {
     }
     throw new HttpError(500, `ลบเว็บไม่สำเร็จ: ${error.message}`);
   }
-  if (!count) throw new HttpError(404, "ไม่พบเว็บนี้ หรือเป็นเว็บกลางที่ลบไม่ได้");
+  if (!count) throw new HttpError(404, "ไม่พบเว็บนี้");
   return ok({ deleted: true });
 });

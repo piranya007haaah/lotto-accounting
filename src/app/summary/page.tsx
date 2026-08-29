@@ -2,7 +2,17 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/LiffProvider";
-import { Alert, BarRow, Chip, EmptyState, PageHeader, SectionTitle, Spinner, StatCard } from "@/components/ui";
+import {
+  Alert,
+  BarRow,
+  Chip,
+  EmptyState,
+  PageHeader,
+  SectionTitle,
+  siteTint,
+  Spinner,
+  StatCard,
+} from "@/components/ui";
 import { formatSigned } from "@/lib/format";
 import { currentMonthKey } from "@/lib/thai-date";
 import type { SiteRow, SummaryBucket, SummaryResponse } from "@/lib/types";
@@ -50,10 +60,7 @@ function SummaryRow({
       <div className="flex items-baseline justify-between gap-2">
         <span className="flex min-w-0 items-center gap-2 text-[13.5px] font-semibold">
           {emoji ? (
-            <span
-              className="emoji-tile size-6 text-[13px]"
-              style={{ background: `color-mix(in srgb, ${bucket.color ?? "var(--accent)"} 38%, var(--card))` }}
-            >
+            <span className="emoji-tile size-6 text-[13px]" style={{ background: siteTint(bucket.color) }}>
               {emoji}
             </span>
           ) : bucket.color ? (
