@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/LiffProvider";
+import { SitePicker } from "@/components/SitePicker";
 import { Alert, EmptyState, PageHeader, SiteBadge, Spinner } from "@/components/ui";
 import { formatBahtShort, parseAmountInput } from "@/lib/format";
 import {
@@ -46,6 +47,8 @@ export default function HistoryPage() {
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState<EditState | null>(null);
   const [busy, setBusy] = useState(false);
+  const [filterPickerOpen, setFilterPickerOpen] = useState(false);
+  const [editPickerOpen, setEditPickerOpen] = useState(false);
 
   useEffect(() => {
     api<{ sites: SiteRow[] }>("/api/sites?all=1")
@@ -160,14 +163,14 @@ export default function HistoryPage() {
       <div className="card space-y-2 p-3">
         <input type="month" className="field" value={month} onChange={(e) => setMonth(e.target.value)} />
         <div className="grid grid-cols-2 gap-2">
-          <select className="field" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)}>
-            <option value="">ทุกเว็บ</option>
-            {sites.map((site) => (
-              <option key={site.id} value={site.id}>
-                {site.name}
-              </option>
-            ))}
-          </select>
+          <SitePicker
+            sites={sites}
+            value={siteFilter}
+            onChange={setSiteFilter}
+            open={filterPickerOpen}
+            onOpenChange={setFilterPickerOpen}
+            allLabel="ทุกเว็บ"
+          />
           <select className="field" value={directionFilter} onChange={(e) => setDirectionFilter(e.target.value)}>
             <option value="">เข้า + ออก</option>
             <option value="deposit">เงินเข้าเว็บ</option>
@@ -296,17 +299,13 @@ export default function HistoryPage() {
 
                         {isEditing && editing ? (
                           <div className="space-y-2">
-                            <select
-                              className="field"
+                            <SitePicker
+                              sites={sites}
                               value={editing.siteId}
-                              onChange={(e) => setEditing({ ...editing, siteId: e.target.value })}
-                            >
-                              {sites.map((site) => (
-                                <option key={site.id} value={site.id}>
-                                  {site.name}
-                                </option>
-                              ))}
-                            </select>
+                              onChange={(siteId) => setEditing({ ...editing, siteId })}
+                              open={editPickerOpen}
+                              onOpenChange={setEditPickerOpen}
+                            />
                             <select
                               className="field"
                               value={editing.direction}

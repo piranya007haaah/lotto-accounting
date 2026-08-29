@@ -166,6 +166,16 @@ body {
   box-shadow: 0 0 0 3px var(--accent-tint);
 }
 
+/* ปุ่มที่ใช้หน้าตาเดียวกับช่องกรอก (ตัวเลือกเว็บ) */
+button.field {
+  cursor: pointer;
+}
+
+button.field:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -325,6 +335,29 @@ body {
 
 .emoji-input:focus {
   box-shadow: 0 0 0 3px var(--accent-tint);
+}
+
+/* แผ่นตัวเลือกที่เลื่อนขึ้นมาจากขอบล่าง */
+.sheet {
+  animation: sheet-up 0.18s ease-out;
+  box-shadow: 0 -10px 30px rgb(16 25 43 / 0.22);
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(12%);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet {
+    animation: none;
+  }
 }
 
 /* แถวในลิสต์ที่มีเส้นคั่นบาง ๆ */

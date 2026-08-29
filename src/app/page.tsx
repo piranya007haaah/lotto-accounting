@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/LiffProvider";
+import { SitePicker } from "@/components/SitePicker";
 import { Alert, AvatarCircle, SectionTitle, Spinner } from "@/components/ui";
 import { formatBahtShort, formatSigned, parseAmountInput } from "@/lib/format";
 import { compressImage } from "@/lib/image-client";
@@ -48,6 +49,7 @@ export default function EntryPage() {
   const [bankName, setBankName] = useState("");
   const [note, setNote] = useState("");
   const [showDetails, setShowDetails] = useState(false);
+  const [sitePickerOpen, setSitePickerOpen] = useState(false);
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [imagePath, setImagePath] = useState<string | null>(null);
@@ -299,19 +301,15 @@ export default function EntryPage() {
             <label className="field-label" htmlFor="site">
               เว็บ
             </label>
-            <select
+            <SitePicker
               id="site"
-              className="field"
+              sites={sites}
               value={siteId}
-              onChange={(event) => setSiteId(event.target.value)}
-            >
-              {sites.length === 0 ? <option value="">— ยังไม่มีเว็บ —</option> : null}
-              {sites.map((site) => (
-                <option key={site.id} value={site.id}>
-                  {site.emoji ? `${site.emoji} ${site.name}` : site.name}
-                </option>
-              ))}
-            </select>
+              onChange={setSiteId}
+              open={sitePickerOpen}
+              onOpenChange={setSitePickerOpen}
+              disabled={sites.length === 0}
+            />
             <Link href="/sites" className="link-sm mt-[7px] inline-block">
               เพิ่ม / แก้ไขรายชื่อเว็บ
             </Link>

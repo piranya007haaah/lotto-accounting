@@ -2,7 +2,7 @@ import { APP_TIMEZONE } from "./env";
 import { HttpError } from "./http";
 import { supabaseAdmin } from "./supabase";
 import { formatDateKey, formatThaiDate, formatThaiMonth } from "./thai-date";
-import type { SummaryBucket, SummaryResponse, TransactionWithSite } from "./types";
+import type { BankBucket, SummaryBucket, SummaryResponse, TransactionWithSite } from "./types";
 
 export const TRANSACTION_SELECT =
   "id, owner_id, site_id, direction, amount, occurred_at, occurred_date, ref_no, bank_name, counterparty, note, image_path, image_hash, ocr_status, ocr_confidence, created_at, site:sites(id, name, color), owner:app_users(display_name)";
@@ -60,6 +60,15 @@ function add(bucket: SummaryBucket, direction: string, amount: number) {
   bucket.count += 1;
 }
 
+/**
+ * ชื่อธนาคารที่เอามาจัดกลุ่ม — ตัดคำนำหน้าออกก่อน เพราะค่าที่ได้มาไม่ตรงรูปแบบกัน
+ * QR คืน "ธนาคารกสิกรไทย" ตัวอ่านตัวหนังสือคืน "กสิกรไทย" ส่วนที่ผู้ใช้พิมพ์เองก็อีกแบบ
+ */
+function bankKey(name: string | null | undefined): string {
+  const trimmed = (name ?? "").trim().replace(/^(ธนาคาร|ธ\.)\s*/, "").trim();
+  return trimmed || "ไม่ระบุธนาคาร";
+}
+
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
@@ -85,6 +94,7 @@ export function buildSummary(
   const byDay = new Map<string, SummaryBucket>();
   const byMonth = new Map<string, SummaryBucket>();
   const bySite = new Map<string, SummaryBucket & { siteId: string; color: string | null }>();
+  const byBank = new Map<string, BankBucket>();
   const totals = { deposit: 0, withdraw: 0, net: 0, count: 0 };
 
   for (const row of rows) {
@@ -108,8 +118,17 @@ export function buildSummary(
     }
     add(bySite.get(siteId)!, row.direction, amount);
 
-    if (row.direction === "deposit") totals.deposit += amount;
-    else totals.withdraw += amount;
+    if (row.direction === "deposit") {
+      totals.deposit += amount;
+    } else {
+      totals.withdraw += amount;
+      // เงินออกจากเว็บเท่านั้นที่วิ่งเข้าบัญชีธนาคารเรา ขาเข้าเว็บไม่ต้องแยกธนาคาร
+      const bank = bankKey(row.bank_name);
+      const bucket = byBank.get(bank) ?? { key: bank, amount: 0, count: 0 };
+      bucket.amount += amount;
+      bucket.count += 1;
+      byBank.set(bank, bucket);
+    }
     totals.count += 1;
   }
 
@@ -129,6 +148,9 @@ export function buildSummary(
     bySite: [...bySite.values()]
       .map((bucket) => ({ ...tidy(bucket), siteId: bucket.siteId, color: bucket.color }))
       .sort((a, b) => b.deposit + b.withdraw - (a.deposit + a.withdraw)),
+    byBank: [...byBank.values()]
+      .map((bucket) => ({ ...bucket, amount: round2(bucket.amount) }))
+      .sort((a, b) => b.amount - a.amount),
   };
 }
 

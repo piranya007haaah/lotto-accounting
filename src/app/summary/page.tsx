@@ -15,7 +15,7 @@ import {
 } from "@/components/ui";
 import { formatSigned } from "@/lib/format";
 import { currentMonthKey } from "@/lib/thai-date";
-import type { SiteRow, SummaryBucket, SummaryResponse } from "@/lib/types";
+import type { BankBucket, SiteRow, SummaryBucket, SummaryResponse } from "@/lib/types";
 
 type RangeMode = "today" | "yesterday" | "last7" | "month" | "year";
 
@@ -83,6 +83,21 @@ function SummaryRow({
   );
 }
 
+/** เงินที่ถอนออกจากเว็บ เข้าบัญชีธนาคารไหนไปเท่าไหร่ */
+function BankRow({ bucket, max }: { bucket: BankBucket; max: number }) {
+  return (
+    <div className="row py-2.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="truncate text-[13.5px] font-semibold">{bucket.key}</span>
+        <span className="dim flex-none text-[11px]">{bucket.count} รายการ</span>
+      </div>
+      <div className="mt-1.5">
+        <BarRow value={bucket.amount} max={max} tone="out" />
+      </div>
+    </div>
+  );
+}
+
 export default function SummaryPage() {
   const { api } = useAuth();
   const [mode, setMode] = useState<RangeMode>("month");
@@ -125,10 +140,14 @@ export default function SummaryPage() {
   const maxDay = Math.max(1, ...(data?.byDay ?? []).map((b) => Math.max(b.deposit, b.withdraw)));
   const maxSite = Math.max(1, ...(data?.bySite ?? []).map((b) => Math.max(b.deposit, b.withdraw)));
   const maxMonth = Math.max(1, ...(data?.byMonth ?? []).map((b) => Math.max(b.deposit, b.withdraw)));
+  const maxBank = Math.max(1, ...(data?.byBank ?? []).map((b) => b.amount));
 
   return (
     <div className="space-y-3.5">
-      <PageHeader title="สรุปยอด" subtitle={data?.label ?? "—"} />
+      <PageHeader
+        title="สรุปยอด"
+        subtitle={data ? `${data.label} · ${data.totals.count} รายการ` : "—"}
+      />
 
       <div className="flex gap-1.5 overflow-x-auto pb-0.5">
         {MODES.map((item) => (
@@ -175,19 +194,28 @@ export default function SummaryPage() {
               tone="out"
               icon={<StatIcon d="M12 19V5M5 12l7-7 7 7" />}
             />
-            <StatCard
-              label="กำไร / ขาดทุน"
-              value={data.totals.net}
-              signed
-              icon={<StatIcon d="M3 17l6-6 4 4 8-8M14 7h7v7" />}
-            />
-            <StatCard
-              label="จำนวนรายการ"
-              value={data.totals.count}
-              raw
-              icon={<StatIcon d="M4 6h16M4 12h16M4 18h10" />}
-            />
+            <div className="col-span-2">
+              <StatCard
+                label="กำไร / ขาดทุน"
+                value={data.totals.net}
+                signed
+                icon={<StatIcon d="M3 17l6-6 4 4 8-8M14 7h7v7" />}
+              />
+            </div>
           </div>
+
+          <section className="card p-4">
+            <SectionTitle>เงินเข้าบัญชี แยกตามธนาคาร</SectionTitle>
+            {data.byBank.length === 0 ? (
+              <EmptyState>ยังไม่มีรายการเงินออกจากเว็บในช่วงนี้</EmptyState>
+            ) : (
+              <div>
+                {data.byBank.map((bucket) => (
+                  <BankRow key={bucket.key} bucket={bucket} max={maxBank} />
+                ))}
+              </div>
+            )}
+          </section>
 
           <section className="card p-4">
             <SectionTitle>แยกตามเว็บ</SectionTitle>

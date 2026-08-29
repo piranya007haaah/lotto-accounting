@@ -114,6 +114,14 @@ export interface SummaryBucket {
   count: number;
 }
 
+/** เงินที่ถอนออกจากเว็บ แยกตามธนาคารปลายทางที่รับเงิน */
+export interface BankBucket {
+  /** ชื่อธนาคารที่ตัดคำว่า "ธนาคาร" ออกแล้ว ใช้เป็นทั้ง key และป้าย */
+  key: string;
+  amount: number;
+  count: number;
+}
+
 export interface SummaryResponse {
   from: string;
   to: string;
@@ -121,4 +129,6 @@ export interface SummaryResponse {
   byDay: SummaryBucket[];
   byMonth: SummaryBucket[];
   bySite: (SummaryBucket & { siteId: string; color: string | null })[];
+  /** เฉพาะรายการเงินออกจากเว็บ — เงินเข้าเว็บไม่นับ เพราะปลายทางคือเว็บไม่ใช่ธนาคารเรา */
+  byBank: BankBucket[];
 }
