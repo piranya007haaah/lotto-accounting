@@ -56,7 +56,7 @@ const BANK_MARKS: Array<{ aliases: string[]; mark: BankMark }> = [
   { aliases: ["กสิกรไทย", "kasikorn", "kbank", "kplus"], mark: { short: "KBANK", color: "#138f2d" } },
   { aliases: ["ไทยพาณิชย์", "siamcommercial", "scb"], mark: { short: "SCB", color: "#4e2e7f" } },
   { aliases: ["กรุงไทย", "krungthai", "ktb"], mark: { short: "KTB", color: "#1ba5e1" } },
-  { aliases: ["กรุงศรี", "krungsri", "ayudhya", "bay"], mark: { short: "BAY", color: "#fec43b" } },
+  { aliases: ["กรุงศรี", "krungsri", "ayudhya", "bay"], mark: { short: "Krungsri", color: "#fec43b" } },
   { aliases: ["ทหารไทยธนชาต", "thanachart", "ttb", "tmb"], mark: { short: "TTB", color: "#1279be" } },
   { aliases: ["ออมสิน", "gsb"], mark: { short: "GSB", color: "#eb198d" } },
   { aliases: ["อาคารสงเคราะห์", "ghbank", "ghb"], mark: { short: "GHB", color: "#f57d23" } },
