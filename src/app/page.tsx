@@ -28,9 +28,9 @@ interface OcrResponse {
   ocrError: string | null;
 }
 
-const DIRECTIONS: Array<{ value: Direction; label: string; hint: string; color: string }> = [
-  { value: "deposit", label: "เงินเข้าเว็บ", hint: "สลิปโอนเข้าเว็บ", color: "var(--color-money-in)" },
-  { value: "withdraw", label: "เงินออกจากเว็บ", hint: "แคปหน้าถอนสำเร็จ", color: "var(--color-money-out)" },
+const DIRECTIONS: Array<{ value: Direction; label: string }> = [
+  { value: "deposit", label: "เงินเข้าเว็บ" },
+  { value: "withdraw", label: "เงินออกจากเว็บ" },
 ];
 
 export default function EntryPage() {
@@ -228,36 +228,44 @@ export default function EntryPage() {
 
       {today ? (
         <Link href="/summary" className="hero">
-          <div className="flex items-baseline justify-between gap-2">
-            <p className="text-xs font-medium" style={{ color: "var(--color-brand-200)" }}>
-              สุทธิวันนี้ (กำไร/ขาดทุน)
-            </p>
-            <span className="text-[11px]" style={{ color: "var(--color-brand-200)" }}>
-              ดูสรุปยอด ›
-            </span>
-          </div>
-          <p
-            className="tnum mt-0.5 mb-3 text-[30px] leading-tight font-bold"
-            style={{ color: today.totals.net < 0 ? "var(--on-dark-in)" : "var(--on-dark-out)" }}
-          >
-            {formatSigned(today.totals.net)}
-          </p>
-          <div className="flex gap-6">
-            <div>
-              <p className="text-[11px]" style={{ color: "var(--color-brand-200)" }}>
-                เข้าเว็บวันนี้
+          <span className="hero-blob" aria-hidden />
+          <div className="relative">
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="muted text-xs font-bold" style={{ letterSpacing: "0.03em" }}>
+                สุทธิวันนี้ (กำไร/ขาดทุน)
               </p>
-              <p className="tnum mt-px text-[15px] font-semibold" style={{ color: "var(--on-dark-in)" }}>
-                {formatBahtShort(today.totals.deposit)}
-              </p>
+              <span className="text-[11.5px]" style={{ color: "var(--accent)" }}>
+                ดูสรุปยอด ›
+              </span>
             </div>
-            <div>
-              <p className="text-[11px]" style={{ color: "var(--color-brand-200)" }}>
-                ออกจากเว็บวันนี้
-              </p>
-              <p className="tnum mt-px text-[15px] font-semibold" style={{ color: "var(--on-dark-out)" }}>
-                {formatBahtShort(today.totals.withdraw)}
-              </p>
+            <div className="mt-1 flex items-center gap-3">
+              <p className="display-num text-[40px] leading-[1.1]">{formatSigned(today.totals.net)}</p>
+              <span
+                className="-rotate-6 rounded-[10px] px-2.5 py-1 text-xs font-bold"
+                style={
+                  today.totals.net >= 0
+                    ? { background: "var(--tint-out)", color: "var(--tint-out-text)" }
+                    : { background: "var(--tint-in)", color: "var(--color-money-in)" }
+                }
+              >
+                {today.totals.net >= 0 ? "กำไร" : "ขาดทุน"}
+              </span>
+            </div>
+            <div className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1">
+              <div className="flex items-center gap-1.5">
+                <span className="size-[9px] rounded-full" style={{ background: "var(--pastel-in)" }} />
+                <span className="muted text-[11.5px]">เข้าเว็บวันนี้</span>
+                <span className="tnum text-[14.5px] font-bold" style={{ color: "var(--color-money-in)" }}>
+                  {formatBahtShort(today.totals.deposit)}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="size-[9px] rounded-full" style={{ background: "var(--pastel-out)" }} />
+                <span className="muted text-[11.5px]">ออกจากเว็บวันนี้</span>
+                <span className="tnum text-[14.5px] font-bold" style={{ color: "var(--color-money-out)" }}>
+                  {formatBahtShort(today.totals.withdraw)}
+                </span>
+              </div>
             </div>
           </div>
         </Link>
@@ -270,32 +278,21 @@ export default function EntryPage() {
         <div className="card p-4 space-y-4">
           <div>
             <span className="field-label">ประเภทรายการ</span>
-            <div className="grid grid-cols-2 gap-2">
-              {DIRECTIONS.map((option) => {
-                const active = direction === option.value;
-                return (
-                  <button
-                    type="button"
-                    key={option.value}
-                    onClick={() => setDirection(option.value)}
-                    className="rounded-xl px-3 py-2.5 text-left"
-                    style={{
-                      border: "1.5px solid",
-                      borderColor: active ? option.color : "var(--line-strong)",
-                      background: active ? "color-mix(in srgb, " + option.color + " 10%, transparent)" : "transparent",
-                    }}
-                  >
-                    <span
-                      className="block text-sm font-semibold"
-                      style={{ color: active ? option.color : "var(--text)" }}
-                    >
-                      {option.label}
-                    </span>
-                    <span className="dim block text-[11px]">{option.hint}</span>
-                  </button>
-                );
-              })}
+            <div className="seg">
+              {DIRECTIONS.map((option) => (
+                <button
+                  type="button"
+                  key={option.value}
+                  className={`seg-item${direction === option.value ? " seg-item-active" : ""}`}
+                  onClick={() => setDirection(option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
             </div>
+            <p className="dim mt-1.5 text-[11px]">
+              เงินเข้าเว็บ = สลิปโอนเข้าเว็บ · เงินออกจากเว็บ = แคปหน้าถอนสำเร็จ
+            </p>
           </div>
 
           <div>
@@ -311,7 +308,7 @@ export default function EntryPage() {
               {sites.length === 0 ? <option value="">— ยังไม่มีเว็บ —</option> : null}
               {sites.map((site) => (
                 <option key={site.id} value={site.id}>
-                  {site.name}
+                  {site.emoji ? `${site.emoji} ${site.name}` : site.name}
                 </option>
               ))}
             </select>
@@ -356,9 +353,27 @@ export default function EntryPage() {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="dropzone flex flex-col items-center gap-1 px-3 py-7"
+              className="dropzone flex flex-col items-center gap-2 px-3 py-7"
             >
-              <span className="text-2xl">🧾</span>
+              <span
+                className="emoji-tile size-[46px] rounded-[14px]"
+                style={{ background: "var(--accent-tint)", color: "var(--accent)" }}
+              >
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M5 3h14v18l-2.5-1.6L14 21l-2-1.6L10 21l-2.5-1.6L5 21z" />
+                  <path d="M9 8h6M9 12h6" />
+                </svg>
+              </span>
               <span className="text-sm font-semibold">เลือกรูปจากเครื่อง / ถ่ายรูป</span>
               <span className="dim text-[11.5px]">
                 {ocrEnabled

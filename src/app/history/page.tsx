@@ -150,6 +150,9 @@ export default function HistoryPage() {
     groups.get(key)!.push(row);
   }
 
+  // emoji มาจากรายชื่อเว็บที่โหลดไว้สำหรับตัวกรอง — join ของ transactions ไม่ต้องส่งมา
+  const emojiById = new Map(sites.map((site) => [site.id, site.emoji ?? null]));
+
   return (
     <div className="space-y-3.5">
       <PageHeader title="รายการทั้งหมด" subtitle={`${rows.length} รายการในเดือนที่เลือก`} />
@@ -202,24 +205,61 @@ export default function HistoryPage() {
                   <li key={row.id}>
                     <button
                       onClick={() => toggleOpen(row)}
-                      className="flex w-full items-center gap-3 px-4 py-3 text-left"
+                      className={
+                        isOpen
+                          ? "mx-2.5 mt-2 mb-1 flex w-[calc(100%-20px)] items-center gap-3 rounded-2xl px-3.5 py-3 text-left"
+                          : "flex w-full items-center gap-3 px-4 py-3 text-left"
+                      }
+                      style={
+                        isOpen
+                          ? {
+                              background: "var(--ink-btn)",
+                              color: "var(--ink-btn-text)",
+                              boxShadow: "0 6px 14px rgb(22 36 61 / 0.20)",
+                            }
+                          : undefined
+                      }
                     >
-                      <span className="dim tnum w-10 flex-none text-xs">
+                      <span
+                        className="tnum w-10 flex-none text-xs"
+                        style={{ color: isOpen ? "var(--nav-dim)" : "var(--dim)" }}
+                      >
                         {pad2(parts.hour)}:{pad2(parts.minute)}
                       </span>
                       <span className="min-w-0 flex-1 truncate">
-                        <SiteBadge name={row.site?.name ?? "—"} color={row.site?.color} />
+                        <SiteBadge
+                          name={row.site?.name ?? "—"}
+                          color={row.site?.color}
+                          emoji={row.site ? emojiById.get(row.site.id) : null}
+                        />
                         {canViewAll ? (
-                          <span className="dim block truncate text-[11px]">
+                          <span
+                            className="block truncate text-[11px]"
+                            style={{ color: isOpen ? "var(--nav-dim)" : "var(--dim)" }}
+                          >
                             👤 {row.owner?.display_name ?? "(ไม่ทราบชื่อ)"}
                           </span>
                         ) : null}
-                        {row.note ? <span className="dim block truncate text-[11px]">{row.note}</span> : null}
+                        {row.note ? (
+                          <span
+                            className="block truncate text-[11px]"
+                            style={{ color: isOpen ? "var(--nav-dim)" : "var(--dim)" }}
+                          >
+                            {row.note}
+                          </span>
+                        ) : null}
                       </span>
                       <span
                         className="tnum flex-none text-sm font-bold"
                         style={{
-                          color: row.direction === "deposit" ? "var(--color-money-in)" : "var(--color-money-out)",
+                          color:
+                            row.direction === "deposit"
+                              ? isOpen
+                                ? "color-mix(in srgb, var(--color-money-in) 60%, var(--ink-btn-text))"
+                                : "var(--color-money-in)"
+                              : isOpen
+                                ? "color-mix(in srgb, var(--color-money-out) 60%, var(--ink-btn-text))"
+                                : "var(--color-money-out)",
                         }}
                       >
                         {row.direction === "deposit" ? "−" : "+"}

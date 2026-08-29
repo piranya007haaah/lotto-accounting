@@ -5,7 +5,7 @@ import { useAuth } from "@/components/LiffProvider";
 import { Alert, BarRow, Chip, EmptyState, PageHeader, SectionTitle, Spinner, StatCard } from "@/components/ui";
 import { formatSigned } from "@/lib/format";
 import { currentMonthKey } from "@/lib/thai-date";
-import type { SummaryBucket, SummaryResponse } from "@/lib/types";
+import type { SiteRow, SummaryBucket, SummaryResponse } from "@/lib/types";
 
 type RangeMode = "today" | "yesterday" | "last7" | "month" | "year";
 
@@ -17,12 +17,46 @@ const MODES: Array<{ value: RangeMode; label: string }> = [
   { value: "year", label: "ทั้งปี" },
 ];
 
-function SummaryRow({ bucket, max }: { bucket: SummaryBucket & { color?: string | null }; max: number }) {
+/* ไอคอนเส้นบนการ์ดสถิติ — วาดบน viewBox 24×24 */
+function StatIcon({ d }: { d: string }) {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d={d} />
+    </svg>
+  );
+}
+
+function SummaryRow({
+  bucket,
+  max,
+  emoji,
+}: {
+  bucket: SummaryBucket & { color?: string | null };
+  max: number;
+  emoji?: string | null;
+}) {
   return (
     <div className="row py-2.5">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="flex min-w-0 items-center gap-1.5 text-[13.5px] font-semibold">
-          {bucket.color ? (
+        <span className="flex min-w-0 items-center gap-2 text-[13.5px] font-semibold">
+          {emoji ? (
+            <span
+              className="emoji-tile size-6 text-[13px]"
+              style={{ background: `color-mix(in srgb, ${bucket.color ?? "var(--accent)"} 38%, var(--card))` }}
+            >
+              {emoji}
+            </span>
+          ) : bucket.color ? (
             <span className="size-2 flex-none rounded-full" style={{ background: bucket.color }} />
           ) : null}
           <span className="truncate">{bucket.label}</span>
@@ -50,6 +84,14 @@ export default function SummaryPage() {
   const [data, setData] = useState<(SummaryResponse & { label: string }) | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** emoji ของแต่ละเว็บ (key = site id) — โหลดแยก ไม่ต้องรอ ไม่บล็อกสรุปยอด */
+  const [siteEmoji, setSiteEmoji] = useState<Record<string, string | null>>({});
+
+  useEffect(() => {
+    api<{ sites: SiteRow[] }>("/api/sites?all=1")
+      .then((res) => setSiteEmoji(Object.fromEntries(res.sites.map((s) => [s.id, s.emoji ?? null]))))
+      .catch(() => undefined);
+  }, [api]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -113,11 +155,31 @@ export default function SummaryPage() {
 
       {data ? (
         <>
-          <div className="grid grid-cols-2 gap-2">
-            <StatCard label="เงินเข้าเว็บ" value={data.totals.deposit} tone="in" />
-            <StatCard label="เงินออกจากเว็บ" value={data.totals.withdraw} tone="out" />
-            <StatCard label="กำไร / ขาดทุน" value={data.totals.net} signed />
-            <StatCard label="จำนวนรายการ" value={data.totals.count} raw />
+          <div className="grid grid-cols-2 gap-2.5">
+            <StatCard
+              label="เงินเข้าเว็บ"
+              value={data.totals.deposit}
+              tone="in"
+              icon={<StatIcon d="M12 5v14M5 12l7 7 7-7" />}
+            />
+            <StatCard
+              label="เงินออกจากเว็บ"
+              value={data.totals.withdraw}
+              tone="out"
+              icon={<StatIcon d="M12 19V5M5 12l7-7 7 7" />}
+            />
+            <StatCard
+              label="กำไร / ขาดทุน"
+              value={data.totals.net}
+              signed
+              icon={<StatIcon d="M3 17l6-6 4 4 8-8M14 7h7v7" />}
+            />
+            <StatCard
+              label="จำนวนรายการ"
+              value={data.totals.count}
+              raw
+              icon={<StatIcon d="M4 6h16M4 12h16M4 18h10" />}
+            />
           </div>
 
           <section className="card p-4">
@@ -127,7 +189,7 @@ export default function SummaryPage() {
             ) : (
               <div>
                 {data.bySite.map((bucket) => (
-                  <SummaryRow key={bucket.key} bucket={bucket} max={maxSite} />
+                  <SummaryRow key={bucket.key} bucket={bucket} max={maxSite} emoji={siteEmoji[bucket.siteId]} />
                 ))}
               </div>
             )}
@@ -156,7 +218,7 @@ export default function SummaryPage() {
           ) : null}
 
           <p className="dim text-center text-[11px]">
-            แถบสีแดง = เงินเข้าเว็บ · แถบสีเขียว = เงินออกจากเว็บ · ตัวเลขขวา = กำไร/ขาดทุน
+            แถบชมพู = เงินเข้าเว็บ · แถบเขียวมินต์ = เงินออกจากเว็บ · ตัวเลขขวา = กำไร/ขาดทุน
           </p>
         </>
       ) : null}

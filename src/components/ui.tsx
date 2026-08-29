@@ -12,15 +12,15 @@ export function Alert({
   children?: React.ReactNode;
 }) {
   const palette = {
-    info: { bg: "#eef4ff", border: "#c7d8ff", text: "#24479c" },
-    success: { bg: "#ecfdf5", border: "#a7f3d0", text: "#047857" },
-    warn: { bg: "#fffbeb", border: "#fde68a", text: "#b45309" },
-    error: { bg: "#fef2f2", border: "#fecaca", text: "#b91c1c" },
+    info: { bg: "#e8f1fe", border: "#c8dcf8", text: "#2c5497" },
+    success: { bg: "#e4f6ee", border: "#bee5d2", text: "#0b7a50" },
+    warn: { bg: "#fff4e0", border: "#f3ddb0", text: "#9a6a00" },
+    error: { bg: "#fdeaea", border: "#f5c2c4", text: "#b3282d" },
   }[tone];
 
   return (
     <div
-      className="rounded-xl border px-3.5 py-2.5 text-[13.5px] leading-relaxed"
+      className="rounded-2xl border px-3.5 py-2.5 text-[13.5px] leading-relaxed"
       style={{ background: palette.bg, borderColor: palette.border, color: palette.text }}
     >
       {title ? <p className="font-bold">{title}</p> : null}
@@ -76,13 +76,14 @@ export function Chip({
   );
 }
 
-/** การ์ดตัวเลขสรุป */
+/** การ์ดตัวเลขสรุป — ไอคอนในกล่องสีอ่อน + ตัวเลขใหญ่หนา */
 export function StatCard({
   label,
   value,
   tone = "neutral",
   signed = false,
   raw,
+  icon,
 }: {
   label: string;
   value: number;
@@ -90,30 +91,46 @@ export function StatCard({
   signed?: boolean;
   /** แสดงตัวเลขดิบ ๆ แทนจำนวนเงิน เช่น "จำนวนรายการ" */
   raw?: boolean;
+  icon?: React.ReactNode;
 }) {
-  const color =
+  const tile =
     tone === "in"
-      ? "var(--color-money-in)"
+      ? { bg: "var(--tint-in)", fg: "var(--color-money-in)" }
       : tone === "out"
-        ? "var(--color-money-out)"
-        : value < 0
-          ? "var(--color-money-in)"
-          : "var(--text)";
+        ? { bg: "var(--tint-out)", fg: "var(--color-money-out)" }
+        : { bg: "var(--accent-tint)", fg: "var(--accent)" };
+
+  // ตัวเลขเป็นสีเข้มแบบเดียวกันหมด — ยกเว้นยอดสุทธิ (signed) ที่บอกกำไร/ขาดทุนด้วยสี
+  const color = signed
+    ? value >= 0
+      ? "var(--color-money-out)"
+      : "var(--color-money-in)"
+    : "var(--text)";
 
   return (
     <div className="card px-3.5 py-3">
-      <p className="muted text-[11px] font-medium">{label}</p>
-      <p className="tnum mt-[3px] text-lg font-bold" style={{ color }}>
+      <div className="flex items-center gap-2">
+        {icon ? (
+          <span
+            className="flex size-[30px] flex-none items-center justify-center rounded-[10px]"
+            style={{ background: tile.bg, color: tile.fg }}
+          >
+            {icon}
+          </span>
+        ) : null}
+        <p className="muted text-[11px] font-semibold">{label}</p>
+      </div>
+      <p className="display-num mt-2 text-[19px]" style={{ color }}>
         {raw ? value.toLocaleString("th-TH") : signed ? formatSigned(value) : formatBahtShort(value)}
       </p>
     </div>
   );
 }
 
-/** แถบสัดส่วนเงินเข้า/ออก ใช้ในหน้าสรุปยอด */
+/** แถบสัดส่วนเงินเข้า/ออก ใช้ในหน้าสรุปยอด — แถบเป็นสี pastel */
 export function BarRow({ value, max, tone }: { value: number; max: number; tone: "in" | "out" }) {
   const width = max > 0 ? Math.min(100, (value / max) * 100) : 0;
-  const color = tone === "in" ? "var(--color-money-in)" : "var(--color-money-out)";
+  const color = tone === "in" ? "var(--pastel-in)" : "var(--pastel-out)";
   return (
     <div className="flex items-center gap-2">
       <div className="bar-track">
@@ -126,11 +143,28 @@ export function BarRow({ value, max, tone }: { value: number; max: number; tone:
   );
 }
 
-export function SiteBadge({ name, color }: { name: string; color?: string | null }) {
-  const dot = color ?? "var(--dim)";
+/** ชื่อเว็บ — มี emoji เป็นกล่องสี pastel, ไม่มีก็เป็นจุดสีแบบเดิม */
+export function SiteBadge({
+  name,
+  color,
+  emoji,
+}: {
+  name: string;
+  color?: string | null;
+  emoji?: string | null;
+}) {
   return (
-    <span className="flex min-w-0 items-center gap-1.5 text-[13.5px] font-semibold">
-      <span className="size-2 flex-none rounded-full" style={{ background: dot }} />
+    <span className="flex min-w-0 items-center gap-2 text-[13.5px] font-semibold">
+      {emoji ? (
+        <span
+          className="emoji-tile size-6 text-[13px]"
+          style={{ background: `color-mix(in srgb, ${color ?? "var(--accent)"} 38%, var(--card))` }}
+        >
+          {emoji}
+        </span>
+      ) : (
+        <span className="size-2 flex-none rounded-full" style={{ background: color ?? "var(--dim)" }} />
+      )}
       <span className="truncate">{name}</span>
     </span>
   );
@@ -141,7 +175,7 @@ export function Spinner({ label }: { label?: string }) {
     <span className="muted inline-flex items-center gap-2 text-sm">
       <span
         className="inline-block size-[18px] animate-spin rounded-full border-[2.5px]"
-        style={{ borderColor: "var(--color-brand-200)", borderTopColor: "var(--color-brand-600)" }}
+        style={{ borderColor: "var(--accent-tint)", borderTopColor: "var(--accent)" }}
         aria-hidden
       />
       {label}
@@ -157,11 +191,11 @@ export function EmptyState({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** วงกลมตัวอักษรแรกของชื่อ ใช้แทนรูปโปรไฟล์ที่ไม่มี */
+/** อวตารทรง blob — รูปโปรไฟล์ หรือวงตัวอักษรแรกของชื่อ */
 export function AvatarCircle({
   name,
   src,
-  size = 38,
+  size = 40,
 }: {
   name: string | null | undefined;
   src?: string | null;
@@ -173,20 +207,21 @@ export function AvatarCircle({
       <img
         src={src}
         alt=""
-        className="flex-none rounded-full object-cover"
+        className="blob flex-none object-cover"
         style={{ width: size, height: size }}
       />
     );
   }
   return (
     <span
-      className="flex flex-none items-center justify-center rounded-full font-bold"
+      className="blob flex flex-none items-center justify-center font-bold"
       style={{
         width: size,
         height: size,
-        background: "var(--color-brand-100)",
-        color: "var(--color-brand-700)",
+        background: "var(--accent-tint)",
+        color: "var(--accent)",
         fontSize: size * 0.4,
+        fontFamily: "var(--font-prompt), var(--font-sans)",
       }}
     >
       {(name ?? "?").trim().slice(0, 1).toUpperCase()}

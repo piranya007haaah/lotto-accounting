@@ -34,6 +34,8 @@ export interface SiteRow {
   name: string;
   note: string | null;
   color: string | null;
+  /** อิโมจิประจำเว็บ — optional เพราะฐานข้อมูลที่ยังไม่รัน migration 0005 จะไม่มีคอลัมน์นี้ */
+  emoji?: string | null;
   sort_order: number;
   is_active: boolean;
 }

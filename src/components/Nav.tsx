@@ -22,20 +22,18 @@ const ADMIN_ITEM = {
   icon: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
 } as const;
 
+/** แถบเมนูล่างแบบลอย — แท่งสีกรมท่า เมนูที่เปิดอยู่เป็นเม็ดยาสีขาว */
 export function Nav() {
   const pathname = usePathname();
   const { isAdmin } = useAuth();
   const items = isAdmin ? [...ITEMS, ADMIN_ITEM] : ITEMS;
 
   return (
-    <nav
-      className="fixed inset-x-0 bottom-0 z-20 border-t backdrop-blur-md"
-      style={{
-        borderColor: "var(--line)",
-        background: "color-mix(in srgb, var(--card) 94%, transparent)",
-      }}
-    >
-      <div className="mx-auto flex max-w-md px-2 pt-1.5 pb-3.5">
+    <nav className="fixed inset-x-0 bottom-0 z-20 px-3 pb-3">
+      <div
+        className="mx-auto flex max-w-md rounded-3xl px-1.5 py-2.5"
+        style={{ background: "var(--nav-bg)", boxShadow: "0 12px 28px rgb(22 36 61 / 0.30)" }}
+      >
         {items.map((item) => {
           const active = pathname === item.href;
           return (
@@ -43,19 +41,19 @@ export function Nav() {
               key={item.href}
               href={item.href}
               aria-current={active ? "page" : undefined}
-              className="flex flex-1 flex-col items-center gap-[3px] py-1"
+              className="flex flex-1 flex-col items-center gap-[3px] py-0.5"
             >
               <span
-                className="flex h-[27px] w-[42px] items-center justify-center rounded-full transition-colors"
-                style={{ background: active ? "var(--nav-active)" : "transparent" }}
+                className="flex h-[29px] w-[44px] items-center justify-center rounded-full transition-colors"
+                style={{ background: active ? "var(--nav-active-bg)" : "transparent" }}
               >
                 <svg
                   width="19"
                   height="19"
                   viewBox="0 0 24 24"
                   fill="none"
-                  stroke={active ? "var(--color-brand-600)" : "var(--dim)"}
-                  strokeWidth="1.9"
+                  stroke={active ? "var(--nav-active-text)" : "var(--nav-dim)"}
+                  strokeWidth={active ? 2 : 1.9}
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   aria-hidden="true"
@@ -66,7 +64,7 @@ export function Nav() {
               <span
                 className="text-[10.5px]"
                 style={{
-                  color: active ? "var(--color-brand-600)" : "var(--dim)",
+                  color: active ? "var(--nav-active-bg)" : "var(--nav-dim)",
                   fontWeight: active ? 700 : 500,
                 }}
               >

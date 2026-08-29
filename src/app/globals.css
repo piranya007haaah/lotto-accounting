@@ -1,54 +1,85 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "IBM Plex Sans Thai", "Noto Sans Thai", "Sarabun", -apple-system,
+  --font-sans: var(--font-anuphan), "Noto Sans Thai", "Sarabun", -apple-system,
     BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 
-  --color-brand-50: #eef4ff;
-  --color-brand-100: #d9e5ff;
-  --color-brand-200: #c7d8ff;
-  --color-brand-500: #3b6fe0;
-  --color-brand-600: #2d59c4;
-  --color-brand-700: #24479c;
+  /* โทนฟ้า pastel — ใช้กับ Spinner/อวตาร/ลิงก์ทั่วแอป */
+  --color-brand-50: #f2f6fb;
+  --color-brand-100: #ddeafc;
+  --color-brand-200: #bcd2ef;
+  --color-brand-500: #5b93e8;
+  --color-brand-600: #3e71c4;
+  --color-brand-700: #2c5497;
 
-  --color-money-in: #dc2626;
-  --color-money-out: #059669;
+  --color-money-in: #e5484d;
+  --color-money-out: #0fa36b;
 }
 
 :root {
-  --surface: #f2f4f8;
+  --surface: #edf2f8;
   --card: #ffffff;
   /* เส้นขอบการ์ด — บางและนุ่ม */
-  --line: #e7eaf2;
-  /* เส้นขอบช่องกรอก — เข้มกว่านิดให้เห็นขอบชัด */
-  --line-strong: #dfe4ee;
+  --line: #e3eaf4;
+  /* เส้นขอบปุ่ม ghost — เข้มกว่านิดให้เห็นขอบชัด */
+  --line-strong: #dce5f1;
   /* เส้นคั่นระหว่างแถวในลิสต์ — จางที่สุด */
-  --divider: #f0f2f7;
-  --text: #10182b;
-  --muted: #667085;
+  --divider: #edf1f8;
+  --text: #10192b;
+  --muted: #5f6e85;
   /* ข้อความลำดับสาม: placeholder, คำอธิบายใต้ปุ่ม */
-  --dim: #98a2b3;
+  --dim: #97a5bc;
   /* พื้นอ่อนสำหรับแถบหัวกลุ่ม / กรอบรูปตัวอย่าง */
-  --subtle: #f2f4f8;
-  /* พื้นวงกลมไอคอนของเมนูที่กำลังเปิดอยู่ */
-  --nav-active: #e3ecff;
-  /* สีเงินเข้า/ออก เวลาอยู่บนพื้นเข้ม (การ์ดไล่สี) */
-  --on-dark-in: #ffb4b4;
-  --on-dark-out: #7ff0c2;
+  --subtle: #f5f8fc;
+  /* ช่องกรอกแบบพื้นทึบ (filled) */
+  --field-bg: #f2f6fb;
+  --field-line: #e7edf7;
+  /* สีหลักฟ้า pastel + พื้นอ่อนของมัน */
+  --accent: #5b93e8;
+  --accent-tint: #ddeafc;
+  /* ปุ่ม/แถบสีเข้ม (กรมท่า) — กลับด้านเป็นสีอ่อนในโหมดมืด */
+  --ink-btn: #16243d;
+  --ink-btn-text: #ffffff;
+  /* แถบเมนูล่าง */
+  --nav-bg: #16243d;
+  --nav-dim: #8fa3c4;
+  --nav-active-bg: #ffffff;
+  --nav-active-text: #16243d;
+  /* แถบกราฟ/จุดสีแบบ pastel ของเงินเข้า-ออก (ตัวเลขยังใช้สีเข้มตาม --color-money-*) */
+  --pastel-in: #f1a0a8;
+  --pastel-out: #86d6af;
+  --tint-in: #fbe4e6;
+  --tint-out: #dff3e9;
+  --tint-out-text: #0b7a50;
+  /* รางของ toggle แบบแคปซูล */
+  --seg-track: #e9eef6;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --surface: #0f1117;
-    --card: #171a23;
-    --line: #262a36;
-    --line-strong: #2f3444;
-    --divider: #20242e;
-    --text: #e9eaf0;
-    --muted: #9aa0ae;
-    --dim: #6f7686;
-    --subtle: #1c202b;
-    --nav-active: #1e2a45;
+    --surface: #0c1220;
+    --card: #151e30;
+    --line: #232f47;
+    --line-strong: #2b3a57;
+    --divider: #1d2840;
+    --text: #e8edf5;
+    --muted: #9aa8c0;
+    --dim: #667690;
+    --subtle: #1a2438;
+    --field-bg: #1a2438;
+    --field-line: #26334e;
+    --accent: #7fa8ee;
+    --accent-tint: #22344f;
+    --ink-btn: #e8edf5;
+    --ink-btn-text: #10192b;
+    --nav-bg: #151e30;
+    --nav-dim: #667690;
+    --nav-active-bg: #e8edf5;
+    --nav-active-text: #10192b;
+    --tint-in: #3a2228;
+    --tint-out: #1c332a;
+    --tint-out-text: #6fd8ac;
+    --seg-track: #1a2438;
   }
 }
 
@@ -68,23 +99,33 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* ตัวเลขโชว์ใหญ่ ๆ แบบหนา — ยอดสุทธิ, การ์ดสรุป */
+.display-num {
+  font-family: var(--font-archivo), var(--font-prompt), var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
 /* ------- ชิ้นส่วน UI ที่ใช้ซ้ำทั้งแอป ------- */
 .card {
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 1rem;
+  border-radius: 1.25rem;
+  box-shadow: 0 1px 2px rgb(22 36 61 / 0.04);
 }
 
 /* หัวข้อของแต่ละหน้า */
 .page-title {
-  font-size: 1.25rem;
+  font-family: var(--font-prompt), var(--font-sans);
+  font-size: 1.375rem;
   font-weight: 700;
+  letter-spacing: -0.01em;
   color: var(--text);
   margin: 0;
 }
 
 .page-sub {
-  font-size: 0.75rem;
+  font-size: 0.78125rem;
   color: var(--muted);
   margin: 0.125rem 0 0;
 }
@@ -107,9 +148,9 @@ body {
 
 .field {
   width: 100%;
-  background: var(--card);
-  border: 1px solid var(--line-strong);
-  border-radius: 0.75rem;
+  background: var(--field-bg);
+  border: 1px solid var(--field-line);
+  border-radius: 0.875rem;
   padding: 0.6875rem 0.875rem;
   font-size: 0.9375rem;
   color: var(--text);
@@ -121,8 +162,8 @@ body {
 }
 
 .field:focus {
-  border-color: var(--color-brand-500);
-  box-shadow: 0 0 0 3px var(--color-brand-100);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-tint);
 }
 
 .btn {
@@ -130,9 +171,9 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border-radius: 0.75rem;
-  padding: 0.75rem 1rem;
-  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.8125rem 1.25rem;
+  font-weight: 700;
   font-size: 0.9375rem;
   border: 1px solid transparent;
   cursor: pointer;
@@ -145,9 +186,9 @@ body {
 }
 
 .btn-primary {
-  background: var(--color-brand-600);
-  color: #fff;
-  box-shadow: 0 4px 12px rgb(45 89 196 / 0.25);
+  background: var(--ink-btn);
+  color: var(--ink-btn-text);
+  box-shadow: 0 8px 18px rgb(22 36 61 / 0.25);
 }
 
 .btn-ghost {
@@ -158,8 +199,8 @@ body {
 
 .btn-danger {
   background: transparent;
-  border-color: #fca5a5;
-  color: #dc2626;
+  border-color: #f5c2c4;
+  color: #e5484d;
 }
 
 /* ลิงก์ข้อความเล็ก ๆ ที่แทรกอยู่ในการ์ด เช่น "ลบรูป" "เพิ่ม / แก้ไขรายชื่อเว็บ" */
@@ -173,38 +214,96 @@ body {
   cursor: pointer;
 }
 
-/* ปุ่มกลมสำหรับเลือกช่วงเวลา/ตัวกรอง */
+/* ปุ่มกลมสำหรับเลือกช่วงเวลา/ตัวกรอง — ตัวที่เลือกเป็นแคปซูลสีเข้ม */
 .chip {
   flex: none;
   border-radius: 999px;
   border: 1px solid var(--line-strong);
   background: var(--card);
   color: var(--muted);
-  padding: 0.4375rem 0.875rem;
-  font-size: 0.78125rem;
+  padding: 0.4375rem 0.75rem;
+  font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
 }
 
 .chip-active {
-  border-color: var(--color-brand-600);
-  background: var(--color-brand-600);
-  color: #fff;
+  border-color: var(--ink-btn);
+  background: var(--ink-btn);
+  color: var(--ink-btn-text);
+  font-weight: 700;
 }
 
-/* การ์ดไล่สีด้านบนหน้าบันทึก */
+/* การ์ดยอดสุทธิบนหน้าบันทึก — การ์ดขาว ตัวเลขใหญ่ + ก้อน blob จาง ๆ มุมขวา */
 .hero {
   display: block;
+  position: relative;
+  overflow: hidden;
   width: 100%;
   text-align: left;
-  border: none;
-  border-radius: 1.125rem;
-  padding: 1rem 1.125rem;
-  color: #fff;
+  border: 1px solid var(--line);
+  border-radius: 1.625rem;
+  padding: 1.375rem 1.25rem 1.25rem;
+  color: var(--text);
   cursor: pointer;
-  background: linear-gradient(135deg, var(--color-brand-700), var(--color-brand-600) 55%, var(--color-brand-500));
-  box-shadow: 0 10px 24px rgb(45 89 196 / 0.28);
+  background: var(--card);
+  box-shadow: 0 14px 30px rgb(22 36 61 / 0.10);
+}
+
+.hero-blob {
+  position: absolute;
+  top: -3.5rem;
+  right: -2.75rem;
+  width: 10.5rem;
+  height: 10.5rem;
+  background: var(--accent-tint);
+  opacity: 0.55;
+  border-radius: 42% 58% 60% 40% / 46% 44% 56% 54%;
+}
+
+/* ทรง blob เล่น ๆ ของอวตาร */
+.blob {
+  border-radius: 42% 58% 60% 40% / 46% 44% 56% 54%;
+}
+
+/* toggle แบบแคปซูล (เงินเข้าเว็บ / เงินออกจากเว็บ) */
+.seg {
+  display: flex;
+  background: var(--seg-track);
+  border-radius: 999px;
+  padding: 0.25rem;
+}
+
+.seg-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 999px;
+  padding: 0.625rem 0.5rem;
+  font-size: 0.84375rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.seg-item-active {
+  background: var(--ink-btn);
+  color: var(--ink-btn-text);
+  font-weight: 700;
+  box-shadow: 0 4px 10px rgb(22 36 61 / 0.22);
+}
+
+/* กล่องอิโมจิประจำเว็บ — พื้นสี pastel ของเว็บนั้น */
+.emoji-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border-radius: 0.6875rem;
 }
 
 /* แถวในลิสต์ที่มีเส้นคั่นบาง ๆ */
@@ -225,8 +324,8 @@ body {
 .dropzone {
   width: 100%;
   border: 1.5px dashed var(--line-strong);
-  border-radius: 0.75rem;
-  background: none;
+  border-radius: 1rem;
+  background: var(--subtle);
   cursor: pointer;
 }
 
@@ -235,7 +334,7 @@ body {
   flex: 1;
   height: 0.375rem;
   border-radius: 999px;
-  background: var(--subtle);
+  background: var(--divider);
   overflow: hidden;
 }
 

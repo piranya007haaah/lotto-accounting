@@ -31,6 +31,8 @@ export const siteInputSchema = z.object({
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/, "สีต้องเป็นรหัส HEX เช่น #2563eb")
     .nullish(),
+  /** อิโมจิเดียว แต่บางตัวประกอบจากหลาย code point เลยเผื่อความยาวไว้ */
+  emoji: z.string().trim().min(1).max(16).nullish(),
   note: z.string().max(500).nullish(),
   sortOrder: z.number().int().min(0).max(9999).optional(),
 });

@@ -43,8 +43,8 @@ function MemberCard({
       <div className="flex shrink-0 flex-col items-end gap-1.5">
         {member.is_admin ? (
           <span
-            className="rounded-full px-2.5 py-1 text-xs font-semibold"
-            style={{ background: "#eef4ff", color: "#24479c" }}
+            className="rounded-full px-2.5 py-1 text-xs font-bold"
+            style={{ background: "var(--accent-tint)", color: "var(--accent)" }}
           >
             ผู้ดูแล
           </span>
@@ -65,8 +65,8 @@ function MemberCard({
             onClick={() => onPatch(member, { canViewAll: !member.can_view_all })}
             style={
               member.can_view_all
-                ? { background: "#ecfdf5", borderColor: "#a7f3d0", color: "#047857" }
-                : { background: "transparent", borderColor: "var(--line)", color: "var(--muted)" }
+                ? { background: "var(--tint-out)", borderColor: "#bee5d2", color: "var(--tint-out-text)" }
+                : { background: "transparent", borderColor: "var(--line-strong)", color: "var(--muted)" }
             }
           >
             {member.can_view_all ? "เห็นทุกบัญชี" : "เห็นเฉพาะของตัวเอง"}
@@ -143,8 +143,8 @@ export default function AdminPage() {
           action={
             pending.length > 0 ? (
               <span
-                className="rounded-full px-2 py-0.5 text-xs font-bold"
-                style={{ background: "#fffbeb", color: "#b45309" }}
+                className="tnum rounded-full px-2 py-0.5 text-xs font-bold"
+                style={{ background: "#fff3e0", color: "#c77700" }}
               >
                 {pending.length}
               </span>
