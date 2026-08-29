@@ -25,7 +25,7 @@
 npm run dev         # รันในเครื่อง (ตั้ง DEV_AUTH_BYPASS=true เพื่อข้าม LINE Login)
 npm run build       # ตรวจว่า build ผ่านก่อน commit
 npm run typecheck   # tsc --noEmit
-npx tsx scripts/ocr-smoke.ts ./slip.jpg   # ทดสอบการอ่านรูปแยกเดี่ยว ๆ (อ่านคีย์จาก .env.local)
+npx tsx scripts/ocr-smoke.ts ./slip.jpg   # ทดสอบอ่านรูปจริง (อ่านคีย์จาก .env.local ให้เอง)
 npx tsx scripts/parser-check.ts           # ตรวจกติกาการแกะข้อความสลิป ไม่เรียก API
 ```
 

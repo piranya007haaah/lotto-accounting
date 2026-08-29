@@ -63,6 +63,22 @@ export interface TransactionWithSite extends TransactionRow {
   owner?: { display_name: string | null } | null;
 }
 
+/** ข้อมูลที่ถอดจาก QR ตรวจสอบสลิปของธนาคาร — อ่านตรงจากรูป ไม่ผ่านการตีความ */
+export interface SlipQr {
+  /** ข้อความดิบใน QR */
+  payload: string;
+  /** เลขที่รายการ (transaction reference) ตรงกับที่พิมพ์บนสลิป */
+  transRef: string;
+  /** รหัสธนาคารต้นทาง 3 หลัก เช่น "004" */
+  sendingBankCode: string | null;
+  sendingBankName: string | null;
+  countryCode: string | null;
+  /** CRC ท้าย payload ตรวจแล้วผ่าน (สลิปบางใบไม่มี CRC มาให้ตรวจ) */
+  crcVerified: boolean;
+}
+
+export type OcrSource = "qr" | "vision";
+
 /** ผลที่อ่านได้จากรูป หลังผ่านการปรับค่าให้พร้อมใช้แล้ว */
 export interface OcrResult {
   direction: Direction | null;
@@ -76,6 +92,13 @@ export interface OcrResult {
   confidence: number;
   documentType: string;
   warnings: string[];
+  /**
+   * ค่านี้ผ่านตัวอ่านอะไรมาบ้าง เรียงตามลำดับที่ทำงาน
+   *   qr     — ถอด QR ตรวจสอบสลิปเองในเครื่อง (แม่นที่สุด ไม่มีค่าใช้จ่าย)
+   *   vision — Google Cloud Vision อ่านตัวหนังสือ
+   */
+  sources: OcrSource[];
+  qr: SlipQr | null;
   raw: unknown;
 }
 

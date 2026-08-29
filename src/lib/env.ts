@@ -20,43 +20,16 @@ export const APP_TIMEZONE = env("APP_TIMEZONE") ?? "Asia/Bangkok";
 /** ชื่อ storage bucket ที่เก็บรูปสลิป */
 export const STORAGE_BUCKET = env("SUPABASE_STORAGE_BUCKET") ?? "slips";
 
-/** โมเดลที่ใช้อ่านรูป (เฉพาะตอนใช้ provider "anthropic") */
-export const OCR_MODEL = env("OCR_MODEL") ?? "claude-opus-5";
-
-/** ระดับความละเอียดในการคิดของโมเดล (low พอสำหรับอ่านสลิป) */
-export const OCR_EFFORT = (env("OCR_EFFORT") ?? "low") as "low" | "medium" | "high" | "xhigh" | "max";
-
-/** ปลายทาง REST ของ Cloud Vision — เผื่อวันหลังต้องชี้ไป endpoint ประจำภูมิภาค */
-export const GOOGLE_VISION_ENDPOINT =
-  env("GOOGLE_VISION_ENDPOINT") ?? "https://vision.googleapis.com/v1/images:annotate";
-
-export function googleVisionApiKey(): string | undefined {
+/** API key ของ Google Cloud Vision — ตัวที่ใช้อ่านตัวหนังสือบนรูป */
+export function GOOGLE_VISION_API_KEY(): string | undefined {
   return env("GOOGLE_VISION_API_KEY");
 }
 
-/**
- * ตัวอ่านรูปที่ใช้จริง
- *  - "google"    = Google Cloud Vision (ฟรี 1,000 รูป/เดือน แล้วอ่านค่าจากข้อความด้วยกฎ)
- *  - "anthropic" = Claude อ่านรูปตรง ๆ (แม่นกว่า แต่คิดเงินทุกรูป)
- * ค่าเริ่มต้น "auto" = มีคีย์ไหนใช้อันนั้น ถ้ามีทั้งคู่เลือก Google เพราะถูกกว่า
- */
-export type OcrProvider = "google" | "anthropic";
-
-export function resolveOcrProvider(): OcrProvider | null {
-  const hasGoogle = Boolean(googleVisionApiKey());
-  const hasAnthropic = Boolean(env("ANTHROPIC_API_KEY"));
-  const requested = (env("OCR_PROVIDER") ?? "auto").toLowerCase();
-
-  if (requested === "google" || requested === "vision") return hasGoogle ? "google" : null;
-  if (requested === "anthropic" || requested === "claude") return hasAnthropic ? "anthropic" : null;
-  if (hasGoogle) return "google";
-  if (hasAnthropic) return "anthropic";
-  return null;
+export function isVisionConfigured(): boolean {
+  return Boolean(GOOGLE_VISION_API_KEY());
 }
 
-export function isOcrConfigured(): boolean {
-  return resolveOcrProvider() !== null;
-}
+
 
 /** ข้าม LINE Login ได้เฉพาะตอน dev และต้องเปิดสวิตช์เองเท่านั้น */
 export function isDevAuthBypassEnabled(): boolean {

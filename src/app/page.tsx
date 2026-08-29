@@ -7,7 +7,7 @@ import { Alert, AvatarCircle, SectionTitle, Spinner } from "@/components/ui";
 import { formatBahtShort, formatSigned, parseAmountInput } from "@/lib/format";
 import { compressImage } from "@/lib/image-client";
 import { formatThaiDateTime, toDatetimeLocalValue } from "@/lib/thai-date";
-import type { Direction, OcrResult, OcrStatus, SiteRow, SummaryResponse } from "@/lib/types";
+import type { Direction, OcrResult, OcrStatus, SiteRow, SlipQr, SummaryResponse } from "@/lib/types";
 
 const LAST_SITE_KEY = "lotto:lastSiteId";
 
@@ -18,9 +18,12 @@ interface OcrResponse {
     direction: Direction;
     occurredAt: string;
     siteName: string | null;
+    /** "image" = ไฟล์เดียวกันเป๊ะ ๆ, "ref" = สลิปใบเดียวกันแต่คนละไฟล์ (ดูจากเลขที่รายการใน QR) */
+    reason: "image" | "ref";
   } | null;
   imagePath: string | null;
   imageHash: string | null;
+  qr: SlipQr | null;
   ocr: OcrResult | null;
   ocrError: string | null;
 }
@@ -358,7 +361,9 @@ export default function EntryPage() {
               <span className="text-2xl">🧾</span>
               <span className="text-sm font-semibold">เลือกรูปจากเครื่อง / ถ่ายรูป</span>
               <span className="dim text-[11.5px]">
-                {ocrEnabled ? "ระบบจะอ่านวันที่และยอดเงินให้อัตโนมัติ" : "กรอกยอดและวันที่เองด้านล่าง"}
+                {ocrEnabled
+                  ? "ระบบจะอ่านวันที่และยอดเงินให้อัตโนมัติ"
+                  : "ระบบจะอ่านเลขที่รายการจาก QR บนสลิปให้ — ยอดและวันที่กรอกเองด้านล่าง"}
               </span>
             </button>
           )}
@@ -366,7 +371,14 @@ export default function EntryPage() {
           {ocrLoading ? <Spinner label="กำลังอ่านข้อมูลจากรูป…" /> : null}
 
           {duplicate ? (
-            <Alert tone="warn" title="สลิปใบนี้เคยบันทึกไปแล้ว">
+            <Alert
+              tone="warn"
+              title={
+                duplicate.reason === "ref"
+                  ? "สลิปใบนี้เคยบันทึกไปแล้ว (เลขที่รายการเดียวกัน)"
+                  : "สลิปใบนี้เคยบันทึกไปแล้ว"
+              }
+            >
               {formatBahtShort(duplicate.amount)} บาท ·{" "}
               {duplicate.direction === "deposit" ? "เข้าเว็บ" : "ออกจากเว็บ"}
               {duplicate.siteName ? ` · ${duplicate.siteName}` : ""}
@@ -383,9 +395,18 @@ export default function EntryPage() {
 
           {ocr ? (
             <div className="space-y-2">
-              <Alert tone={ocr.confidence >= 0.7 ? "success" : "warn"}>
-                อ่านข้อมูลจากรูปแล้ว (ความมั่นใจ {Math.round(ocr.confidence * 100)}%) — ตรวจสอบก่อนบันทึกด้วย
-              </Alert>
+              {ocr.qr ? (
+                <Alert tone="success" title="อ่านจาก QR บนสลิปแล้ว">
+                  เลขที่รายการ {ocr.qr.transRef}
+                  {ocr.qr.sendingBankName ? ` · ${ocr.qr.sendingBankName}` : ""}
+                </Alert>
+              ) : null}
+              {/* ได้มาจาก QR ล้วนก็ไม่มีอะไรให้เตือนเพิ่ม — ที่อ่านจากตัวหนังสือถึงต้องให้ตรวจ */}
+              {ocr.sources.some((source) => source !== "qr") ? (
+                <Alert tone={ocr.confidence >= 0.7 ? "success" : "warn"}>
+                  อ่านข้อมูลจากรูปแล้ว — ตรวจสอบก่อนบันทึกด้วย
+                </Alert>
+              ) : null}
               {ocr.warnings.map((warning) => (
                 <Alert key={warning} tone="warn">
                   {warning}

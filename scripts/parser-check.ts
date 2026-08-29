@@ -1,11 +1,12 @@
 /**
- * ตรวจตัวอ่านข้อความสลิป (ส่วนที่ทำงานต่อจาก Google Vision) โดยไม่ต้องเรียก API จริง
+ * ตรวจกติกาการแกะข้อความสลิป (ส่วนที่ทำงานต่อจาก Google Vision) โดยไม่ต้องเรียก API จริง
  *
  *   npx tsx scripts/parser-check.ts
  *
  * ใช้ตอนแก้กติกาการอ่าน เพื่อดูว่ายอดเงิน/วันที่ยังอ่านถูกอยู่ไหม
+ * สองเคสท้ายเป็นข้อความจริงที่ Vision คืนมาจากสลิปจริง — อย่าแก้ข้อความ
  */
-import { parseSlipText } from "../src/lib/ocr-google";
+import { extractSlipFields } from "../src/lib/slip-text";
 
 const CASES: Array<{ name: string; text: string; sites?: string[] }> = [
   {
@@ -120,19 +121,16 @@ Biller ID : 010753600031501
 ];
 
 for (const testCase of CASES) {
-  const result = parseSlipText(testCase.text, testCase.sites ?? []);
+  const result = extractSlipFields(testCase.text, { siteNames: testCase.sites ?? [] });
   console.log(`\n=== ${testCase.name} ===`);
   console.log({
-    type: result.document_type,
     direction: result.direction,
     amount: result.amount,
-    datetime: result.datetime_iso,
-    date_text: result.date_text,
-    time_text: result.time_text,
-    ref: result.ref_no,
-    bank: result.bank_name,
+    fee: result.fee,
+    occurredAt: result.occurredAt?.toISOString() ?? null,
+    ref: result.refNo,
+    bank: result.bankName,
     to: result.counterparty,
-    site: result.site_hint,
-    confidence: result.confidence,
+    site: result.siteHint,
   });
 }

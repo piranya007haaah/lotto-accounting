@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth";
-import { APP_TIMEZONE, isOcrConfigured } from "@/lib/env";
+import { APP_TIMEZONE, isVisionConfigured } from "@/lib/env";
 import { ok, route } from "@/lib/http";
 
 export const runtime = "nodejs";
@@ -15,7 +15,7 @@ export const GET = route(async (request) => {
     },
     isAdmin: user.isAdmin,
     canViewAll: user.canViewAll,
-    ocrEnabled: isOcrConfigured(),
+    ocrEnabled: isVisionConfigured(),
     timeZone: APP_TIMEZONE,
   });
 });
