@@ -2,7 +2,7 @@
 
 เว็บแอปสำหรับบันทึก **เงินเข้าเว็บ** (สลิปโอน) และ **เงินออกจากเว็บ** (แคปหน้าจอถอนสำเร็จ)
 กรอกผ่านฟอร์มใน LINE (LIFF) — เลือกเว็บจาก dropdown แล้วอัปโหลดรูป
-ระบบอ่าน **วันที่และยอดเงิน** จากรูปให้อัตโนมัติด้วย Claude แล้วเก็บลง Supabase
+ระบบอ่าน **วันที่และยอดเงิน** จากรูปให้อัตโนมัติด้วย Google Cloud Vision (หรือ Claude) แล้วเก็บลง Supabase
 ดูสรุปยอดรายวัน / รายเดือน / รายเว็บ ได้ทั้งในเว็บและในแชท LINE
 
 ---
@@ -70,7 +70,7 @@ LINE (rich menu / ลิงก์ LIFF)
   หน้าเว็บ Next.js (LIFF)  ── liff.getIDToken() ──┐
         │  อัปโหลดรูป (ย่อขนาดในเครื่องก่อน)      │
         ▼                                          ▼
-  /api/ocr ─── Claude (vision + structured output) │  ทุก API ตรวจ ID token
+  /api/ocr ─── Google Vision / Claude (OCR)        │  ทุก API ตรวจ ID token
         │                                          │  กับ LINE ก่อนเสมอ
         ├── Supabase Storage (bucket "slips" แบบ private)
         ▼
@@ -98,13 +98,16 @@ src/
     api/
       me/                    ข้อมูลผู้ใช้ปัจจุบัน
       sites/                 รายชื่อเว็บ (GET/POST/PATCH/DELETE)
-      ocr/                   รับรูป → เช็คซ้ำ → อัปโหลด → ให้ Claude อ่าน
+      ocr/                   รับรูป → เช็คซ้ำ → อัปโหลด → อ่านยอด/วันที่จากรูป
       transactions/          สร้าง/ดึง/แก้/ลบรายการ
       summary/               รวมยอดตามช่วงเวลา
       images/                signed URL ของรูปสลิป
       line/webhook/          webhook ของ LINE Messaging API
   lib/
-    ocr.ts                   prompt + schema + การปรับค่าที่อ่านได้
+    ocr.ts                   เลือกตัวอ่านตาม OCR_PROVIDER
+    ocr-extraction.ts        schema กลาง + การปรับค่าที่อ่านได้ให้พร้อมลงฟอร์ม
+    ocr-google.ts            เรียก Cloud Vision แล้วแกะยอด/วันที่จากข้อความบนสลิป
+    ocr-anthropic.ts         prompt + schema สำหรับให้ Claude อ่านรูปตรง ๆ
     thai-date.ts             แปลง พ.ศ./ค.ศ., ตัดยอดตามเวลาไทย, parse วันที่บนสลิป
     summary.ts               รวมยอดรายวัน/รายเดือน/รายเว็บ
     auth.ts                  ตรวจ LINE ID token + หา/สร้างผู้ใช้
@@ -112,6 +115,7 @@ src/
     range.ts                 แปลง query เป็นช่วงเวลา
 supabase/migrations/         SQL สร้างตาราง + seed รายชื่อเว็บ
 scripts/ocr-smoke.ts         ทดสอบการอ่านรูปจาก command line
+scripts/parser-check.ts      ตรวจกติกาการแกะข้อความสลิป (ไม่เรียก API)
 ```
 
 ---
@@ -151,11 +155,29 @@ scripts/ocr-smoke.ts         ทดสอบการอ่านรูปจา
 5. ปิด *Auto-reply messages* และ *Greeting messages* เพื่อไม่ให้ตอบชนกัน
 6. (แนะนำ) ทำ Rich menu ปุ่มเดียวชี้ไปที่ `https://liff.line.me/<LIFF_ID>`
 
-### 4. Claude API (ใช้อ่านรูป)
+### 4. ตัวอ่านรูป (OCR) — เลือกอย่างใดอย่างหนึ่ง
+
+เลือกได้ที่ `OCR_PROVIDER` (`auto` = มีคีย์ไหนใช้อันนั้น, มีทั้งคู่จะใช้ Google)
+
+**ก. Google Cloud Vision — แนะนำ (1,000 รูปแรกต่อเดือนไม่มีค่าใช้จ่าย)**
+
+1. [Google Cloud Console](https://console.cloud.google.com/) → สร้าง/เลือกโปรเจกต์ → ผูก billing account
+   (ต้องผูกบัตรถึงจะเรียก API ได้ แต่ 1,000 รูปแรกของแต่ละเดือนไม่คิดเงิน)
+2. **APIs & Services → Library** → เปิดใช้ **Cloud Vision API**
+3. **APIs & Services → Credentials → Create credentials → API key**
+4. กด **Edit API key** → *API restrictions* → เลือกเฉพาะ **Cloud Vision API**
+   (คีย์นี้ใช้ฝั่ง server เท่านั้น ไม่ต้องตั้ง HTTP referrer)
+5. ใส่ค่าลง `GOOGLE_VISION_API_KEY`
+
+Vision คืนมาแค่ตัวหนังสือบนรูป ส่วนการแกะ *ยอดเงิน / วันที่ / เลขอ้างอิง* ทำด้วยกฎในโค้ด
+([src/lib/ocr-google.ts](src/lib/ocr-google.ts)) จึงไม่มีค่าโมเดลเพิ่ม แต่ความมั่นใจสูงสุดจะอยู่ที่ 0.9
+
+**ข. Claude — แม่นกว่าโดยเฉพาะสลิปแปลก ๆ แต่คิดเงินทุกรูป**
 
 ขอ API key จาก [Anthropic Console](https://console.anthropic.com/) แล้วใส่ `ANTHROPIC_API_KEY`
+ปรับรุ่น/ความละเอียดได้ที่ `OCR_MODEL` และ `OCR_EFFORT`
 
-> ถ้าไม่ใส่ ระบบยังใช้ได้ปกติ แค่ต้องพิมพ์ยอดเงินและวันที่เอง
+> ไม่ใส่ทั้งคู่ก็ใช้ได้ปกติ แค่ต้องพิมพ์ยอดเงินและวันที่เอง
 
 ### 5. รันในเครื่อง
 
@@ -177,8 +199,12 @@ NEXT_PUBLIC_DEV_LINE_USER_ID=Utest0001
 ทดสอบการอ่านรูปแยกเดี่ยว ๆ
 
 ```bash
-ANTHROPIC_API_KEY=sk-... npx tsx scripts/ocr-smoke.ts ./slip.jpg
+npx tsx scripts/ocr-smoke.ts ./slip.jpg          # อ่านครบทุกฟิลด์
+npx tsx scripts/ocr-smoke.ts ./slip.jpg --text   # ดูข้อความดิบที่ Vision อ่านได้
+npx tsx scripts/parser-check.ts                  # ตรวจกติกาการแกะข้อความ ไม่เรียก API
 ```
+
+สคริปต์อ่านคีย์จาก `.env.local` ให้เอง
 
 ---
 
@@ -231,5 +257,6 @@ docker run -p 3000:3000 --env-file .env.local lotto-accounting
   ลบทิ้งเป็นระยะได้ตามสะดวก (ไฟล์ที่บันทึกแล้วจะถูกย้ายไปโฟลเดอร์ตามเดือน)
 - **ขนาดไฟล์รูป** หน้าเว็บย่อรูปให้เหลือด้านยาวสุด 1600px ก่อนอัปโหลดอยู่แล้ว (ปกติไม่ถึง 1 MB)
   ฝั่ง server จำกัดไว้ที่ 8 MB แต่ถ้า deploy บน serverless บางเจ้าจะจำกัด request body ราว 4.5 MB — ยังเหลือที่เหลือเฟือ
-- **ค่าใช้จ่ายการอ่านรูป** ปรับได้ที่ `OCR_MODEL` และ `OCR_EFFORT` ใน env
+- **ค่าใช้จ่ายการอ่านรูป** Google Vision ฟรี 1,000 รูป/เดือน (เกินจากนั้นคิดเป็นรายพันรูป)
+  ส่วน Claude คิดเงินทุกรูป — สลับได้ที่ `OCR_PROVIDER` และปรับรุ่นที่ `OCR_MODEL` / `OCR_EFFORT`
 - ยอดที่อ่านได้จากรูป **ควรตรวจก่อนกดบันทึกทุกครั้ง** — หน้าฟอร์มจะแสดงระดับความมั่นใจและคำเตือนไว้ให้

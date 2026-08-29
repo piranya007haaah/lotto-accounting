@@ -62,10 +62,18 @@ export const POST = route(async (request) => {
 
   const imagePath = await uploadTemp(user.id, buffer, mediaType);
 
+  // ชื่อเว็บที่ผู้ใช้มี — ใช้เดาว่าสลิปใบนี้เป็นของเว็บไหนจากตัวหนังสือบนรูป
+  const { data: sites } = await supabaseAdmin()
+    .from("sites")
+    .select("name")
+    .or(`owner_id.is.null,owner_id.eq.${user.id}`)
+    .eq("is_active", true);
+  const siteNames = (sites ?? []).map((site) => site.name as string).filter(Boolean);
+
   let ocr: OcrResult | null = null;
   let ocrError: string | null = null;
   try {
-    ocr = await extractFromImage({ base64: buffer.toString("base64"), mediaType });
+    ocr = await extractFromImage({ base64: buffer.toString("base64"), mediaType, siteNames });
   } catch (error) {
     ocrError =
       error instanceof HttpError
