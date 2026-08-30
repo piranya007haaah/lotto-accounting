@@ -71,6 +71,7 @@ export default function SitesPage() {
   const [name, setName] = useState("");
   const [color, setColor] = useState(COLORS[0]);
   const [emoji, setEmoji] = useState("");
+  const [domain, setDomain] = useState("");
 
   async function load() {
     setLoading(true);
@@ -98,11 +99,17 @@ export default function SitesPage() {
     try {
       const data = await api<{ site: SiteRow }>("/api/sites", {
         method: "POST",
-        body: JSON.stringify({ name: name.trim(), color, emoji: emoji || null }),
+        body: JSON.stringify({
+          name: name.trim(),
+          color,
+          emoji: emoji || null,
+          domain: domain.trim() || null,
+        }),
       });
       setSites((current) => [...current, data.site]);
       setName("");
       setEmoji("");
+      setDomain("");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "เพิ่มเว็บไม่สำเร็จ");
     } finally {
@@ -129,6 +136,23 @@ export default function SitesPage() {
     } catch (caught) {
       replaceSite(site);
       setError(caught instanceof Error ? caught.message : "เปลี่ยนอิโมจิไม่สำเร็จ");
+    }
+  }
+
+  /** ผูกโดเมนไว้กับเว็บ เพื่อให้หน้า "อัปโหลดเป็นคู่" เลือกเว็บนี้ให้อัตโนมัติ */
+  async function saveDomain(site: SiteRow, next: string) {
+    const value = next.trim() || null;
+    if ((site.domain ?? null) === value) return;
+    setError(null);
+    try {
+      const data = await api<{ site: SiteRow }>(`/api/sites/${site.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ domain: value }),
+      });
+      replaceSite(data.site);
+    } catch (caught) {
+      replaceSite(site);
+      setError(caught instanceof Error ? caught.message : "บันทึกโดเมนไม่สำเร็จ");
     }
   }
 
@@ -237,6 +261,21 @@ export default function SitesPage() {
           </div>
         </div>
 
+        <div>
+          <span className="field-label">โดเมนของเว็บ (ไม่บังคับ)</span>
+          <input
+            className="field"
+            placeholder="เช่น chokddd365.run"
+            inputMode="url"
+            value={domain}
+            onChange={(event) => setDomain(event.target.value)}
+            maxLength={120}
+          />
+          <p className="dim mt-1 text-[11px]">
+            ผูกไว้แล้วระบบจะเลือกเว็บนี้ให้เอง เมื่ออ่านเจอโดเมนนี้บนภาพหน้าฝาก/ถอน
+          </p>
+        </div>
+
         <button className="btn btn-primary w-full" disabled={busy || !name.trim()}>
           เพิ่มเว็บ
         </button>
@@ -253,37 +292,50 @@ export default function SitesPage() {
             <>
               <ul>
                 {sites.map((site) => (
-                  <li key={site.id} className="row flex items-center gap-3 py-2">
-                    <EmojiInput
-                      value={site.emoji}
-                      onChange={(next) => saveEmoji(site, next)}
-                      color={site.color}
-                      ariaLabel={`อิโมจิของ ${site.name}`}
-                      size={32}
+                  <li key={site.id} className="row py-2">
+                    <div className="flex items-center gap-3">
+                      <EmojiInput
+                        value={site.emoji}
+                        onChange={(next) => saveEmoji(site, next)}
+                        color={site.color}
+                        ariaLabel={`อิโมจิของ ${site.name}`}
+                        size={32}
+                      />
+                      <span
+                        className={`flex-1 truncate text-sm font-semibold ${
+                          site.is_active ? "" : "line-through opacity-50"
+                        }`}
+                      >
+                        {site.name}
+                      </span>
+                      <button className="muted text-xs underline" onClick={() => toggleActive(site)} disabled={busy}>
+                        {site.is_active ? "ปิดใช้" : "เปิดใช้"}
+                      </button>
+                      <button
+                        className="text-xs underline"
+                        style={{ color: "var(--color-money-in)" }}
+                        onClick={() => remove(site)}
+                        disabled={busy}
+                      >
+                        ลบ
+                      </button>
+                    </div>
+                    <input
+                      className="field mt-1.5 text-[12.5px]"
+                      style={{ paddingTop: 6, paddingBottom: 6 }}
+                      placeholder="โดเมน เช่น chokddd365.run"
+                      aria-label={`โดเมนของ ${site.name}`}
+                      inputMode="url"
+                      defaultValue={site.domain ?? ""}
+                      maxLength={120}
+                      onBlur={(event) => saveDomain(site, event.target.value)}
                     />
-                    <span
-                      className={`flex-1 truncate text-sm font-semibold ${
-                        site.is_active ? "" : "line-through opacity-50"
-                      }`}
-                    >
-                      {site.name}
-                    </span>
-                    <button className="muted text-xs underline" onClick={() => toggleActive(site)} disabled={busy}>
-                      {site.is_active ? "ปิดใช้" : "เปิดใช้"}
-                    </button>
-                    <button
-                      className="text-xs underline"
-                      style={{ color: "var(--color-money-in)" }}
-                      onClick={() => remove(site)}
-                      disabled={busy}
-                    >
-                      ลบ
-                    </button>
                   </li>
                 ))}
               </ul>
               <p className="muted mt-2.5 text-[11px]">
-                แตะช่องอิโมจิหน้าชื่อเว็บเพื่อเปลี่ยนได้เลย · ปิดใช้ = ยังอยู่ในรายการเก่า แต่ไม่ขึ้นตอนบันทึกใหม่
+                แตะช่องอิโมจิหน้าชื่อเว็บเพื่อเปลี่ยนได้เลย · ใส่โดเมนไว้เพื่อให้ระบบเลือกเว็บให้อัตโนมัติตอนอัปโหลดเป็นคู่ ·
+                ปิดใช้ = ยังอยู่ในรายการเก่า แต่ไม่ขึ้นตอนบันทึกใหม่
               </p>
             </>
           )}

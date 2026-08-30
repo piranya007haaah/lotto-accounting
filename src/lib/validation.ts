@@ -16,6 +16,17 @@ export const transactionInputSchema = z.object({
   note: z.string().max(1000).nullish(),
   imagePath: z.string().max(500).nullish(),
   imageHash: z.string().length(64).nullish(),
+  /** ภาพหน้าฝาก/ถอนของเว็บที่อัปโหลดคู่มากับสลิป */
+  webImagePath: z.string().max(500).nullish(),
+  /** รหัสรายการที่เว็บออกให้ เช่น QR-2737703011042845 */
+  webRefNo: z.string().max(200).nullish(),
+  siteUrl: z.string().max(200).nullish(),
+  /** บัญชีของเรา — ขาฝากคือบัญชีที่โอนออก ขาถอนคือบัญชีที่รับเงิน */
+  accountNo: z.string().max(40).nullish(),
+  accountName: z.string().max(200).nullish(),
+  /** บัญชีของเว็บ (อีกฝั่งของรายการ) */
+  counterpartyBank: z.string().max(200).nullish(),
+  counterpartyAccountNo: z.string().max(40).nullish(),
   ocrStatus: z.enum(["manual", "ocr", "ocr_edited", "failed"]).default("manual"),
   ocrConfidence: z.number().min(0).max(1).nullish(),
   ocrRaw: z.unknown().nullish(),
@@ -23,10 +34,21 @@ export const transactionInputSchema = z.object({
 
 export const transactionPatchSchema = transactionInputSchema
   .partial()
-  .omit({ imagePath: true, imageHash: true, ocrRaw: true });
+  .omit({ imagePath: true, imageHash: true, webImagePath: true, ocrRaw: true });
+
+/** โดเมนของเว็บ เช่น "chokddd365.run" — รับแบบมี https:// หรือ / ต่อท้ายมาด้วยก็ได้ */
+const domainSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .transform((value) => value.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, ""))
+  .refine((value) => /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(value), "โดเมนไม่ถูกต้อง เช่น chokddd365.run")
+  .refine((value) => value.length <= 120, "โดเมนยาวเกินไป");
 
 export const siteInputSchema = z.object({
   name: z.string().trim().min(1, "กรุณาใส่ชื่อเว็บ").max(80),
+  /** ผูกโดเมนไว้ เพื่อให้ระบบเลือกเว็บนี้ให้อัตโนมัติเมื่ออ่านเจอโดเมนบนภาพ */
+  domain: domainSchema.nullish(),
   color: z
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/, "สีต้องเป็นรหัส HEX เช่น #2563eb")

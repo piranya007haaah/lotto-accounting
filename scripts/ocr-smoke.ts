@@ -1,16 +1,19 @@
 /**
- * ทดสอบการอ่านสลิปโดยไม่ต้องเปิดเว็บทั้งระบบ
+ * ทดสอบการอ่านรูปโดยไม่ต้องเปิดเว็บทั้งระบบ — ใช้ได้ทั้งสลิปธนาคารและภาพหน้าฝาก/ถอนของเว็บ
  *
  *   npx tsx scripts/ocr-smoke.ts ./slip.jpg
  *
  * อ่าน GOOGLE_VISION_API_KEY จาก .env.local ให้เอง ถ้าไม่มีคีย์จะเหลือแค่ชั้น QR
- * ใช้ตรวจว่าถอด QR ได้ไหม และอ่านวันที่ (พ.ศ. → ค.ศ.) กับยอดเงินถูกต้องไหม
+ * ใช้ตรวจว่าถอด QR ได้ไหม อ่านวันที่ (พ.ศ. → ค.ศ.) กับยอดเงินถูกไหม
+ * และภาพหน้าเว็บอ่านชื่อเว็บ/เลขบัญชีออกครบไหม — พิมพ์ข้อความดิบจาก Vision ให้ดูด้วย
  */
 import fs from "node:fs";
 import path from "node:path";
 
-import { SUPPORTED_IMAGE_TYPES, extractFromImage, type SupportedImageType } from "../src/lib/ocr";
+import { SUPPORTED_IMAGE_TYPES, readTextFromImage, slipResultFromText, type SupportedImageType } from "../src/lib/ocr";
+import { classifyDocument } from "../src/lib/pairing";
 import { readSlipQr } from "../src/lib/slip-qr";
+import { extractWebPageFields } from "../src/lib/web-page";
 
 // ต้องโหลดก่อนเรียก extractFromImage — env.ts อ่านคีย์ตอนถูกเรียก ไม่ใช่ตอน import
 loadEnvLocal();
@@ -56,12 +59,25 @@ async function main() {
   console.log(qr ? JSON.stringify(qr, null, 2) : "ไม่พบ QR ตรวจสอบสลิปในรูปนี้");
 
   const started = Date.now();
-  const result = await extractFromImage({ buffer, qr });
+  const { text, warning } = await readTextFromImage(buffer);
+  if (warning) console.log(`\n— Vision —\n${warning}`);
+  if (text) console.log(`\n— ข้อความดิบจาก Vision —\n${text}`);
 
-  console.log(`\n— ผลรวมที่จะเติมลงฟอร์ม (sources = ${result.sources.join(" → ")}) —`);
-  console.log(JSON.stringify(result, null, 2));
+  const kind = classifyDocument({ text, qr });
+  console.log(`\n— รูปนี้คือ: ${kind === "web" ? "หน้าฝาก/ถอนของเว็บ" : "สลิปธนาคาร"} —`);
+
+  if (kind === "web") {
+    console.log(JSON.stringify(extractWebPageFields(text ?? ""), null, 2));
+  } else {
+    const result = slipResultFromText({ text, qr, warnings: warning ? [warning] : [] });
+    if (!result) console.log("อ่านรูปนี้ไม่ออกเลย — ไม่มีทั้ง QR และตัวหนังสือที่ใช้ได้");
+    else {
+      console.log(`(sources = ${result.sources.join(" → ")})`);
+      console.log(JSON.stringify(result, null, 2));
+      if (result.warnings.length > 0) console.log("ข้อควรตรวจ:", result.warnings.join(" | "));
+    }
+  }
   console.log(`\nใช้เวลาทั้งหมด ${((Date.now() - started) / 1000).toFixed(1)} วินาที`);
-  if (result.warnings.length > 0) console.log("ข้อควรตรวจ:", result.warnings.join(" | "));
 }
 
 main().catch((error) => {

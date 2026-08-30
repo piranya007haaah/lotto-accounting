@@ -1,11 +1,29 @@
 import { APP_TIMEZONE } from "./env";
 import { HttpError } from "./http";
-import { supabaseAdmin } from "./supabase";
+import { isMissingColumnError, supabaseAdmin } from "./supabase";
 import { formatDateKey, formatThaiDate, formatThaiMonth } from "./thai-date";
 import type { BankBucket, SummaryBucket, SummaryResponse, TransactionWithSite } from "./types";
 
-export const TRANSACTION_SELECT =
-  "id, owner_id, site_id, direction, amount, occurred_at, occurred_date, ref_no, bank_name, counterparty, note, image_path, image_hash, ocr_status, ocr_confidence, created_at, site:sites(id, name, color), owner:app_users(display_name)";
+const BASE_COLUMNS =
+  "id, owner_id, site_id, direction, amount, occurred_at, occurred_date, ref_no, bank_name, counterparty, note, image_path, image_hash, ocr_status, ocr_confidence, created_at";
+
+/** คอลัมน์ที่เพิ่มมาพร้อมการอัปโหลดเป็นคู่ (migration 0007) */
+const PAIR_COLUMNS = [
+  "web_image_path", "web_ref_no", "site_url",
+  "account_no", "account_name", "counterparty_bank", "counterparty_account_no",
+];
+
+const RELATIONS = "site:sites(id, name, color), owner:app_users(display_name)";
+
+export const TRANSACTION_SELECT = `${BASE_COLUMNS}, ${PAIR_COLUMNS.join(", ")}, ${RELATIONS}`;
+
+/** ชุดคอลัมน์สำรองสำหรับฐานข้อมูลที่ยังไม่ได้รัน migration 0007 */
+export const TRANSACTION_SELECT_BASE = `${BASE_COLUMNS}, ${RELATIONS}`;
+
+/** error นี้เกิดจากยังไม่มีคอลัมน์ของ migration 0007 ใช่ไหม */
+export function isMissingPairColumn(error: { code?: string; message?: string } | null): boolean {
+  return PAIR_COLUMNS.some((column) => isMissingColumnError(error, column));
+}
 
 interface FetchParams {
   ownerId: string;
@@ -20,24 +38,32 @@ interface FetchParams {
 
 /** ดึงรายการในช่วงเวลา (from ≤ x < to) — ปกติเฉพาะของเจ้าของ เว้นแต่ระบุ includeAllOwners */
 export async function fetchTransactions(params: FetchParams): Promise<TransactionWithSite[]> {
-  let query = supabaseAdmin()
-    .from("transactions")
-    .select(TRANSACTION_SELECT)
-    .gte("occurred_at", params.from.toISOString())
-    .lt("occurred_at", params.to.toISOString())
-    .order("occurred_at", { ascending: false })
-    .limit(params.limit ?? 2000);
+  const build = (columns: string) => {
+    let query = supabaseAdmin()
+      .from("transactions")
+      .select(columns)
+      .gte("occurred_at", params.from.toISOString())
+      .lt("occurred_at", params.to.toISOString())
+      .order("occurred_at", { ascending: false })
+      .limit(params.limit ?? 2000);
 
-  if (!params.includeAllOwners) query = query.eq("owner_id", params.ownerId);
-  if (params.siteId) query = query.eq("site_id", params.siteId);
-  if (params.direction) query = query.eq("direction", params.direction);
+    if (!params.includeAllOwners) query = query.eq("owner_id", params.ownerId);
+    if (params.siteId) query = query.eq("site_id", params.siteId);
+    if (params.direction) query = query.eq("direction", params.direction);
+    return query;
+  };
 
-  const { data, error } = await query;
+  let { data, error } = await build(TRANSACTION_SELECT);
+
+  // ฐานข้อมูลที่ยังไม่รัน migration 0007 — ดึงเฉพาะคอลัมน์เดิมไปก่อน
+  if (isMissingPairColumn(error)) ({ data, error } = await build(TRANSACTION_SELECT_BASE));
+
   if (error) throw new HttpError(500, `ดึงข้อมูลไม่สำเร็จ: ${error.message}`);
 
   // supabase-js คืน relation แบบ array เมื่อ infer type ไม่ได้ — ปรับให้เป็น object เดียว
-  return (data ?? []).map((row) => {
-    const record = row as Record<string, unknown>;
+  const rows = (data ?? []) as unknown as Array<Record<string, unknown>>;
+  return rows.map((row) => {
+    const record = row;
     const site = record.site;
     const owner = record.owner;
     return {

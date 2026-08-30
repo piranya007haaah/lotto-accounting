@@ -37,6 +37,8 @@ export interface SiteRow {
   color: string | null;
   /** อิโมจิประจำเว็บ — optional เพราะฐานข้อมูลที่ยังไม่รัน migration 0005 จะไม่มีคอลัมน์นี้ */
   emoji?: string | null;
+  /** โดเมนของเว็บ เช่น "chokddd365.run" — ใช้จับคู่เว็บจากภาพหน้าจอ (migration 0007) */
+  domain?: string | null;
   sort_order: number;
   is_active: boolean;
 }
@@ -58,6 +60,14 @@ export interface TransactionRow {
   ocr_status: OcrStatus;
   ocr_confidence: number | null;
   created_at: string;
+  /** ต่อไปนี้มาพร้อม migration 0007 — optional เพราะฐานข้อมูลที่ยังไม่ได้รันจะไม่มีคอลัมน์เหล่านี้ */
+  web_image_path?: string | null;
+  web_ref_no?: string | null;
+  site_url?: string | null;
+  account_no?: string | null;
+  account_name?: string | null;
+  counterparty_bank?: string | null;
+  counterparty_account_no?: string | null;
 }
 
 export interface TransactionWithSite extends TransactionRow {
@@ -78,6 +88,31 @@ export interface SlipQr {
   countryCode: string | null;
   /** CRC ท้าย payload ตรวจแล้วผ่าน (สลิปบางใบไม่มี CRC มาให้ตรวจ) */
   crcVerified: boolean;
+}
+
+/** บัญชีธนาคารหนึ่งบัญชีที่อ่านได้จากหน้าฝาก/ถอนของเว็บ */
+export interface AccountRef {
+  /** ชื่อธนาคารแบบสั้น เช่น "ไทยพาณิชย์" */
+  bank: string | null;
+  accountNo: string | null;
+  accountName: string | null;
+}
+
+/** ผลที่อ่านได้จากภาพหน้าฝาก/ถอนของเว็บ (คนละแบบกับสลิปธนาคาร) */
+export interface WebPageResult {
+  direction: Direction | null;
+  amount: number | null;
+  /** บัญชีที่หน้าเว็บบอกให้โอนออก — ฝาก = บัญชีเรา, ถอน = บัญชีของเว็บ */
+  fromAccount: AccountRef | null;
+  /** บัญชีปลายทาง — ฝาก = บัญชีของเว็บ, ถอน = บัญชีเรา */
+  toAccount: AccountRef | null;
+  /** โดเมนที่เห็นบนภาพ เช่น "chokddd365.run" — ใช้เดาว่าเป็นเว็บไหน */
+  domain: string | null;
+  /** รหัสรายการของเว็บ เช่น "QR-2737703011042845" (คนละตัวกับเลขที่รายการบนสลิป) */
+  refCode: string | null;
+  /** เวลาที่หน้าเว็บระบุ เช่น "14:34" — หน้าเว็บไม่บอกวันที่ จึงเก็บแค่เวลา */
+  timeLocal: string | null;
+  siteHint: string | null;
 }
 
 export type OcrSource = "qr" | "vision";

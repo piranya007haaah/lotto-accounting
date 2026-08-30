@@ -323,7 +323,11 @@ export default function EntryPage() {
                 <button type="button" className="link-sm" onClick={clearImage}>
                   ลบรูป
                 </button>
-              ) : null
+              ) : (
+                <Link href="/pairs" className="link-sm">
+                  อัปโหลดเป็นคู่ ›
+                </Link>
+              )
             }
           >
             รูปสลิป / หน้าจอถอนเงิน

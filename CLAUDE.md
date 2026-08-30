@@ -27,6 +27,7 @@ npm run build       # ตรวจว่า build ผ่านก่อน commi
 npm run typecheck   # tsc --noEmit
 npx tsx scripts/ocr-smoke.ts ./slip.jpg   # ทดสอบอ่านรูปจริง (อ่านคีย์จาก .env.local ให้เอง)
 npx tsx scripts/parser-check.ts           # ตรวจกติกาการแกะข้อความสลิป ไม่เรียก API
+npx tsx scripts/pair-check.ts             # ตรวจการอ่านหน้าเว็บ + การจับคู่กับสลิป ไม่เรียก API
 ```
 
 SQL อยู่ที่ `supabase/migrations/` — รันเรียงตามเลขไฟล์

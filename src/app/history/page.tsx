@@ -76,17 +76,26 @@ export default function HistoryPage() {
     void load();
   }, [load]);
 
-  async function toggleOpen(row: TransactionWithSite) {
-    const next = openId === row.id ? null : row.id;
-    setOpenId(next);
-    setEditing(null);
-    if (next && row.image_path && !imageUrls[row.id]) {
+  /** ขอ signed URL ของรูปหนึ่งใบ — เก็บตาม path เพราะหนึ่งรายการมีได้สองรูป */
+  const loadImage = useCallback(
+    async (path: string) => {
       try {
-        const data = await api<{ url: string }>(`/api/images?path=${encodeURIComponent(row.image_path)}`);
-        setImageUrls((current) => ({ ...current, [row.id]: data.url }));
+        const data = await api<{ url: string }>(`/api/images?path=${encodeURIComponent(path)}`);
+        setImageUrls((current) => (current[path] ? current : { ...current, [path]: data.url }));
       } catch {
         /* ดูรูปไม่ได้ก็ยังดูข้อมูลอื่นได้ */
       }
+    },
+    [api],
+  );
+
+  function toggleOpen(row: TransactionWithSite) {
+    const next = openId === row.id ? null : row.id;
+    setOpenId(next);
+    setEditing(null);
+    if (!next) return;
+    for (const path of [row.image_path, row.web_image_path]) {
+      if (path && !imageUrls[path]) void loadImage(path);
     }
   }
 
@@ -272,18 +281,36 @@ export default function HistoryPage() {
 
                     {isOpen ? (
                       <div className="space-y-3 px-4 pb-4">
-                        {imageUrls[row.id] ? (
-                          <a href={imageUrls[row.id]} target="_blank" rel="noreferrer">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={imageUrls[row.id]}
-                              alt="สลิป"
-                              className="max-h-72 w-full rounded-xl object-contain"
-                              style={{ background: "var(--surface)" }}
-                            />
-                          </a>
-                        ) : row.image_path ? (
-                          <Spinner label="กำลังโหลดรูป…" />
+                        {row.image_path || row.web_image_path ? (
+                          <div
+                            className={
+                              row.image_path && row.web_image_path ? "grid grid-cols-2 gap-2" : ""
+                            }
+                          >
+                            {([
+                              [row.web_image_path, "หน้าเว็บ"],
+                              [row.image_path, "สลิปธนาคาร"],
+                            ] as const)
+                              .filter(([path]) => Boolean(path))
+                              .map(([path, label]) => (
+                                <div key={label} className="space-y-1">
+                                  <span className="dim text-[11px] font-semibold">{label}</span>
+                                  {imageUrls[path!] ? (
+                                    <a href={imageUrls[path!]} target="_blank" rel="noreferrer">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img
+                                        src={imageUrls[path!]}
+                                        alt={label}
+                                        className="max-h-72 w-full rounded-xl object-contain"
+                                        style={{ background: "var(--surface)" }}
+                                      />
+                                    </a>
+                                  ) : (
+                                    <Spinner label="กำลังโหลดรูป…" />
+                                  )}
+                                </div>
+                              ))}
+                          </div>
                         ) : (
                           <p className="muted text-xs">ไม่มีรูปแนบ</p>
                         )}
@@ -294,7 +321,26 @@ export default function HistoryPage() {
                             <div>ความมั่นใจ: {Math.round(Number(row.ocr_confidence) * 100)}%</div>
                           ) : null}
                           {row.ref_no ? <div className="col-span-2">อ้างอิง: {row.ref_no}</div> : null}
-                          {row.bank_name ? <div className="col-span-2">ธนาคาร: {row.bank_name}</div> : null}
+                          {row.web_ref_no ? (
+                            <div className="col-span-2">รหัสของเว็บ: {row.web_ref_no}</div>
+                          ) : null}
+                          {row.bank_name || row.account_no || row.account_name ? (
+                            <div className="col-span-2">
+                              {row.direction === "deposit" ? "บัญชีที่โอนออก" : "บัญชีที่รับเงิน"}:{" "}
+                              {[row.bank_name, row.account_no, row.account_name]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </div>
+                          ) : null}
+                          {row.counterparty_bank || row.counterparty_account_no || row.counterparty ? (
+                            <div className="col-span-2">
+                              บัญชีของเว็บ:{" "}
+                              {[row.counterparty_bank, row.counterparty_account_no, row.counterparty]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </div>
+                          ) : null}
+                          {row.site_url ? <div className="col-span-2">โดเมน: {row.site_url}</div> : null}
                         </dl>
 
                         {isEditing && editing ? (

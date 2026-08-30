@@ -37,19 +37,21 @@ export const POST = route(async (request) => {
     sort_order: input.sortOrder ?? 100,
   };
 
-  let result = await supabaseAdmin()
-    .from("sites")
-    .insert({ ...payload, emoji: input.emoji ?? null })
-    .select("*")
-    .single();
+  const insert = (value: Record<string, unknown>) =>
+    supabaseAdmin().from("sites").insert(value).select("*").single();
 
-  // ฐานข้อมูลที่ยังไม่รัน migration 0005 — บันทึกโดยไม่มี emoji ไปก่อน
-  if (result.error && isMissingColumnError(result.error, "emoji")) {
-    result = await supabaseAdmin().from("sites").insert(payload).select("*").single();
+  // ฐานข้อมูลที่ยังไม่รัน migration 0005 / 0007 — ตัดคอลัมน์ที่ยังไม่มีออกแล้วบันทึกส่วนที่เหลือ
+  const optional: Record<string, unknown> = { emoji: input.emoji ?? null, domain: input.domain ?? null };
+  let result = await insert({ ...payload, ...optional });
+
+  for (const column of ["emoji", "domain"]) {
+    if (!isMissingColumnError(result.error, column)) continue;
+    delete optional[column];
+    result = await insert({ ...payload, ...optional });
   }
 
   if (result.error) {
-    if (result.error.code === "23505") throw new HttpError(409, "มีเว็บชื่อนี้อยู่แล้ว");
+    if (result.error.code === "23505") throw new HttpError(409, "มีเว็บชื่อนี้หรือโดเมนนี้อยู่แล้ว");
     throw new HttpError(500, `เพิ่มเว็บไม่สำเร็จ: ${result.error.message}`);
   }
   return ok({ site: result.data }, { status: 201 });

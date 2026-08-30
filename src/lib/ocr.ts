@@ -64,6 +64,50 @@ function buildResult(input: {
   };
 }
 
+/** ข้อความบนรูปที่ Vision อ่านได้ — ไม่ล้มทั้งคำขอเมื่อ Vision ล่ม แต่คืน warning กลับไปแทน */
+export interface ImageText {
+  text: string | null;
+  warning: string | null;
+}
+
+/** อ่านตัวหนังสือบนรูปด้วย Vision (ยังไม่ตั้งค่าคีย์ = ไม่อ่าน ไม่ถือว่าพัง) */
+export async function readTextFromImage(buffer: Buffer): Promise<ImageText> {
+  if (!isVisionConfigured()) return { text: null, warning: null };
+  try {
+    return { text: await readImageText(buffer.toString("base64")), warning: null };
+  } catch (error) {
+    // Vision ล่มหรือโควตาหมด ยังมีค่าจาก QR ให้ใช้ อย่าทิ้งทั้งคำขอ
+    console.error("[ocr] Google Vision ล้มเหลว:", error);
+    return {
+      text: null,
+      warning: error instanceof HttpError ? error.message : "อ่านตัวหนังสือบนรูปไม่สำเร็จ",
+    };
+  }
+}
+
+/** ประกอบผลของสลิปจากข้อความที่อ่านมาแล้ว — ไม่เรียก API ซ้ำ */
+export function slipResultFromText(params: {
+  text: string | null;
+  qr: SlipQr | null;
+  siteNames?: string[];
+  warnings?: string[];
+}): OcrResult | null {
+  const fields = params.text ? extractSlipFields(params.text, { siteNames: params.siteNames }) : null;
+  const sources: OcrSource[] = [
+    ...(params.qr ? (["qr"] as const) : []),
+    ...(fields ? (["vision"] as const) : []),
+  ];
+  if (sources.length === 0) return null;
+
+  return buildResult({
+    fields,
+    qr: params.qr,
+    sources,
+    extraWarnings: params.warnings ?? [],
+    visionText: params.text,
+  });
+}
+
 /**
  * อ่านรูปสลิปแล้วคืนค่าที่พร้อมเติมลงฟอร์ม
  *
@@ -81,28 +125,16 @@ export async function extractFromImage(params: {
   siteNames?: string[];
 }): Promise<OcrResult> {
   const qr = params.qr !== undefined ? params.qr : await readSlipQr(params.buffer);
+  const { text, warning } = await readTextFromImage(params.buffer);
 
-  let fields: SlipFields | null = null;
-  let visionText: string | null = null;
-  const warnings: string[] = [];
+  const result = slipResultFromText({
+    text,
+    qr,
+    siteNames: params.siteNames,
+    warnings: warning ? [warning] : [],
+  });
 
-  if (isVisionConfigured()) {
-    try {
-      visionText = await readImageText(params.buffer.toString("base64"));
-      if (visionText) fields = extractSlipFields(visionText, { siteNames: params.siteNames });
-    } catch (error) {
-      // Vision ล่มหรือโควตาหมด ยังมีค่าจาก QR ให้ใช้ อย่าทิ้งทั้งคำขอ
-      console.error("[ocr] Google Vision ล้มเหลว:", error);
-      warnings.push(error instanceof HttpError ? error.message : "อ่านตัวหนังสือบนรูปไม่สำเร็จ");
-    }
-  }
-
-  const sources: OcrSource[] = [
-    ...(qr ? (["qr"] as const) : []),
-    ...(fields ? (["vision"] as const) : []),
-  ];
-
-  if (sources.length === 0) {
+  if (!result) {
     throw new HttpError(
       501,
       isVisionConfigured()
@@ -112,5 +144,5 @@ export async function extractFromImage(params: {
     );
   }
 
-  return buildResult({ fields, qr, sources, extraWarnings: warnings, visionText });
+  return result;
 }

@@ -18,6 +18,7 @@ export const PATCH = route(async (request: Request, context: Context) => {
   if (input.name !== undefined) patch.name = input.name;
   if (input.color !== undefined) patch.color = input.color;
   if (input.emoji !== undefined) patch.emoji = input.emoji;
+  if (input.domain !== undefined) patch.domain = input.domain;
   if (input.note !== undefined) patch.note = input.note;
   if (input.sortOrder !== undefined) patch.sort_order = input.sortOrder;
   if (input.isActive !== undefined) patch.is_active = input.isActive;
@@ -28,17 +29,22 @@ export const PATCH = route(async (request: Request, context: Context) => {
 
   let result = await update(patch);
 
-  // ฐานข้อมูลที่ยังไม่รัน migration 0005 — แก้ส่วนอื่นต่อได้ ยกเว้นขอแก้ emoji อย่างเดียว
-  if (result.error && isMissingColumnError(result.error, "emoji") && "emoji" in patch) {
-    const { emoji: _emoji, ...rest } = patch;
-    if (Object.keys(rest).length === 0) {
-      throw new HttpError(400, "ฐานข้อมูลยังไม่มีช่อง emoji — รัน supabase/migrations/0005_site_emoji.sql ก่อน");
+  // ฐานข้อมูลที่ยังไม่รัน migration 0005 / 0007 — แก้ส่วนอื่นต่อได้ ยกเว้นขอแก้คอลัมน์นั้นอย่างเดียว
+  const MIGRATION_OF: Record<string, string> = {
+    emoji: "supabase/migrations/0005_site_emoji.sql",
+    domain: "supabase/migrations/0007_slip_pairs.sql",
+  };
+  for (const column of ["emoji", "domain"]) {
+    if (!isMissingColumnError(result.error, column) || !(column in patch)) continue;
+    delete patch[column];
+    if (Object.keys(patch).length === 0) {
+      throw new HttpError(400, `ฐานข้อมูลยังไม่มีช่อง ${column} — รัน ${MIGRATION_OF[column]} ก่อน`);
     }
-    result = await update(rest);
+    result = await update(patch);
   }
 
   if (result.error) {
-    if (result.error.code === "23505") throw new HttpError(409, "มีเว็บชื่อนี้อยู่แล้ว");
+    if (result.error.code === "23505") throw new HttpError(409, "มีเว็บชื่อนี้หรือโดเมนนี้อยู่แล้ว");
     throw new HttpError(500, `แก้ไขเว็บไม่สำเร็จ: ${result.error.message}`);
   }
   if (!result.data) throw new HttpError(404, "ไม่พบเว็บนี้");
