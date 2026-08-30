@@ -144,17 +144,17 @@ export function buildSummary(
     }
     add(bySite.get(siteId)!, row.direction, amount);
 
-    if (row.direction === "deposit") {
-      totals.deposit += amount;
-    } else {
-      totals.withdraw += amount;
-      // เงินออกจากเว็บเท่านั้นที่วิ่งเข้าบัญชีธนาคารเรา ขาเข้าเว็บไม่ต้องแยกธนาคาร
-      const bank = bankKey(row.bank_name);
-      const bucket = byBank.get(bank) ?? { key: bank, amount: 0, count: 0 };
-      bucket.amount += amount;
-      bucket.count += 1;
-      byBank.set(bank, bucket);
-    }
+    if (row.direction === "deposit") totals.deposit += amount;
+    else totals.withdraw += amount;
+
+    // bank_name คือธนาคารของบัญชีเราเสมอ — ขาเข้าเว็บคือบัญชีที่เงินออก ขาออกคือบัญชีที่เงินเข้า
+    const bank = bankKey(row.bank_name);
+    const bucket = byBank.get(bank) ?? { key: bank, deposit: 0, withdraw: 0, count: 0 };
+    if (row.direction === "deposit") bucket.deposit += amount;
+    else bucket.withdraw += amount;
+    bucket.count += 1;
+    byBank.set(bank, bucket);
+
     totals.count += 1;
   }
 
@@ -175,8 +175,12 @@ export function buildSummary(
       .map((bucket) => ({ ...tidy(bucket), siteId: bucket.siteId, color: bucket.color }))
       .sort((a, b) => b.deposit + b.withdraw - (a.deposit + a.withdraw)),
     byBank: [...byBank.values()]
-      .map((bucket) => ({ ...bucket, amount: round2(bucket.amount) }))
-      .sort((a, b) => b.amount - a.amount),
+      .map((bucket) => ({
+        ...bucket,
+        deposit: round2(bucket.deposit),
+        withdraw: round2(bucket.withdraw),
+      }))
+      .sort((a, b) => b.deposit + b.withdraw - (a.deposit + a.withdraw)),
   };
 }
 

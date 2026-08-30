@@ -92,7 +92,7 @@ function inkOn(hex: string): string {
   return luminance > 0.6 ? "#1a1a1a" : "#ffffff";
 }
 
-/** เงินที่ถอนออกจากเว็บ เข้าบัญชีธนาคารไหนไปเท่าไหร่ */
+/** บัญชีธนาคารของเราแต่ละธนาคาร มีเงินออกไปเข้าเว็บและรับกลับมาเท่าไหร่ */
 function BankRow({ bucket, max }: { bucket: BankBucket; max: number }) {
   const mark = bankMark(bucket.key);
   return (
@@ -111,10 +111,21 @@ function BankRow({ bucket, max }: { bucket: BankBucket; max: number }) {
           </span>
           <span className="truncate">{bucket.key}</span>
         </span>
-        <span className="dim flex-none text-[11px]">{bucket.count} รายการ</span>
+        <span
+          className="tnum flex-none text-[13.5px] font-bold"
+          style={{
+            color:
+              bucket.withdraw - bucket.deposit >= 0
+                ? "var(--color-money-out)"
+                : "var(--color-money-in)",
+          }}
+        >
+          {formatSigned(bucket.withdraw - bucket.deposit)}
+        </span>
       </div>
-      <div className="mt-1.5">
-        <BarRow value={bucket.amount} max={max} tone="out" />
+      <div className="mt-1.5 flex flex-col gap-1">
+        <BarRow value={bucket.deposit} max={max} tone="in" />
+        <BarRow value={bucket.withdraw} max={max} tone="out" />
       </div>
     </div>
   );
@@ -162,7 +173,7 @@ export default function SummaryPage() {
   const maxDay = Math.max(1, ...(data?.byDay ?? []).map((b) => Math.max(b.deposit, b.withdraw)));
   const maxSite = Math.max(1, ...(data?.bySite ?? []).map((b) => Math.max(b.deposit, b.withdraw)));
   const maxMonth = Math.max(1, ...(data?.byMonth ?? []).map((b) => Math.max(b.deposit, b.withdraw)));
-  const maxBank = Math.max(1, ...(data?.byBank ?? []).map((b) => b.amount));
+  const maxBank = Math.max(1, ...(data?.byBank ?? []).map((b) => Math.max(b.deposit, b.withdraw)));
 
   return (
     <div className="space-y-3.5">
@@ -227,15 +238,20 @@ export default function SummaryPage() {
           </div>
 
           <section className="card p-4">
-            <SectionTitle>เงินเข้าบัญชี แยกตามธนาคาร</SectionTitle>
+            <SectionTitle>แยกตามธนาคารของเรา</SectionTitle>
             {data.byBank.length === 0 ? (
-              <EmptyState>ยังไม่มีรายการเงินออกจากเว็บในช่วงนี้</EmptyState>
+              <EmptyState>ยังไม่มีรายการในช่วงนี้</EmptyState>
             ) : (
-              <div>
-                {data.byBank.map((bucket) => (
-                  <BankRow key={bucket.key} bucket={bucket} max={maxBank} />
-                ))}
-              </div>
+              <>
+                <div>
+                  {data.byBank.map((bucket) => (
+                    <BankRow key={bucket.key} bucket={bucket} max={maxBank} />
+                  ))}
+                </div>
+                <p className="dim mt-2.5 text-[11px]">
+                  แถบชมพู = โอนออกจากบัญชีนี้เข้าเว็บ · แถบเขียวมินต์ = ถอนจากเว็บเข้าบัญชีนี้
+                </p>
+              </>
             )}
           </section>
 
