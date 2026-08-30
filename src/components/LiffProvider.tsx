@@ -18,6 +18,8 @@ interface AuthContextValue {
   error: string | null;
   profile: LineProfile | null;
   ocrEnabled: boolean;
+  /** ฐานข้อมูลมีช่องเก็บภาพหน้าเว็บ/เลขบัญชีแล้ว (รัน migration 0007 แล้ว) */
+  pairColumnsReady: boolean;
   /** ผู้ดูแลระบบ — เห็นเมนู "สมาชิก" และเข้าหน้า /admin ได้ */
   isAdmin: boolean;
   /** เห็นรายการและสรุปยอดของทุกคน (อ่านอย่างเดียว) */
@@ -54,6 +56,7 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<LineProfile | null>(null);
   const [ocrEnabled, setOcrEnabled] = useState(false);
+  const [pairColumnsReady, setPairColumnsReady] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [canViewAll, setCanViewAll] = useState(false);
   const tokenRef = useRef<string | null>(null);
@@ -117,12 +120,14 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
         const me = await api<{
           user: { id: string; displayName: string | null; pictureUrl: string | null };
           ocrEnabled: boolean;
+          pairColumnsReady?: boolean;
           isAdmin: boolean;
           canViewAll: boolean;
         }>("/api/me");
 
         if (cancelled) return;
         setOcrEnabled(me.ocrEnabled);
+        setPairColumnsReady(me.pairColumnsReady !== false);
         setIsAdmin(me.isAdmin);
         setCanViewAll(me.canViewAll);
         setProfile((current) =>
@@ -213,7 +218,7 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ status, error, profile, ocrEnabled, isAdmin, canViewAll, api }}>
+    <AuthContext.Provider value={{ status, error, profile, ocrEnabled, pairColumnsReady, isAdmin, canViewAll, api }}>
       {children}
     </AuthContext.Provider>
   );

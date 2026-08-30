@@ -15,7 +15,7 @@ import {
   type PairDraft,
   type ReadImage,
 } from "@/lib/pairing";
-import { formatThaiDateTime } from "@/lib/thai-date";
+import { formatThaiDateTime, toDatetimeLocalValue } from "@/lib/thai-date";
 import type { Direction, OcrStatus, SiteRow } from "@/lib/types";
 
 /**
@@ -36,18 +36,12 @@ interface Group {
 
 interface Edit {
   siteId: string;
-  direction: Direction;
   amount: string;
   occurredAtLocal: string;
   note: string;
 }
 
 type SaveState = { state: "idle" | "saving" | "saved" | "error"; message: string | null };
-
-const DIRECTIONS: Array<{ value: Direction; label: string }> = [
-  { value: "deposit", label: "เงินเข้าเว็บ" },
-  { value: "withdraw", label: "เงินออกจากเว็บ" },
-];
 
 const KIND_LABEL: Record<DocKind, string> = { web: "หน้าเว็บ", slip: "สลิปธนาคาร" };
 
@@ -65,8 +59,15 @@ function resolveOcrStatus(draft: PairDraft, edit: Edit, amount: number): OcrStat
   return sameAmount && sameDate ? "ocr" : "ocr_edited";
 }
 
-export function PairUploader({ onSaved }: { onSaved?: () => void }) {
-  const { api, ocrEnabled } = useAuth();
+export function PairUploader({
+  direction,
+  onSaved,
+}: {
+  /** ประเภทรายการมาจากแท็บของหน้าบันทึก ทุกคู่ในจอนี้จึงเป็นชนิดเดียวกัน */
+  direction: Direction;
+  onSaved?: () => void;
+}) {
+  const { api, ocrEnabled, pairColumnsReady } = useAuth();
 
   const [sites, setSites] = useState<SiteRow[]>([]);
   const [images, setImages] = useState<ReadImage[]>([]);
@@ -106,7 +107,7 @@ export function PairUploader({ onSaved }: { onSaved?: () => void }) {
   const imageById = new Map(images.map((image) => [image.id, image]));
 
   const draftOf = useCallback(
-    (group: Group, direction?: Direction): PairDraft =>
+    (group: Group): PairDraft =>
       mergePair({
         web: group.webId ? (imageById.get(group.webId) ?? null) : null,
         slip: group.slipId ? (imageById.get(group.slipId) ?? null) : null,
@@ -115,16 +116,16 @@ export function PairUploader({ onSaved }: { onSaved?: () => void }) {
       }),
     // imageById สร้างใหม่ทุกรอบ render อยู่แล้ว — ผูกกับ images พอ
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [images],
+    [images, direction],
   );
 
   /** ค่าเริ่มต้นของฟอร์มหนึ่งคู่ — เอาจากที่อ่านได้ แล้วเลือกเว็บที่ตรงกับโดเมนให้เลย */
   const initialEdit = useCallback(
     (draft: PairDraft, siteList: SiteRow[]): Edit => ({
       siteId: resolveSite(siteList, { domain: draft.siteUrl, siteHint: null })?.id ?? "",
-      direction: draft.direction,
       amount: draft.amount === null ? "" : String(draft.amount),
-      occurredAtLocal: draft.occurredAtLocal ?? "",
+      // ไม่มีรูปให้อ่านวันเวลา (กรอกเอง) — ตั้งเป็นตอนนี้ไว้ก่อน
+      occurredAtLocal: draft.occurredAtLocal ?? (draft.web || draft.slip ? "" : toDatetimeLocalValue(new Date())),
       note: "",
     }),
     [],
@@ -301,6 +302,11 @@ export function PairUploader({ onSaved }: { onSaved?: () => void }) {
     });
   }
 
+  /** รายการที่ไม่มีรูปเลย — กรอกยอดกับวันเวลาเองได้ แล้วค่อยแนบรูปทีหลังก็ได้ */
+  function addManual() {
+    setGroups((current) => [...current, { id: newId(), webId: null, slipId: null, guessed: false }]);
+  }
+
   function removeGroup(group: Group) {
     setGroups((current) => current.filter((item) => item.id !== group.id));
     setImages((current) =>
@@ -366,7 +372,7 @@ export function PairUploader({ onSaved }: { onSaved?: () => void }) {
         method: "POST",
         body: JSON.stringify({
           siteId: edit.siteId,
-          direction: edit.direction,
+          direction,
           amount,
           occurredAtLocal: edit.occurredAtLocal,
           note: edit.note || null,
@@ -408,9 +414,8 @@ export function PairUploader({ onSaved }: { onSaved?: () => void }) {
     setError(null);
     for (const group of groups) {
       if (saves[group.id]?.state === "saved") continue;
-      const edit = edits[group.id] ?? initialEdit(draftOf(group), sites);
-      // ประเภทที่ผู้ใช้เลือกเป็นตัวตัดสินว่าบัญชีฝั่งไหนเป็นของเรา จึงต้องรวมค่าใหม่ตามนั้น
-      const draft = draftOf(group, edit.direction);
+      const draft = draftOf(group);
+      const edit = edits[group.id] ?? initialEdit(draft, sites);
       if (draft.duplicate) continue;
       await saveGroup(group, edit, draft);
     }
@@ -456,9 +461,24 @@ export function PairUploader({ onSaved }: { onSaved?: () => void }) {
           </span>
           <span className="text-sm font-semibold">เลือกรูปทั้งหมดทีเดียว</span>
           <span className="dim text-center text-[11.5px]">
-            เลือกภาพหน้าเว็บกับสลิปพร้อมกันได้เลย กี่คู่ก็ได้ — ระบบจับคู่ให้ตามยอดเงินและเวลา
+            {direction === "deposit"
+              ? "ภาพหน้าฝากของเว็บ + สลิปโอนเงิน กี่คู่ก็ได้ — ระบบจับคู่ให้ตามยอดเงินและเวลา"
+              : "ภาพหน้าถอนของเว็บ + สลิปเงินเข้าบัญชี กี่คู่ก็ได้ — ระบบจับคู่ให้ตามยอดเงินและเวลา"}
           </span>
         </button>
+
+        <button type="button" className="link-sm" onClick={addManual} disabled={progress !== null}>
+          ＋ กรอกเอง ไม่มีรูป
+        </button>
+
+        {!pairColumnsReady ? (
+          <Alert tone="warn" title="ฐานข้อมูลยังไม่มีช่องเก็บภาพหน้าเว็บ">
+            ตอนนี้บันทึกได้แค่ยอด วันเวลา เว็บ และรูปสลิป — <b>ภาพหน้าเว็บกับเลขบัญชีจะยังไม่ถูกเก็บ</b>
+            <br />
+            รัน <code>supabase/migrations/0007_slip_pairs.sql</code> ใน SQL Editor ของ Supabase ก่อน
+            แล้วอัปโหลดใหม่อีกครั้ง
+          </Alert>
+        ) : null}
 
         {!ocrEnabled ? (
           <Alert tone="warn" title="ยังไม่ได้ตั้งค่า Google Vision">
@@ -474,7 +494,8 @@ export function PairUploader({ onSaved }: { onSaved?: () => void }) {
 
         {progress ? <Spinner label={`กำลังอ่านรูป ${progress.done}/${progress.total}…`} /> : null}
         {error ? <Alert tone="error">{error}</Alert> : null}
-        {pendingMigration ? (
+        {/* เตือนซ้ำเฉพาะกรณีที่ตอนเปิดหน้ายังไม่รู้ว่าคอลัมน์หาย — ไม่งั้นจะขึ้นสองอันซ้อนกัน */}
+        {pendingMigration && pairColumnsReady ? (
           <Alert tone="warn" title="ฐานข้อมูลยังไม่มีช่องเก็บภาพหน้าเว็บ">
             บันทึกยอดให้แล้ว แต่ภาพหน้าเว็บกับเลขบัญชียังไม่ได้เก็บ — รัน
             <code> supabase/migrations/0007_slip_pairs.sql</code> ก่อน
@@ -487,8 +508,8 @@ export function PairUploader({ onSaved }: { onSaved?: () => void }) {
       ) : null}
 
       {groups.map((group, index) => {
-        const edit = edits[group.id] ?? initialEdit(draftOf(group), sites);
-        const draft = draftOf(group, edit.direction);
+        const draft = draftOf(group);
+        const edit = edits[group.id] ?? initialEdit(draft, sites);
         const save = saves[group.id] ?? { state: "idle" as const, message: null };
         const setEdit = (patch: Partial<Edit>) =>
           setEdits((current) => ({ ...current, [group.id]: { ...edit, ...patch } }));
@@ -507,7 +528,7 @@ export function PairUploader({ onSaved }: { onSaved?: () => void }) {
         return (
           <section key={group.id} className="card space-y-3 p-3.5">
             <div className="flex items-center justify-between gap-2">
-              <span className="card-title">คู่ที่ {index + 1}</span>
+              <span className="card-title">รายการที่ {index + 1}</span>
               {save.state === "saved" ? (
                 <span className="text-[12px] font-bold" style={{ color: "var(--color-money-out)" }}>
                   ✓ บันทึกแล้ว
@@ -516,7 +537,7 @@ export function PairUploader({ onSaved }: { onSaved?: () => void }) {
                 <Spinner />
               ) : (
                 <button type="button" className="link-sm" onClick={() => removeGroup(group)}>
-                  ลบคู่นี้
+                  ลบรายการนี้
                 </button>
               )}
             </div>
@@ -576,12 +597,20 @@ export function PairUploader({ onSaved }: { onSaved?: () => void }) {
                   const mateIndex = groups.findIndex((item) => item.id === mate.id) + 1;
                   return (
                     <option key={mate.id} value={mate.id}>
-                      คู่ที่ {mateIndex} · {mateDraft.amount ? formatBahtShort(mateDraft.amount) : "ไม่รู้ยอด"}{" "}
+                      รายการที่ {mateIndex} · {mateDraft.amount ? formatBahtShort(mateDraft.amount) : "ไม่รู้ยอด"}{" "}
                       · {mateDraft.web ? "หน้าเว็บ" : "สลิป"}
                     </option>
                   );
                 })}
               </select>
+            ) : null}
+
+            {draft.web?.web?.direction && draft.web.web.direction !== direction ? (
+              <Alert tone="warn">
+                ระบบอ่านว่าภาพหน้าเว็บใบนี้น่าจะเป็น
+                {draft.web.web.direction === "deposit" ? " เงินเข้าเว็บ " : " เงินออกจากเว็บ "}
+                แต่ตอนนี้อยู่แท็บอีกแบบ — สลับแท็บด้านบนถ้าเลือกผิด
+              </Alert>
             ) : null}
 
             {draft.warnings.map((warning) => (
@@ -621,20 +650,6 @@ export function PairUploader({ onSaved }: { onSaved?: () => void }) {
               ) : null}
             </div>
 
-            <div className="seg">
-              {DIRECTIONS.map((option) => (
-                <button
-                  type="button"
-                  key={option.value}
-                  disabled={locked}
-                  className={`seg-item${edit.direction === option.value ? " seg-item-active" : ""}`}
-                  onClick={() => setEdit({ direction: option.value })}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <span className="field-label">ยอดเงิน</span>
@@ -662,7 +677,7 @@ export function PairUploader({ onSaved }: { onSaved?: () => void }) {
             <dl className="muted grid grid-cols-1 gap-y-1 text-[11.5px]">
               {draft.bankName || draft.accountNo || draft.accountName ? (
                 <div>
-                  {edit.direction === "deposit" ? "บัญชีที่โอนออก" : "บัญชีที่รับเงิน"} (ของเรา):{" "}
+                  {direction === "deposit" ? "บัญชีที่โอนออก" : "บัญชีที่รับเงิน"} (ของเรา):{" "}
                   {[draft.bankName, draft.accountNo, draft.accountName].filter(Boolean).join(" · ")}
                 </div>
               ) : null}
@@ -696,7 +711,7 @@ export function PairUploader({ onSaved }: { onSaved?: () => void }) {
                 disabled={savingAll || Boolean(draft.duplicate)}
                 onClick={() => saveGroup(group, edit, draft)}
               >
-                บันทึกเฉพาะคู่นี้
+                บันทึกเฉพาะรายการนี้
               </button>
             ) : null}
           </section>
