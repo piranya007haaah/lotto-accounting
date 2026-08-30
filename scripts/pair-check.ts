@@ -95,6 +95,50 @@ xxx-x-x0202-x
 0.00 บาท
 รหัสอ้างอิง: 20260830SCB998877665`;
 
+/**
+ * หน้า "รายการ ฝาก-ถอน" ของ kindee365 — หน้านี้บอกวันเวลาครบ และมีแต่บัญชีของเว็บ
+ * บัญชีที่โอนออกจึงต้องเอามาจากสลิป (ธนาคารกรุงเทพใช้คำว่า "ไปที่" แทน "ไปยัง")
+ */
+const HISTORY_PAGE = `15:07
+กินดี365
+KINDEE365
+ขอขอบคุณสำหรับความไว้วางใจ ติดต่อ@kind2024
+รายการ ฝาก-ถอน
+หน้าหลัก
+ทั้งหมด
+ฝาก
+ถอน
+ธนาคารไทยพาณิชย์
+อนุมัติ
+จำนวนเครดิต
+เติมครดิต
+2,300.08
++น.ส. ภัทธา พรรณสมัย+
+26-Aug-2026 07:18
+232-2-87048-4
+หมายเหตุ:
+Copyright © 2022-2023 All rights reserved.
+kindee365.com`;
+
+const BBL_SLIP = `Bangkok Bank
+รายการสำเร็จ
+26 ส.ค. 69, 07:18
+จำนวนเงิน
+2,300.08 THB
+จาก
+นาย กานต์พงศ์
+703-0-xxx755
+ธนาคารกรุงเทพ
+ไปที่
+นางสาว ภัทธา พรรณสมัย
+232-2-xxx484
+ธนาคารไทยพาณิชย์
+ค่าธรรมเนียม 0.00 THB
+หมายเลขอ้างอิง
+626705
+เลขที่อ้างอิง
+2026082607180523005698808`;
+
 const SITES = [
   { id: "site-1", name: "LOTTOVIP" },
   { id: "site-2", name: "chokddd365", domain: null as string | null },
@@ -116,11 +160,17 @@ console.log("ต้องได้ผลเท่าเดิม: โอนอ�
 const shuffled = extractWebPageFields(SHUFFLED_PAGE);
 console.log({ from: shuffled.fromAccount, to: shuffled.toAccount, amount: shuffled.amount });
 
+console.log("\n=== หน้ารายการ ฝาก-ถอน (kindee365) ===");
+const history = extractWebPageFields(HISTORY_PAGE, { siteNames: SITES.map((s) => s.name) });
+console.log(history);
+
 console.log("\n=== แยกประเภทรูป ===");
 for (const [name, text] of [
   ["หน้าฝากเงิน", DEPOSIT_PAGE],
   ["หน้าถอนเงิน", WITHDRAW_PAGE],
+  ["หน้ารายการฝาก-ถอน", HISTORY_PAGE],
   ["สลิปธนาคาร", SLIP_TEXT],
+  ["สลิปกรุงเทพ", BBL_SLIP],
 ] as const) {
   console.log(name, "→", classifyDocument({ text, qr: null }));
 }
@@ -129,13 +179,16 @@ for (const [name, text] of [
 function slipImage(id: string, order: number, text: string): ReadImage {
   const fields = extractSlipFields(text);
   const slip: OcrResult = {
-    direction: "deposit",
+    direction: fields.direction ?? "deposit",
     amount: fields.amount,
     occurredAt: fields.occurredAt?.toISOString() ?? null,
     occurredAtLocal: fields.occurredAt ? toDatetimeLocalValue(fields.occurredAt) : null,
     refNo: fields.refNo,
     bankName: fields.bankName,
     counterparty: fields.counterparty,
+    counterpartyAccountNo: fields.counterpartyAccountNo,
+    senderName: fields.senderName,
+    senderAccountNo: fields.senderAccountNo,
     siteHint: null,
     confidence: 0.9,
     documentType: "bank_transfer_slip",
@@ -166,6 +219,21 @@ const images: ReadImage[] = [
   webImage("web2", 2, WITHDRAW_PAGE),
   slipImage("slip2", 3, SLIP_TEXT.replace("1,000.00 บาท", "2,500.00 บาท").replace("14:36", "09:07")),
 ];
+
+console.log("\n=== คู่จริง: หน้ารายการ kindee365 + สลิปกรุงเทพ ===");
+for (const pair of pairImages([webImage("web3", 0, HISTORY_PAGE), slipImage("slip3", 1, BBL_SLIP)])) {
+  const draft = mergePair(pair);
+  console.log({
+    direction: draft.direction,
+    amount: draft.amount,
+    occurredAtLocal: draft.occurredAtLocal,
+    ourAccount: `${draft.bankName ?? "-"} ${draft.accountNo ?? "-"} ${draft.accountName ?? "-"}`,
+    theirAccount: `${draft.counterpartyBank ?? "-"} ${draft.counterpartyAccountNo ?? "-"} ${draft.counterparty ?? "-"}`,
+    site: draft.siteUrl,
+    refNo: draft.refNo,
+    warnings: draft.warnings,
+  });
+}
 
 for (const pair of pairImages(images)) {
   const draft = mergePair(pair);

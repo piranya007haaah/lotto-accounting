@@ -30,7 +30,13 @@ export interface SlipFields {
   direction: Direction | null;
   refNo: string | null;
   bankName: string | null;
+  /** ชื่อผู้รับเงินตามที่พิมพ์บนสลิป */
   counterparty: string | null;
+  /** เลขบัญชีผู้รับ — สลิปปิดบังไว้บางส่วน (เช่น "232-2-xxx484") เก็บตามที่เห็น */
+  counterpartyAccountNo: string | null;
+  /** ชื่อและเลขบัญชีผู้โอน — ขาฝากคือบัญชีของเราที่เงินออก */
+  senderName: string | null;
+  senderAccountNo: string | null;
   siteHint: string | null;
 }
 
@@ -50,13 +56,31 @@ const DEPOSIT_HINTS = [
 ];
 
 const COUNTERPARTY_LABELS = [
-  "ไปยัง", "โอนไปยัง", "ผู้รับเงิน", "ผู้รับ", "บัญชีปลายทาง", "ชื่อบัญชีปลายทาง",
+  "ไปยัง", "ไปที่", "โอนไปยัง", "โอนไปที่", "ผู้รับเงิน", "ผู้รับ", "บัญชีปลายทาง", "ชื่อบัญชีปลายทาง",
   "payee", "receiver", "to",
 ];
 
 /** ป้ายต้องตามด้วย ":" หรือช่องว่าง ไม่งั้นจะไปโดนประโยคอย่าง "ผู้รับเงินสามารถสแกน..." */
 const COUNTERPARTY_LABEL_RE =
-  /^(ชื่อบัญชีปลายทาง|บัญชีปลายทาง|โอนไปยัง|ผู้รับเงิน|ผู้รับ|ไปยัง|payee|receiver|to)/i;
+  /^(ชื่อบัญชีปลายทาง|บัญชีปลายทาง|โอนไปยัง|โอนไปที่|ผู้รับเงิน|ผู้รับ|ไปยัง|ไปที่|payee|receiver|to)/i;
+
+/** ป้ายฝั่งผู้โอน — สลิปไทยใช้ "จาก" เกือบทุกธนาคาร */
+const SENDER_LABEL_RE = /^(ชื่อบัญชีต้นทาง|บัญชีต้นทาง|โอนจาก|ผู้โอน|จาก|from|sender)/i;
+
+/**
+ * เลขบัญชีบนสลิป — ถูกปิดบังบางส่วนเสมอ เช่น "703-0-xxx755", "XXX-X-X2772-x"
+ * เก็บตามที่เห็นบนสลิป ไม่พยายามเดาตัวที่ถูกปิด
+ */
+const SLIP_ACCOUNT_RE = /(?<![A-Za-z0-9])([\dxX*•][\dxX*•-]{6,24}[\dxX*•])(?![A-Za-z0-9])/;
+
+function slipAccountFrom(text: string): string | null {
+  const raw = text.match(SLIP_ACCOUNT_RE)?.[1];
+  if (!raw) return null;
+  const body = raw.replace(/-/g, "");
+  // ยาว 9–15 ตัวเท่านั้น และต้องมีตัวปิดบังหรือเป็นตัวเลขล้วน — กันวันที่กับเลขอ้างอิงสั้น ๆ
+  if (body.length < 9 || body.length > 15) return null;
+  return /[xX*•]/.test(body) || /^\d+$/.test(body) ? raw : null;
+}
 
 /** บรรทัดที่มีแต่ชื่อป้าย ไม่ใช่ค่า — สลิปที่ Vision กองป้ายไว้ด้วยกันจะเจอแบบนี้ */
 const LABEL_ONLY = new Set([
@@ -172,37 +196,61 @@ function findRefNo(lines: Line[]): string | null {
   return null;
 }
 
-function findCounterparty(lines: Line[]): string | null {
+/** ชื่อ + เลขบัญชีของฝั่งหนึ่งบนสลิป (ผู้โอน หรือ ผู้รับ) */
+interface SlipParty {
+  name: string | null;
+  accountNo: string | null;
+}
+
+/**
+ * อ่านบล็อกของฝั่งหนึ่งบนสลิป โดยยึดป้าย "จาก" / "ไปยัง" เป็นหลัก
+ * แล้วกวาดบรรทัดถัดไปจนกว่าจะชนป้ายของอีกฝั่ง — สลิปวางชื่อกับเลขบัญชีติดกันเสมอ
+ */
+function findParty(lines: Line[], own: RegExp, other: RegExp): SlipParty {
   const clean = (value: string): string | null => {
     const trimmed = value.replace(/^[\s:：\-]+/, "").trim();
     if (trimmed.length < 3) return null;
     // ตัวเลขล้วนหรือเลขบัญชีที่ถูกปิดบัง ไม่ใช่ชื่อคน
     if (!/[A-Za-z฀-๿]/.test(trimmed)) return null;
-    // บรรทัดที่เป็นชื่อป้ายเฉย ๆ (เช่น "จำนวนเงิน") ไม่ใช่ชื่อผู้รับ
+    // บรรทัดที่เป็นชื่อป้ายเฉย ๆ (เช่น "จำนวนเงิน") ไม่ใช่ชื่อคน
     if (LABEL_ONLY.has(squash(trimmed))) return null;
     return trimmed.slice(0, 200);
   };
 
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    const label = line.text.match(COUNTERPARTY_LABEL_RE)?.[1];
-    if (!label) continue;
-
+  /** ป้ายต้องจบด้วยช่องว่างหรือ ":" ไม่งั้นจะไปโดนประโยคอย่าง "ผู้รับเงินสามารถสแกน..." */
+  const labelAt = (line: Line, pattern: RegExp): string | null => {
+    const label = line.text.match(pattern)?.[1];
+    if (!label) return null;
     const after = line.text.slice(label.length);
-    if (after !== "" && !/^[\s:：]/.test(after)) continue;
+    return after === "" || /^[\s:：]/.test(after) ? after : null;
+  };
+
+  let name: string | null = null;
+  let accountNo: string | null = null;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const after = labelAt(lines[index], own);
+    if (after === null) continue;
 
     const rest = after.replace(/^[\s:：]+/, "").trim();
-    if (rest) {
-      const here = clean(rest);
-      if (here) return here;
-      continue;
+    name ??= rest ? clean(rest) : null;
+    accountNo ??= rest ? slipAccountFrom(rest) : null;
+
+    // ป้ายอยู่บรรทัดเดียวโดด ๆ — ชื่ออยู่บรรทัดถัดไปเท่านั้น (ไกลกว่านั้นเป็นของฟิลด์อื่นแล้ว)
+    // ส่วนเลขบัญชีตามหาต่อได้อีกไม่กี่บรรทัด จนกว่าจะชนป้ายของอีกฝั่ง
+    if (name === null && rest === "") {
+      const next = lines[index + 1];
+      if (next && slipAccountFrom(next.text) === null) name = clean(next.text);
+    }
+    for (let next = index + 1; accountNo === null && next < Math.min(index + 5, lines.length); next += 1) {
+      if (labelAt(lines[next], other) !== null || labelAt(lines[next], own) !== null) break;
+      accountNo = slipAccountFrom(lines[next].text);
     }
 
-    // ป้ายอยู่บรรทัดเดียวโดด ๆ — ชื่อผู้รับน่าจะอยู่บรรทัดถัดไป
-    const there = lines[index + 1] ? clean(lines[index + 1].text) : null;
-    if (there) return there;
+    if (name || accountNo) return { name, accountNo };
   }
-  return null;
+
+  return { name, accountNo };
 }
 
 /** อ่านฟิลด์ทั้งหมดจากข้อความที่ OCR คืนมา */
@@ -223,6 +271,9 @@ export function extractSlipFields(
   if (includesAny(squashedAll, WITHDRAW_HINTS)) direction = "withdraw";
   else if (includesAny(squashedAll, DEPOSIT_HINTS) || bankName) direction = "deposit";
 
+  const sender = findParty(lines, SENDER_LABEL_RE, COUNTERPARTY_LABEL_RE);
+  const receiver = findParty(lines, COUNTERPARTY_LABEL_RE, SENDER_LABEL_RE);
+
   return {
     amount,
     fee,
@@ -230,7 +281,10 @@ export function extractSlipFields(
     direction,
     refNo: findRefNo(lines),
     bankName,
-    counterparty: findCounterparty(lines),
+    counterparty: receiver.name,
+    counterpartyAccountNo: receiver.accountNo,
+    senderName: sender.name,
+    senderAccountNo: sender.accountNo,
     siteHint: options.siteNames ? matchSiteName(text, options.siteNames) : null,
   };
 }

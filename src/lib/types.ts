@@ -110,8 +110,10 @@ export interface WebPageResult {
   domain: string | null;
   /** รหัสรายการของเว็บ เช่น "QR-2737703011042845" (คนละตัวกับเลขที่รายการบนสลิป) */
   refCode: string | null;
-  /** เวลาที่หน้าเว็บระบุ เช่น "14:34" — หน้าเว็บไม่บอกวันที่ จึงเก็บแค่เวลา */
+  /** เวลาที่หน้าเว็บระบุ เช่น "14:34" */
   timeLocal: string | null;
+  /** วันเวลาเต็มถ้าหน้านั้นมีให้ (หน้ารายการฝาก-ถอนมี ส่วนหน้าแจ้งโอนมีแต่เวลา) */
+  occurredAtLocal: string | null;
   siteHint: string | null;
 }
 
@@ -125,7 +127,13 @@ export interface OcrResult {
   occurredAtLocal: string | null;
   refNo: string | null;
   bankName: string | null;
+  /** ชื่อผู้รับเงินบนสลิป */
   counterparty: string | null;
+  /** เลขบัญชีผู้รับตามที่พิมพ์บนสลิป (ถูกปิดบังบางส่วน) */
+  counterpartyAccountNo: string | null;
+  /** ผู้โอน — ขาฝากคือบัญชีของเราที่เงินออก */
+  senderName: string | null;
+  senderAccountNo: string | null;
   siteHint: string | null;
   confidence: number;
   documentType: string;

@@ -5,10 +5,12 @@ import {
   includesAny,
   matchSiteName,
   normalizeThaiText,
+  saneDate,
   squash,
   toLines,
   type Line,
 } from "./ocr-text";
+import { parseLooseDateTime, toDatetimeLocalValue } from "./thai-date";
 import type { AccountRef, Direction, WebPageResult } from "./types";
 
 /**
@@ -37,14 +39,33 @@ const TO_ANCHORS = [
 
 const ACCOUNT_NAME_LABELS = ["ชื่อบัญชี", "ชื่อเจ้าของบัญชี", "accountname"];
 
-const DEPOSIT_HEADINGS = ["ฝากเงิน", "แจ้งฝาก", "เติมเงิน", "เติมเครดิต", "deposit", "topup"];
-const WITHDRAW_HEADINGS = ["ถอนเงิน", "แจ้งถอน", "ถอนเครดิต", "ขอถอน", "withdraw"];
+/**
+ * หน้าเว็บเรียกยอดว่า "เครดิต" — คำนี้อยู่ในรายการต้องห้ามของสลิป (เพราะ "เครดิตคงเหลือ")
+ * จึงต้องปลดออกเฉพาะที่นี่ แล้วกันยอดคงเหลือด้วยคำว่า "คงเหลือ" ซึ่งยังห้ามอยู่
+ */
+const WEB_AMOUNT_LABELS = [...AMOUNT_LABELS, "จำนวนเครดิต", "ยอดเครดิต", "เครดิตที่โอน", "จำนวนที่ฝาก"];
+const WEB_EXCLUDED_LABELS = EXCLUDED_LABELS.filter((label) => label !== "เครดิต");
+
+/** ป้ายที่ไม่ใช่ชื่อคนแน่ ๆ — กันบรรทัดอย่าง "หมายเหตุ:" ถูกหยิบมาเป็นชื่อบัญชี */
+const NOT_A_NAME = [...ACCOUNT_NAME_LABELS, "ธนาคาร", "บัญชี", "copy", "คัดลอก", "หมายเหตุ", "สถานะ", "อนุมัติ", "รายการ"];
+
+/** ชื่อคนที่มีคำนำหน้า — จับได้แม้อยู่ปนกับข้อความอื่นในบรรทัดเดียวกัน */
+const TITLED_NAME_RE = /((?:นางสาว|นาย|นาง|น\.ส\.|ด\.ช\.|ด\.ญ\.|คุณ|บจก\.|บริษัท)\s*[ก-๙A-Za-z][ก-๙A-Za-z.\s]{2,60})/;
+
+// เว็บสะกด "เครดิต" ไม่เหมือนกัน (บางเว็บพิมพ์ "ครดิต") จึงใส่ทั้งสองแบบ
+const DEPOSIT_HEADINGS = [
+  "ฝากเงิน", "แจ้งฝาก", "เติมเงิน", "เติมเครดิต", "เติมครดิต", "ฝากเครดิต", "deposit", "topup",
+];
+const WITHDRAW_HEADINGS = [
+  "ถอนเงิน", "แจ้งถอน", "ถอนเครดิต", "ถอนครดิต", "ขอถอน", "withdraw",
+];
 
 /** คำที่เจอเฉพาะบนหน้าเว็บ ไม่เจอบนสลิปธนาคาร — ใช้แยกว่ารูปไหนเป็นรูปอะไร */
 const WEB_MARKERS = [
   "โอนจากบัญชีนี้เท่านั้น", "โอนถึงบัญชี", "เวลาโอน", "ชั่วโมงที่โอนเงิน", "นาทีที่โอนเงิน",
   "แนบไฟล์", "แนบสลิป", "หน้าหลัก", "โอนก่อนหมดเวลา", "เติมเครดิต", "ถอนเครดิต",
   "เครดิตคงเหลือ", "กระเป๋าเงิน", "ยอดเครดิต", "copy",
+  "รายการฝากถอน", "จำนวนเครดิต", "เติมครดิต", "ถอนครดิต", "อนุมัติ", "หมายเหตุ",
 ];
 
 /** โดเมนที่ไม่ใช่เว็บหวย — เจอบนภาพได้จากแถบเบราว์เซอร์หรือปุ่มแชร์ */
@@ -76,9 +97,7 @@ function looksLikeName(line: Line): boolean {
   if (line.numbers.length > 0 || /\d/.test(line.text)) return false;
   const letters = line.text.replace(/[^A-Za-z฀-๿]/g, "");
   if (letters.length < 3) return false;
-  if (includesAny(line.squashed, [...ACCOUNT_NAME_LABELS, "ธนาคาร", "บัญชี", "copy", "คัดลอก"])) {
-    return false;
-  }
+  if (includesAny(line.squashed, NOT_A_NAME)) return false;
   return findBank(line.squashed) === null;
 }
 
@@ -124,6 +143,22 @@ function readAccountBlock(lines: Line[], start: number, stop: number): AccountRe
         const next = lines[index + 1];
         if (next && looksLikeName(next)) accountName = next.text.slice(0, 200);
       }
+    }
+  }
+
+  // ชื่อที่มีคำนำหน้า ("+น.ส. ภัทธา พรรณสมัย+") ชัดเจนพอที่จะหยิบได้แม้อยู่ปนกับข้อความอื่น
+  // หน้ารายการฝาก-ถอนวางชื่อไว้เหนือเลขบัญชี จึงต้องมองขึ้นไปเหนือช่วงด้วย
+  if (accountName === null) {
+    const titledAt = (index: number): string | null => {
+      const titled = lines[index]?.text.match(TITLED_NAME_RE)?.[1];
+      return titled ? titled.replace(/[+\-\s]+$/, "").trim().slice(0, 200) : null;
+    };
+    const below = accountNoAt >= 0 ? accountNoAt + 1 : start;
+    for (let index = below; accountName === null && index < stop; index += 1) {
+      accountName = titledAt(index);
+    }
+    for (let index = below - 1; accountName === null && index >= Math.max(0, start - 3); index -= 1) {
+      accountName = titledAt(index);
     }
   }
 
@@ -235,15 +270,15 @@ function findWebAmount(lines: Line[]): number | null {
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
-    if (includesAny(line.squashed, EXCLUDED_LABELS)) continue;
+    if (includesAny(line.squashed, WEB_EXCLUDED_LABELS)) continue;
 
-    const labeledHere = includesAny(line.squashed, AMOUNT_LABELS);
+    const labeledHere = includesAny(line.squashed, WEB_AMOUNT_LABELS);
     const previous = index > 0 ? lines[index - 1] : null;
     const labeledAbove = Boolean(
       previous &&
         previous.numbers.length === 0 &&
-        includesAny(previous.squashed, AMOUNT_LABELS) &&
-        !includesAny(previous.squashed, EXCLUDED_LABELS),
+        includesAny(previous.squashed, WEB_AMOUNT_LABELS) &&
+        !includesAny(previous.squashed, WEB_EXCLUDED_LABELS),
     );
     const hasCurrency = includesAny(line.squashed, ["บาท", "thb"]) || line.text.includes("฿");
 
@@ -281,8 +316,32 @@ function findDomain(text: string): string | null {
   return null;
 }
 
-/** เวลาที่กรอกไว้ในหน้าเว็บ — ช่องชั่วโมง/นาทีมาก่อน แล้วค่อยดูนาฬิกาบนภาพ */
-function findTime(lines: Line[], text: string): string | null {
+/**
+ * วันเวลาเต็มบนหน้าเว็บ (หน้ารายการฝาก-ถอนมีให้ เช่น "26-Aug-2026 07:18")
+ * ตัดเลขบัญชีออกก่อน เพราะ "232-2-87048-4" หลอกให้ตัวอ่านวันที่ทำงานพลาดได้
+ */
+function findDate(lines: Line[], now: Date): Date | null {
+  let fallback: Date | null = null;
+
+  for (const line of lines) {
+    const cleaned = line.text.replace(ACCOUNT_NO_RE, " ");
+    const parsed = saneDate(parseLooseDateTime(cleaned), now);
+    if (!parsed) continue;
+    // บรรทัดที่มีเวลากำกับมาด้วยชนะเสมอ — นาฬิกาบนแถบสถานะไม่มีวันที่จึงไม่เข้าเงื่อนไขนี้
+    if (CLOCK_RE.test(cleaned)) return parsed;
+    fallback ??= parsed;
+  }
+
+  return fallback;
+}
+
+/**
+ * เวลาของรายการ เรียงตามความน่าเชื่อถือ
+ *   1. ช่องชั่วโมง/นาทีที่ผู้ใช้กรอกไว้เอง
+ *   2. เวลาที่ติดมากับวันที่ของรายการ
+ *   3. นาฬิกาตัวแรกบนภาพ — เดาสุดท้าย เพราะอาจเป็นนาฬิกาบนแถบสถานะของมือถือ
+ */
+function findTime(lines: Line[], text: string, occurredAt: Date | null): string | null {
   const pick = (labels: string[], max: number): number | null => {
     for (let index = 0; index < lines.length; index += 1) {
       const line = lines[index];
@@ -300,6 +359,8 @@ function findTime(lines: Line[], text: string): string | null {
   if (hour !== null && minute !== null) {
     return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
   }
+
+  if (occurredAt) return toDatetimeLocalValue(occurredAt).slice(11);
 
   const clock = text.match(CLOCK_RE);
   return clock ? `${clock[1].padStart(2, "0")}:${clock[2]}` : null;
@@ -327,12 +388,19 @@ export function webPageScore(rawText: string): number {
 /** อ่านฟิลด์ทั้งหมดจากภาพหน้าฝาก/ถอนของเว็บ */
 export function extractWebPageFields(
   rawText: string,
-  options: { siteNames?: string[] } = {},
+  options: { siteNames?: string[]; now?: Date } = {},
 ): WebPageResult {
+  const now = options.now ?? new Date();
   const text = normalizeThaiText(rawText);
   const lines = toLines(text);
-  const { from, to } = findAccounts(lines);
   const webRef = text.match(WEB_REF_RE);
+
+  const { from, to } = findAccounts(lines);
+  // มีบัญชีเดียวบนหน้าจอแต่ไม่รู้ธนาคาร — ชื่อธนาคารที่โผล่บนหน้าย่อมเป็นของบัญชีนั้น
+  const only = from && to ? null : (from ?? to);
+  if (only && !only.bank) only.bank = findBank(squash(text));
+
+  const occurredAt = findDate(lines, now);
 
   return {
     direction: findDirection(lines),
@@ -341,7 +409,8 @@ export function extractWebPageFields(
     toAccount: to,
     domain: findDomain(text),
     refCode: webRef ? `QR-${webRef[1]}` : null,
-    timeLocal: findTime(lines, text),
+    timeLocal: findTime(lines, text, occurredAt),
+    occurredAtLocal: occurredAt ? toDatetimeLocalValue(occurredAt) : null,
     siteHint: options.siteNames ? matchSiteName(text, options.siteNames) : null,
   };
 }

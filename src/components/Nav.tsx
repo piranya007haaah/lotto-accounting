@@ -7,11 +7,6 @@ import { useAuth } from "./LiffProvider";
 /** เส้น path ของไอคอน — วาดบน viewBox 24×24 แบบเส้นขอบอย่างเดียว */
 const ITEMS = [
   { href: "/", label: "บันทึก", icon: "M12 5v14M5 12h14" },
-  {
-    href: "/pairs",
-    label: "จับคู่",
-    icon: "M4 7h7v10H4zM13 7h7v10h-7M11 12h2",
-  },
   { href: "/summary", label: "สรุปยอด", icon: "M4 20h16M7 16v-5M12 16V7M17 16v-9" },
   { href: "/history", label: "รายการ", icon: "M4 6h16M4 12h16M4 18h10" },
   {

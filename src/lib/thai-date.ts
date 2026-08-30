@@ -212,8 +212,8 @@ export function parseLooseDateTime(
     return buildDate(year, Number(dmy[2]), Number(dmy[1]), time, timeZone);
   }
 
-  // 4) DD ชื่อเดือน YYYY
-  const named = text.match(/(\d{1,2})\s*([\u0E00-\u0E7F.]+|[A-Za-z.]+)\s*(\d{2,4})/);
+  // 4) DD ชื่อเดือน YYYY — คั่นด้วยช่องว่าง ขีด หรือจุดก็ได้ ("26 ส.ค. 69", "26-Aug-2026")
+  const named = text.match(/(\d{1,2})[\s\-./]*([\u0E00-\u0E7F.]+|[A-Za-z.]+)[\s\-./]*(\d{2,4})/);
   if (named) {
     const month = monthFromToken(named[2]);
     if (month) {

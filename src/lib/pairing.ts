@@ -108,6 +108,22 @@ function clockGap(a: string | null, b: string | null): number | null {
   return Math.min(raw, 24 * 60 - raw);
 }
 
+/**
+ * ห่างกันกี่นาทีระหว่างภาพสองใบ
+ * มีวันที่ครบทั้งคู่ก็เทียบกันตรง ๆ (คนละวันจึงห่างกันมากตามจริง)
+ * ถ้าหน้าเว็บบอกแต่เวลา ก็เทียบเฉพาะเวลาแบบวนรอบวัน
+ */
+function timeGap(web: WebPageResult | null, slip: OcrResult | null): number | null {
+  if (web?.occurredAtLocal && slip?.occurredAtLocal) {
+    const first = Date.parse(`${web.occurredAtLocal}:00`);
+    const second = Date.parse(`${slip.occurredAtLocal}:00`);
+    if (Number.isFinite(first) && Number.isFinite(second)) {
+      return Math.round(Math.abs(first - second) / 60000);
+    }
+  }
+  return clockGap(web?.timeLocal ?? null, slip?.occurredAtLocal ?? null);
+}
+
 /** ชื่อธนาคารสองค่านี้หมายถึงธนาคารเดียวกันไหม (คนละที่มาเขียนคนละแบบ) */
 function sameBank(a: string | null | undefined, b: string | null | undefined): boolean {
   if (!a || !b) return false;
@@ -141,7 +157,7 @@ export function pairScore(web: ReadImage, slip: ReadImage): number {
     score += Math.abs(webAmount - slipAmount) < 0.01 ? 100 : -60;
   }
 
-  const gap = clockGap(webFields?.timeLocal ?? null, slipFields?.occurredAtLocal ?? null);
+  const gap = timeGap(webFields, slipFields);
   if (gap !== null) score += gap <= 60 ? (60 - gap) / 2 : -5;
 
   const direction = webFields?.direction ?? "deposit";
@@ -252,7 +268,8 @@ export function mergePair(input: {
     );
   }
 
-  let occurredAtLocal = slipFields?.occurredAtLocal ?? null;
+  // สลิปคือหลักฐานของเวลาจริง หน้าเว็บใช้ได้เมื่อไม่มีสลิป (หน้ารายการฝาก-ถอนบอกวันเวลาครบ)
+  let occurredAtLocal = slipFields?.occurredAtLocal ?? webFields?.occurredAtLocal ?? null;
   if (!occurredAtLocal && webFields?.timeLocal) {
     // หน้าเว็บบอกแต่เวลา ไม่บอกวันที่ — เติมวันที่ของวันนี้ให้ก่อน แล้วให้คนตรวจ
     const today = toDatetimeLocalValue(input.now ?? new Date()).slice(0, 10);
@@ -260,7 +277,7 @@ export function mergePair(input: {
     warnings.push("ไม่มีวันที่จากสลิป — เติมวันที่วันนี้ให้ก่อน ตรวจอีกครั้งก่อนบันทึก");
   }
 
-  const gap = clockGap(webFields?.timeLocal ?? null, slipFields?.occurredAtLocal ?? null);
+  const gap = timeGap(webFields, slipFields);
   if (gap !== null && gap > 30) {
     warnings.push(`เวลาที่แจ้งบนหน้าเว็บห่างจากเวลาบนสลิป ${gap} นาที — ตรวจว่าจับคู่ถูกใบไหม`);
   }
@@ -274,8 +291,33 @@ export function mergePair(input: {
   const duplicate = slip?.duplicate ?? web?.duplicate ?? null;
   if (duplicate) warnings.push("รูปนี้เคยบันทึกไปแล้ว — บันทึกซ้ำไม่ได้");
 
-  const ours = webFields ? ourSide(webFields, direction) : null;
-  const theirs = webFields ? theirSide(webFields, direction) : null;
+  // สลิปบอกทั้งสองฝั่งไว้ (ปิดบังบางส่วน) — เอามาเติมช่องที่หน้าเว็บไม่ได้บอก
+  const slipSender: AccountRef = {
+    bank: slipFields?.bankName ?? null,
+    accountNo: slipFields?.senderAccountNo ?? null,
+    accountName: slipFields?.senderName ?? null,
+  };
+  const slipReceiver: AccountRef = {
+    bank: null,
+    accountNo: slipFields?.counterpartyAccountNo ?? null,
+    accountName: slipFields?.counterparty ?? null,
+  };
+
+  const fill = (first: AccountRef | null, second: AccountRef): AccountRef => ({
+    bank: first?.bank ?? second.bank,
+    accountNo: first?.accountNo ?? second.accountNo,
+    accountName: first?.accountName ?? second.accountName,
+  });
+
+  // ขาฝาก บัญชีเรา = ผู้โอน / ขาถอน บัญชีเรา = ผู้รับ (ธนาคารจาก QR คือธนาคารต้นทางเสมอ)
+  const ours = fill(
+    webFields ? ourSide(webFields, direction) : null,
+    direction === "deposit" ? slipSender : slipReceiver,
+  );
+  const theirs = fill(
+    webFields ? theirSide(webFields, direction) : null,
+    direction === "deposit" ? slipReceiver : slipSender,
+  );
 
   return {
     key: `${web?.id ?? ""}|${slip?.id ?? ""}`,
@@ -286,13 +328,12 @@ export function mergePair(input: {
     occurredAtLocal,
     refNo: slipFields?.refNo ?? null,
     webRefNo: webFields?.refCode ?? null,
-    bankName: ours?.bank ?? slipFields?.bankName ?? null,
-    accountNo: ours?.accountNo ?? null,
-    accountName: ours?.accountName ?? null,
-    // ขาฝาก "ไปยัง" บนสลิปคือบัญชีของเว็บ ใช้แทนกันได้ ส่วนขาถอนคือบัญชีเราเอง จึงห้ามเอามาปน
-    counterparty: theirs?.accountName ?? (direction === "deposit" ? slipFields?.counterparty ?? null : null),
-    counterpartyBank: theirs?.bank ?? null,
-    counterpartyAccountNo: theirs?.accountNo ?? null,
+    bankName: ours.bank,
+    accountNo: ours.accountNo,
+    accountName: ours.accountName,
+    counterparty: theirs.accountName,
+    counterpartyBank: theirs.bank,
+    counterpartyAccountNo: theirs.accountNo,
     siteUrl: webFields?.domain ?? null,
     ocrConfidence: slipFields?.confidence ?? (webFields?.amount != null ? 0.5 : 0),
     ocrStatus: amount !== null && occurredAtLocal ? "ocr" : "failed",

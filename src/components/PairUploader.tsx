@@ -1,10 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/LiffProvider";
 import { SitePicker } from "@/components/SitePicker";
-import { Alert, EmptyState, PageHeader, Spinner } from "@/components/ui";
+import { Alert, EmptyState, Spinner } from "@/components/ui";
 import { formatBahtShort, parseAmountInput } from "@/lib/format";
 import { compressImage } from "@/lib/image-client";
 import {
@@ -20,7 +19,7 @@ import { formatThaiDateTime } from "@/lib/thai-date";
 import type { Direction, OcrStatus, SiteRow } from "@/lib/types";
 
 /**
- * อัปโหลด "ภาพหน้าเว็บ + สลิปธนาคาร" เป็นคู่ ทีละหลายคู่
+ * อัปโหลด "ภาพหน้าเว็บ + สลิปธนาคาร" เป็นคู่ ทีละหลายคู่ — โหมดหนึ่งของหน้าบันทึกรายการ
  *
  * ระบบอ่านทุกใบ แยกว่าใบไหนเป็นหน้าเว็บใบไหนเป็นสลิป แล้วจับคู่ให้ตามยอดกับเวลา
  * จากนั้นเติมเว็บ บัญชีที่โอนออก/รับเงิน ยอด และวันเวลาให้ครบ เหลือแค่ตรวจแล้วกดบันทึก
@@ -66,7 +65,7 @@ function resolveOcrStatus(draft: PairDraft, edit: Edit, amount: number): OcrStat
   return sameAmount && sameDate ? "ocr" : "ocr_edited";
 }
 
-export default function PairsPage() {
+export function PairUploader({ onSaved }: { onSaved?: () => void }) {
   const { api, ocrEnabled } = useAuth();
 
   const [sites, setSites] = useState<SiteRow[]>([]);
@@ -76,6 +75,7 @@ export default function PairsPage() {
   const [saves, setSaves] = useState<Record<string, SaveState>>({});
   const [previews, setPreviews] = useState<Record<string, string>>({});
 
+  const [autoAdded, setAutoAdded] = useState<string[]>([]);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingMigration, setPendingMigration] = useState(false);
@@ -130,6 +130,42 @@ export default function PairsPage() {
     [],
   );
 
+  /**
+   * เว็บที่อ่านโดเมนได้แต่ยังไม่มีในรายชื่อ — สร้างให้เลย จะได้ไม่ต้องมากรอกเอง
+   * ชื่อเว็บตั้งจากโดเมน (chokddd365.run → chokddd365) เปลี่ยนทีหลังได้ที่หน้าจัดการเว็บ
+   */
+  const ensureSites = useCallback(
+    async (domains: Array<string | null>) => {
+      const wanted = [...new Set(domains.filter((domain): domain is string => Boolean(domain)))];
+      if (wanted.length === 0) return;
+
+      let current = sites;
+      const created: string[] = [];
+
+      for (const domain of wanted) {
+        if (resolveSite(current, { domain, siteHint: null })) continue;
+        const name = siteNameFromDomain(domain);
+        if (!name) continue;
+        try {
+          const data = await api<{ site: SiteRow }>("/api/sites", {
+            method: "POST",
+            body: JSON.stringify({ name, domain }),
+          });
+          current = [...current, data.site];
+          created.push(data.site.name);
+        } catch {
+          // ชื่อหรือโดเมนซ้ำกับที่คนอื่นเพิ่งเพิ่ม — โหลดรายชื่อใหม่แล้วใช้ของเดิม
+          const reloaded = await api<{ sites: SiteRow[] }>("/api/sites").catch(() => null);
+          if (reloaded) current = reloaded.sites;
+        }
+      }
+
+      setSites(current);
+      if (created.length > 0) setAutoAdded((previous) => [...new Set([...previous, ...created])]);
+    },
+    [api, sites],
+  );
+
   /** อ่านรูปทีละใบ (คำขอละใบ เพื่อให้เห็นความคืบหน้าและไม่ชนลิมิตขนาด body) */
   async function readOne(file: File, kind?: DocKind): Promise<ReadImage> {
     const prepared = await compressImage(file);
@@ -167,7 +203,10 @@ export default function PairsPage() {
     }
 
     setProgress(null);
-    if (added.length > 0) absorb(added);
+    if (added.length > 0) {
+      absorb(added);
+      await ensureSites(added.map((image) => image.web?.domain ?? null));
+    }
   }
 
   /**
@@ -209,6 +248,7 @@ export default function PairsPage() {
     try {
       const image = { ...(await readOne(file, target.kind)), order: images.length };
       setImages((current) => [...current, image]);
+      await ensureSites([image.web?.domain ?? null]);
       setGroups((current) =>
         current.map((group) =>
           group.id === target.groupId
@@ -273,6 +313,7 @@ export default function PairsPage() {
     setImages([]);
     setEdits({});
     setSaves({});
+    setAutoAdded([]);
     for (const url of Object.values(previews)) URL.revokeObjectURL(url);
     setPreviews({});
   }
@@ -348,6 +389,7 @@ export default function PairsPage() {
       });
       if (result.pendingMigration) setPendingMigration(true);
       setSaves((c) => ({ ...c, [group.id]: { state: "saved", message: null } }));
+      onSaved?.();
       return true;
     } catch (caught) {
       setSaves((c) => ({
@@ -383,16 +425,6 @@ export default function PairsPage() {
 
   return (
     <div className="space-y-3.5">
-      <PageHeader
-        title="อัปโหลดเป็นคู่"
-        subtitle="หน้าเว็บ + สลิป — ระบบจับคู่และเติมชื่อเว็บกับบัญชีให้"
-        action={
-          <Link href="/" className="link-sm">
-            บันทึกทีละใบ
-          </Link>
-        }
-      />
-
       <input
         ref={batchInputRef}
         type="file"
@@ -431,6 +463,12 @@ export default function PairsPage() {
         {!ocrEnabled ? (
           <Alert tone="warn" title="ยังไม่ได้ตั้งค่า Google Vision">
             หน้าเว็บไม่มี QR ให้ถอด ระบบจึงอ่านชื่อเว็บและเลขบัญชีจากภาพไม่ได้ — ต้องกรอกเอง
+          </Alert>
+        ) : null}
+
+        {autoAdded.length > 0 ? (
+          <Alert tone="info" title="เพิ่มเว็บให้อัตโนมัติจากโดเมนบนภาพ">
+            {autoAdded.join(" · ")} — เปลี่ยนชื่อหรืออิโมจิได้ที่หน้าจัดการเว็บ
           </Alert>
         ) : null}
 

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/LiffProvider";
+import { PairUploader } from "@/components/PairUploader";
 import { SitePicker } from "@/components/SitePicker";
 import { Alert, AvatarCircle, SectionTitle, Spinner } from "@/components/ui";
 import { formatBahtShort, formatSigned, parseAmountInput } from "@/lib/format";
@@ -29,6 +30,14 @@ interface OcrResponse {
   ocrError: string | null;
 }
 
+/** สองวิธีบันทึก — ทีละใบเหมือนเดิม หรืออัปโหลดหน้าเว็บคู่กับสลิปทีละหลายคู่ */
+const MODES = [
+  { value: "single", label: "ทีละใบ" },
+  { value: "pair", label: "หน้าเว็บ + สลิป" },
+] as const;
+
+type Mode = (typeof MODES)[number]["value"];
+
 const DIRECTIONS: Array<{ value: Direction; label: string }> = [
   { value: "deposit", label: "เงินเข้าเว็บ" },
   { value: "withdraw", label: "เงินออกจากเว็บ" },
@@ -41,6 +50,7 @@ export default function EntryPage() {
   const [today, setToday] = useState<SummaryResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const [mode, setMode] = useState<Mode>("single");
   const [direction, setDirection] = useState<Direction>("deposit");
   const [siteId, setSiteId] = useState("");
   const [amount, setAmount] = useState("");
@@ -273,10 +283,29 @@ export default function EntryPage() {
         </Link>
       ) : null}
 
+      <div className="seg">
+        {MODES.map((option) => (
+          <button
+            type="button"
+            key={option.value}
+            className={`seg-item${mode === option.value ? " seg-item-active" : ""}`}
+            onClick={() => setMode(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+
       {loadError ? <Alert tone="error">{loadError}</Alert> : null}
       {saved ? <Alert tone="success">✓ {saved}</Alert> : null}
 
-      <form onSubmit={handleSubmit} className="space-y-3.5">
+      {mode === "pair" ? <PairUploader onSaved={loadToday} /> : null}
+
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-3.5"
+        hidden={mode !== "single"}
+      >
         <div className="card p-4 space-y-4">
           <div>
             <span className="field-label">ประเภทรายการ</span>
@@ -323,11 +352,7 @@ export default function EntryPage() {
                 <button type="button" className="link-sm" onClick={clearImage}>
                   ลบรูป
                 </button>
-              ) : (
-                <Link href="/pairs" className="link-sm">
-                  อัปโหลดเป็นคู่ ›
-                </Link>
-              )
+              ) : null
             }
           >
             รูปสลิป / หน้าจอถอนเงิน
