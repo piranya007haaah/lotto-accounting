@@ -42,15 +42,12 @@ function MemberCard({
 
       <div className="flex shrink-0 flex-col items-end gap-1.5">
         {member.is_admin ? (
-          <>
-            <span
-              className="rounded-full px-2.5 py-1 text-xs font-bold"
-              style={{ background: "var(--accent-tint)", color: "var(--accent)" }}
-            >
-              ผู้ดูแล
-            </span>
-            <span className="dim text-[11px]">เห็นทุกบัญชีอัตโนมัติ</span>
-          </>
+          <span
+            className="rounded-full px-2.5 py-1 text-xs font-bold"
+            style={{ background: "var(--accent-tint)", color: "var(--accent)" }}
+          >
+            ผู้ดูแล
+          </span>
         ) : (
           <button
             className={`btn ${member.is_active ? "" : "btn-primary"}`}
@@ -61,7 +58,8 @@ function MemberCard({
           </button>
         )}
 
-        {member.is_active ? (
+        {/* ผู้ดูแลเห็นทุกบัญชีอยู่แล้ว ปุ่มนี้จึงไม่มีผล — ไม่ต้องขึ้นให้รก */}
+        {member.is_active && !member.is_admin ? (
           <button
             className="rounded-full border px-2.5 py-1 text-xs font-semibold"
             disabled={busy}
