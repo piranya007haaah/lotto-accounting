@@ -1,11 +1,13 @@
 import crypto from "node:crypto";
 import { requireUser } from "@/lib/auth";
+import { APP_TIMEZONE } from "@/lib/env";
 import { HttpError, ok, route } from "@/lib/http";
 import { readTextFromImage, slipResultFromText, SUPPORTED_IMAGE_TYPES, type SupportedImageType } from "@/lib/ocr";
 import { classifyDocument, type DocKind, type DuplicateRef, type ReadImage } from "@/lib/pairing";
 import { readSlipQr } from "@/lib/slip-qr";
 import { MAX_IMAGE_BYTES, sha256, uploadTemp } from "@/lib/storage";
 import { supabaseAdmin } from "@/lib/supabase";
+import { fromZonedISO } from "@/lib/thai-date";
 import { extractWebPageFields } from "@/lib/web-page";
 
 export const runtime = "nodejs";
@@ -29,20 +31,51 @@ async function findExisting(
 
   // ฐานข้อมูลที่ยังไม่รัน migration 0007 ไม่มีคอลัมน์ web_ref_no — ข้ามการเช็คชั้นนั้นไป
   if (error || !data) return null;
+  return toDuplicate(data, reason);
+}
 
-  const site = data.site as unknown;
+/** แถวจากฐานข้อมูล → รูปแบบที่ฝั่งหน้าเว็บเอาไปแสดง */
+function toDuplicate(row: Record<string, unknown>, reason: DuplicateRef["reason"]): DuplicateRef {
+  const site = row.site as unknown;
   const siteName = Array.isArray(site)
     ? ((site[0] as { name?: string } | undefined)?.name ?? null)
     : ((site as { name?: string } | null)?.name ?? null);
 
   return {
-    id: data.id,
-    amount: Number(data.amount),
-    direction: data.direction,
-    occurredAt: data.occurred_at,
+    id: row.id as string,
+    amount: Number(row.amount),
+    direction: row.direction as DuplicateRef["direction"],
+    occurredAt: row.occurred_at as string,
     siteName,
     reason,
   };
+}
+
+/**
+ * รายการเดิมที่ยอด + วันเวลา + ทิศทาง ตรงกัน
+ *
+ * ชั้นกันซ้ำสามชั้นแรกอาศัย "หลักฐานประจำใบ" (ไฟล์เดิม / เลขที่รายการบนสลิป /
+ * รหัสรายการของเว็บ) — หน้าเว็บบางเจ้าไม่มีรหัสให้เลย แคปใหม่อีกรอบก็เป็นคนละไฟล์
+ * ชั้นนี้จึงเทียบจากตัวเลขของรายการแทน แต่เป็นแค่คำเตือน ไม่บล็อก
+ * เพราะยอดเท่ากันในนาทีเดียวกันจริง ๆ ก็เกิดขึ้นได้
+ */
+async function findSameRecord(
+  ownerId: string,
+  input: { amount: number; occurredAt: Date; direction: string },
+): Promise<DuplicateRef | null> {
+  const window = 2 * 60 * 1000;
+  const { data } = await supabaseAdmin()
+    .from("transactions")
+    .select("id, amount, direction, occurred_at, site:sites(name)")
+    .eq("owner_id", ownerId)
+    .eq("direction", input.direction)
+    .eq("amount", input.amount)
+    .gte("occurred_at", new Date(input.occurredAt.getTime() - window).toISOString())
+    .lte("occurred_at", new Date(input.occurredAt.getTime() + window).toISOString())
+    .limit(1)
+    .maybeSingle();
+
+  return data ? toDuplicate(data, "same") : null;
 }
 
 /**
@@ -104,6 +137,17 @@ export const POST = route(async (request) => {
     (slip?.refNo ? await findExisting(user.id, "ref_no", slip.refNo, "ref") : null) ??
     (web?.refCode ? await findExisting(user.id, "web_ref_no", web.refCode, "web_ref") : null);
 
+  // ยอด + วันเวลาที่อ่านได้ ใช้เทียบกับรายการเดิมเป็นชั้นสุดท้าย (เตือน ไม่บล็อก)
+  const amount = slip?.amount ?? web?.amount ?? null;
+  const occurredAtLocal = slip?.occurredAtLocal ?? web?.occurredAtLocal ?? null;
+  const direction = web?.direction ?? slip?.direction ?? null;
+  const occurredAt = occurredAtLocal ? fromZonedISO(occurredAtLocal, APP_TIMEZONE) : null;
+
+  const similar =
+    duplicate || amount === null || !occurredAt || !direction || Number.isNaN(occurredAt.getTime())
+      ? null
+      : await findSameRecord(user.id, { amount, occurredAt, direction });
+
   const image: Omit<ReadImage, "order"> = {
     id: crypto.randomUUID(),
     fileName: file.name || "image.jpg",
@@ -113,6 +157,7 @@ export const POST = route(async (request) => {
     slip,
     web,
     duplicate,
+    similar,
     warnings,
     error: null,
   };

@@ -77,6 +77,8 @@ export function PairUploader({
   const [previews, setPreviews] = useState<Record<string, string>>({});
 
   const [autoAdded, setAutoAdded] = useState<string[]>([]);
+  /** คู่ที่ระบบเตือนว่าน่าจะซ้ำ แต่ผู้ใช้ยืนยันว่าจะบันทึกอยู่ดี */
+  const [confirmed, setConfirmed] = useState<Record<string, boolean>>({});
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingMigration, setPendingMigration] = useState(false);
@@ -320,6 +322,7 @@ export function PairUploader({
     setEdits({});
     setSaves({});
     setAutoAdded([]);
+    setConfirmed({});
     for (const url of Object.values(previews)) URL.revokeObjectURL(url);
     setPreviews({});
   }
@@ -417,15 +420,20 @@ export function PairUploader({
       const draft = draftOf(group);
       const edit = edits[group.id] ?? initialEdit(draft, sites);
       if (draft.duplicate) continue;
+      if (draft.similar && !confirmed[group.id]) continue;
       await saveGroup(group, edit, draft);
     }
     setSavingAll(false);
   }
 
-  // รายการที่ยังบันทึกได้จริง — ที่บันทึกไปแล้วและที่ซ้ำกับของเดิมไม่นับ
-  const pending = groups.filter(
-    (group) => saves[group.id]?.state !== "saved" && !draftOf(group).duplicate,
-  );
+  // รายการที่ยังบันทึกได้จริง — ที่บันทึกไปแล้ว ที่ซ้ำของเดิม และที่เตือนว่าน่าจะซ้ำ
+  // (ยังไม่ได้กดยืนยัน) ไม่นับ
+  const pending = groups.filter((group) => {
+    if (saves[group.id]?.state === "saved") return false;
+    const draft = draftOf(group);
+    if (draft.duplicate) return false;
+    return !draft.similar || confirmed[group.id];
+  });
   const savedCount = groups.filter((group) => saves[group.id]?.state === "saved").length;
 
   return (
@@ -619,6 +627,18 @@ export function PairUploader({
               </Alert>
             ))}
 
+            {draft.similar && !confirmed[group.id] ? (
+              <Alert tone="warn" title="น่าจะซ้ำกับรายการที่บันทึกไว้แล้ว">
+                มีรายการยอดเดียวกันในเวลาเดียวกันอยู่แล้ว —{" "}
+                {formatBahtShort(draft.similar.amount)} บาท
+                {draft.similar.siteName ? ` · ${draft.similar.siteName}` : ""}
+                <br />
+                {formatThaiDateTime(draft.similar.occurredAt)}
+                <br />
+                ถ้าเป็นคนละรายการจริง ๆ กด &ldquo;บันทึกอยู่ดี&rdquo; ด้านล่าง
+              </Alert>
+            ) : null}
+
             {draft.duplicate ? (
               <Alert tone="warn" title="เคยบันทึกไปแล้ว">
                 {formatBahtShort(draft.duplicate.amount)} บาท ·{" "}
@@ -709,9 +729,12 @@ export function PairUploader({
                 type="button"
                 className="btn btn-ghost w-full"
                 disabled={savingAll || Boolean(draft.duplicate)}
-                onClick={() => saveGroup(group, edit, draft)}
+                onClick={() => {
+                  setConfirmed((current) => ({ ...current, [group.id]: true }));
+                  void saveGroup(group, edit, draft);
+                }}
               >
-                บันทึกเฉพาะรายการนี้
+                {draft.similar && !confirmed[group.id] ? "บันทึกอยู่ดี" : "บันทึกเฉพาะรายการนี้"}
               </button>
             ) : null}
           </section>

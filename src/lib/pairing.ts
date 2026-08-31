@@ -34,8 +34,10 @@ export interface ReadImage {
   slip: OcrResult | null;
   /** ค่าที่อ่านได้เมื่อรูปนี้เป็นหน้าเว็บ */
   web: WebPageResult | null;
-  /** รายการเดิมที่ตรงกับรูปนี้ — มีค่าแปลว่าเคยบันทึกไปแล้ว */
+  /** รายการเดิมที่ตรงกับรูปนี้ — มีค่าแปลว่าเคยบันทึกไปแล้ว (บันทึกซ้ำไม่ได้) */
   duplicate: DuplicateRef | null;
+  /** รายการเดิมที่ "น่าจะ" ใบเดียวกัน — เตือนไว้ แต่ยังบันทึกได้ถ้ายืนยัน */
+  similar: DuplicateRef | null;
   warnings: string[];
   error: string | null;
 }
@@ -46,8 +48,13 @@ export interface DuplicateRef {
   direction: Direction;
   occurredAt: string;
   siteName: string | null;
-  /** image = ไฟล์เดียวกันเป๊ะ ๆ, ref = สลิปใบเดียวกัน, web_ref = รหัสรายการของเว็บซ้ำ */
-  reason: "image" | "ref" | "web_ref";
+  /**
+   * image   = ไฟล์เดียวกันเป๊ะ ๆ
+   * ref     = สลิปใบเดียวกัน (เลขที่รายการจาก QR)
+   * web_ref = รหัสรายการของเว็บซ้ำ
+   * same    = ยอด+วันเวลา+ทิศทางตรงกันเป๊ะ (เตือนเฉย ๆ เพราะอาจเป็นคนละรายการจริง ๆ)
+   */
+  reason: "image" | "ref" | "web_ref" | "same";
 }
 
 /** รายการหนึ่งรายการที่ประกอบจากภาพหนึ่งหรือสองใบ พร้อมเติมลงฟอร์มได้เลย */
@@ -73,6 +80,8 @@ export interface PairDraft {
   ocrStatus: OcrStatus;
   /** มีค่าแปลว่าเคยบันทึกรูปนี้ไปแล้ว — บันทึกซ้ำไม่ได้ */
   duplicate: DuplicateRef | null;
+  /** ยอดกับวันเวลาตรงกับรายการเดิมเป๊ะ — น่าจะซ้ำ แต่ให้คนตัดสิน */
+  similar: DuplicateRef | null;
   warnings: string[];
 }
 
@@ -291,6 +300,8 @@ export function mergePair(input: {
   const duplicate = slip?.duplicate ?? web?.duplicate ?? null;
   if (duplicate) warnings.push("รูปนี้เคยบันทึกไปแล้ว — บันทึกซ้ำไม่ได้");
 
+  const similar = duplicate ? null : (slip?.similar ?? web?.similar ?? null);
+
   // สลิปบอกทั้งสองฝั่งไว้ (ปิดบังบางส่วน) — เอามาเติมช่องที่หน้าเว็บไม่ได้บอก
   const slipSender: AccountRef = {
     bank: slipFields?.bankName ?? null,
@@ -338,6 +349,7 @@ export function mergePair(input: {
     ocrConfidence: slipFields?.confidence ?? (webFields?.amount != null ? 0.5 : 0),
     ocrStatus: amount !== null && occurredAtLocal ? "ocr" : "failed",
     duplicate,
+    similar,
     warnings,
   };
 }

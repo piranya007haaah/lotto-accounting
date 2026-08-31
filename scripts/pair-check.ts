@@ -322,7 +322,7 @@ function slipImage(id: string, order: number, text: string): ReadImage {
   return {
     id, fileName: `${id}.jpg`, kind: "slip", order,
     imagePath: `tmp/${id}.jpg`, imageHash: id.repeat(8),
-    slip, web: null, duplicate: null, warnings: [], error: null,
+    slip, web: null, duplicate: null, similar: null, warnings: [], error: null,
   };
 }
 
@@ -330,7 +330,7 @@ function webImage(id: string, order: number, text: string): ReadImage {
   return {
     id, fileName: `${id}.jpg`, kind: "web", order,
     imagePath: `tmp/${id}.jpg`, imageHash: id.repeat(8),
-    slip: null, web: extractWebPageFields(text), duplicate: null, warnings: [], error: null,
+    slip: null, web: extractWebPageFields(text), duplicate: null, similar: null, warnings: [], error: null,
   };
 }
 
