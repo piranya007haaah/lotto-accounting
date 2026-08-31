@@ -74,16 +74,33 @@ const IGNORED_DOMAINS = [
   "apple.com", "t.me", "wa.me", "bit.ly", "w3.org",
 ];
 
+/**
+ * นามสกุลโดเมนที่เว็บพวกนี้ใช้กันจริง — ต้องมีรายการไว้ ไม่งั้นข้อความอย่าง
+ * "order.completed" หรือ "cmt6.abcdefgh" จะถูกอ่านเป็นโดเมนไปด้วย
+ * ที่ไม่อยู่ในรายการยังผ่านได้ถ้าเป็นนามสกุลสั้น ๆ (2–3 ตัว) แบบ ccTLD
+ */
+const KNOWN_TLDS = new Set([
+  "com", "net", "org", "run", "bet", "vip", "club", "win", "app", "live", "game",
+  "fun", "biz", "info", "xyz", "site", "online", "store", "shop", "asia", "team",
+  "pro", "one", "plus", "today", "world", "link", "life", "top", "space", "website",
+]);
+
 const DOMAIN_RE = /\b((?:[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?\.)+[a-z]{2,10})\b/gi;
 
 /** รหัสรายการที่เว็บออกให้ ขึ้นต้นด้วย QR แล้วตามด้วยตัวเลขยาว ๆ */
 const WEB_REF_RE = /\bQR[\s-]?(\d{8,24})\b/i;
+
+/** อีกแบบที่เจอในหมายเหตุของรายการ เช่น "REF: W-1279213471506" */
+const SITE_REF_RE = /\bREF[:\s]*([A-Za-z]{0,3}-?\d{8,24})\b/i;
 
 /** เวลาแบบ HH:MM ที่ไม่ใช่ส่วนหนึ่งของนาฬิกานับถอยหลัง (HH:MM:SS) */
 const CLOCK_RE = /(?<![\d:])([01]?\d|2[0-3]):([0-5]\d)(?![\d:])/;
 
 /** เลขบัญชีธนาคาร 9–15 หลัก จะพิมพ์ติดกันหรือคั่นด้วยขีดก็ได้ */
 const ACCOUNT_NO_RE = /(?<![\d-])(\d[\d-]{7,18}\d)(?![\d-])/;
+
+/** ยอดติดลบบนหน้าเว็บ เช่น "-7,000.00" — ตัวจับเลขกลางไม่รับขีดนำหน้า จึงต้องปาดออกก่อน */
+const NEGATIVE_AMOUNT_RE = /(^|[\s(])[-−]\s?(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+\.\d{2})/gm;
 
 function accountNoFrom(text: string): string | null {
   const raw = text.match(ACCOUNT_NO_RE)?.[1];
@@ -140,8 +157,13 @@ function readAccountBlock(lines: Line[], start: number, stop: number): AccountRe
       const inline = valueAfterLabel(line.text, ACCOUNT_NAME_LABELS);
       if (inline) accountName = inline;
       else if (includesAny(line.squashed, ACCOUNT_NAME_LABELS)) {
-        const next = lines[index + 1];
-        if (next && looksLikeName(next)) accountName = next.text.slice(0, 200);
+        // หน้าเว็บบางแบบวาง "ชื่อบัญชี:" กับ "เลขที่บัญชี:" ติดกันแล้วค่อยตามด้วยค่าทั้งคู่
+        for (let next = index + 1; next < Math.min(index + 4, lines.length); next += 1) {
+          if (looksLikeName(lines[next])) {
+            accountName = lines[next].text.slice(0, 200);
+            break;
+          }
+        }
       }
     }
   }
@@ -212,10 +234,12 @@ function clusterAccounts(lines: Line[]): AccountRef[] {
     if (seen.has(accountNo)) continue;
     seen.add(accountNo);
 
-    // เริ่มที่บรรทัดเลขบัญชีและหยุดก่อนเลขบัญชีถัดไป จะได้ไม่คาบเกี่ยวกับบัญชีก้อนอื่น
-    // (ชื่อธนาคารที่อยู่เหนือเลขบัญชี readAccountBlock ถอยขึ้นไปหาให้เองอยู่แล้ว)
-    const stop = Math.min(index + 4, at[position + 1] ?? lines.length, lines.length);
-    const block = readAccountBlock(lines, index, stop);
+    // มีบัญชีเดียวทั้งหน้า (หน้ารายการฝาก-ถอนของเว็บเป็นแบบนี้) — กวาดทั้งหน้าได้เลย
+    // ไม่งั้นป้าย "ชื่อบัญชี:" ที่อยู่เหนือเลขบัญชีจะหลุดออกนอกกรอบ
+    // มีหลายบัญชีค่อยตีกรอบ: เริ่มที่บรรทัดเลขบัญชี หยุดก่อนเลขบัญชีถัดไป
+    const single = at.length === 1;
+    const stop = single ? lines.length : Math.min(index + 4, at[position + 1] ?? lines.length);
+    const block = readAccountBlock(lines, single ? 0 : index, Math.min(stop, lines.length));
     if (block) clusters.push({ ...block, accountNo });
   }
 
@@ -311,6 +335,8 @@ function findDomain(text: string): string | null {
     if (IGNORED_DOMAINS.some((ignored) => domain === ignored || domain.endsWith(`.${ignored}`))) {
       continue;
     }
+    const tld = domain.split(".").pop() ?? "";
+    if (!KNOWN_TLDS.has(tld) && tld.length > 3) continue;
     return domain;
   }
   return null;
@@ -324,7 +350,10 @@ function findDate(lines: Line[], now: Date): Date | null {
   let fallback: Date | null = null;
 
   for (const line of lines) {
-    const cleaned = line.text.replace(ACCOUNT_NO_RE, " ");
+    // ปาดเลขบัญชีกับยอดเงินออกก่อน — ทั้งสองอย่างหลอกให้ตัวอ่านวันที่ทำงานพลาดได้
+    const cleaned = line.text
+      .replace(ACCOUNT_NO_RE, " ")
+      .replace(/\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+\.\d{2}/g, " ");
     const parsed = saneDate(parseLooseDateTime(cleaned), now);
     if (!parsed) continue;
     // บรรทัดที่มีเวลากำกับมาด้วยชนะเสมอ — นาฬิกาบนแถบสถานะไม่มีวันที่จึงไม่เข้าเงื่อนไขนี้
@@ -366,11 +395,26 @@ function findTime(lines: Line[], text: string, occurredAt: Date | null): string 
   return clock ? `${clock[1].padStart(2, "0")}:${clock[2]}` : null;
 }
 
-function findDirection(lines: Line[]): Direction | null {
+/** ป้ายบนตัวรายการเอง — ชนะหัวข้อของหน้าเสมอ (หน้า "สถานะฝากเงิน" โชว์รายการถอนได้) */
+const RECORD_WITHDRAW = ["ถอนเครดิต", "ถอนครดิต", "ถอนเงิน", "แจ้งถอน"];
+const RECORD_DEPOSIT = ["เติมเครดิต", "เติมครดิต", "ฝากเครดิต", "เติมเงิน", "แจ้งฝาก"];
+
+function findDirection(lines: Line[], hasNegativeAmount: boolean): Direction | null {
+  // ป้ายในการ์ดตัดบรรทัดได้ ("ถอน" ขึ้นบรรทัดใหม่แล้วต่อด้วย "เครดิต") จึงต้องต่อบรรทัดคู่กันดู
+  for (let index = 0; index < lines.length; index += 1) {
+    const joined = lines[index].squashed + (lines[index + 1]?.squashed ?? "");
+    if (includesAny(joined, RECORD_WITHDRAW)) return "withdraw";
+    if (includesAny(joined, RECORD_DEPOSIT)) return "deposit";
+  }
+
+  // ยอดติดลบบนหน้ารายการของเว็บ = เงินออกจากเว็บ
+  if (hasNegativeAmount) return "withdraw";
+
   for (const line of lines) {
     if (includesAny(line.squashed, WITHDRAW_HEADINGS)) return "withdraw";
     if (includesAny(line.squashed, DEPOSIT_HEADINGS)) return "deposit";
   }
+
   // ไม่มีหัวข้อให้ดู แต่หน้าที่สั่งให้ "โอนจากบัญชีนี้" คือหน้าฝากเงินเสมอ
   return lines.some((line) => includesAny(line.squashed, FROM_ANCHORS)) ? "deposit" : null;
 }
@@ -391,9 +435,17 @@ export function extractWebPageFields(
   options: { siteNames?: string[]; now?: Date } = {},
 ): WebPageResult {
   const now = options.now ?? new Date();
-  const text = normalizeThaiText(rawText);
+  const raw = normalizeThaiText(rawText);
+
+  // ยอดติดลบ ("-7,000.00") ต้องปาดเครื่องหมายออกก่อนถึงจะถูกนับเป็นตัวเลข
+  // แต่เครื่องหมายนั้นคือคำใบ้ว่าเป็นเงินออกจากเว็บ จึงจำไว้ก่อนปาดทิ้ง
+  const hasNegativeAmount = NEGATIVE_AMOUNT_RE.test(raw);
+  NEGATIVE_AMOUNT_RE.lastIndex = 0;
+  const text = raw.replace(NEGATIVE_AMOUNT_RE, "$1$2");
+
   const lines = toLines(text);
   const webRef = text.match(WEB_REF_RE);
+  const siteRef = text.match(SITE_REF_RE);
 
   const { from, to } = findAccounts(lines);
   // มีบัญชีเดียวบนหน้าจอแต่ไม่รู้ธนาคาร — ชื่อธนาคารที่โผล่บนหน้าย่อมเป็นของบัญชีนั้น
@@ -403,12 +455,12 @@ export function extractWebPageFields(
   const occurredAt = findDate(lines, now);
 
   return {
-    direction: findDirection(lines),
+    direction: findDirection(lines, hasNegativeAmount),
     amount: findWebAmount(lines),
     fromAccount: from,
     toAccount: to,
     domain: findDomain(text),
-    refCode: webRef ? `QR-${webRef[1]}` : null,
+    refCode: webRef ? `QR-${webRef[1]}` : (siteRef?.[1]?.toUpperCase() ?? null),
     timeLocal: findTime(lines, text, occurredAt),
     occurredAtLocal: occurredAt ? toDatetimeLocalValue(occurredAt) : null,
     siteHint: options.siteNames ? matchSiteName(text, options.siteNames) : null,

@@ -139,6 +139,36 @@ const BBL_SLIP = `Bangkok Bank
 เลขที่อ้างอิง
 2026082607180523005698808`;
 
+/**
+ * หน้า "สถานะฝากเงิน" ของ chokddd365 ที่กำลังโชว์รายการ "ถอนเครดิต"
+ * หัวข้อหน้าเป็นคำว่าฝาก แต่ป้ายบนการ์ดคือถอน — ป้ายของรายการต้องชนะหัวข้อ
+ * และยอดติดลบต้องอ่านออก (ตัวจับเลขกลางไม่รับขีดนำหน้า)
+ */
+const WITHDRAW_RECORD_PAGE = `14:34
+เดต้อนรับทุกท่านเข้า CHOKDD หวยออนไลน์ที่มาแรงที่สุ
+CHOK DDD 365
+สถานะฝากเงิน
+หน้าหลัก
+ทั้งหมด
+ฝาก
+ถอน
+SCB
+ธนาคารไทยพาณิชย์
+อนุมัติ
+ถอน
+เครดิต
+-7,000.00
+24-Aug-2026 08:56
+ชื่อบัญชี:
+เลขที่บัญชี:
+สหภูมิ ฟองเมฆ
+5502761877
+หมายเหตุ:
+THUNLUX - order.completed
+cmt6psysh17r6hawbqqgs5uco REF: W-1279213471506
+Copyright © 2023-2024 All rights reserved.
+chokddd365.run`;
+
 const SITES = [
   { id: "site-1", name: "LOTTOVIP" },
   { id: "site-2", name: "chokddd365", domain: null as string | null },
@@ -164,11 +194,16 @@ console.log("\n=== หน้ารายการ ฝาก-ถอน (kindee365
 const history = extractWebPageFields(HISTORY_PAGE, { siteNames: SITES.map((s) => s.name) });
 console.log(history);
 
+console.log("\n=== หน้าสถานะ ที่โชว์รายการถอนเครดิต (chokddd365) ===");
+console.log("ต้องได้: withdraw · 7000 · 24 ส.ค. 08:56 · บัญชีเรา SCB 5502761877 · ref W-1279213471506");
+console.log(extractWebPageFields(WITHDRAW_RECORD_PAGE, { siteNames: SITES.map((s) => s.name) }));
+
 console.log("\n=== แยกประเภทรูป ===");
 for (const [name, text] of [
   ["หน้าฝากเงิน", DEPOSIT_PAGE],
   ["หน้าถอนเงิน", WITHDRAW_PAGE],
   ["หน้ารายการฝาก-ถอน", HISTORY_PAGE],
+  ["หน้าสถานะ (ถอนเครดิต)", WITHDRAW_RECORD_PAGE],
   ["สลิปธนาคาร", SLIP_TEXT],
   ["สลิปกรุงเทพ", BBL_SLIP],
 ] as const) {
