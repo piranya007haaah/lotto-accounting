@@ -62,3 +62,12 @@ export function adminLineUserIds(): string[] {
 export function isAdminLineUserId(lineUserId: string): boolean {
   return adminLineUserIds().includes(lineUserId);
 }
+
+/**
+ * Secret ที่ฝั่ง lottery-app (Python) ใช้ยืนยันตัวตอนส่ง snapshot ของพอร์ตเข้ามา
+ * — ผู้ส่งเป็นสคริปต์/แอป ไม่ใช่คนที่ล็อกอิน LINE จึงใช้ shared secret ไม่ใช่ ID token
+ * ไม่ตั้งค่า = ปิดรับ snapshot ไปเลย (ไม่ใช่ "รับใครก็ได้")
+ */
+export function portfolioSnapshotSecret(): string | undefined {
+  return env("PORTFOLIO_SNAPSHOT_SECRET");
+}

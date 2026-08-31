@@ -32,6 +32,28 @@ npx tsx scripts/pair-check.ts             # ตรวจการอ่านห
 
 SQL อยู่ที่ `supabase/migrations/` — รันเรียงตามเลขไฟล์
 
+## พอร์ตหวยจากแอป Streamlit (หน้า `/portfolio` · ผู้ดูแลเท่านั้น)
+
+ตัวเลขพอร์ต (เส้นทุน · กำไรรายเดือน · Max DD · Loss streak) เกิดจาก engine backtest
+ภาษา Python ในรีโป `piranya007haaah/lottery-app` — **ที่นี่คำนวณเองไม่ได้และห้ามคำนวณใหม่**
+(คำนวณซ้ำ = สองแอปโชว์คนละเลขโดยไม่มีใครรู้) ฝั่งโน้นคำนวณเสร็จแล้ว POST snapshot มาเก็บ
+
+- `POST /api/portfolio/snapshot` — auth ด้วย header `x-snapshot-secret` เทียบกับ
+  `PORTFOLIO_SNAPSHOT_SECRET` แบบ timing-safe · **ไม่ตั้ง env = ปิดรับ** (ไม่ใช่รับใครก็ได้)
+- `GET` ตัวเดียวกัน — `requireAdmin` เท่านั้น (พอร์ตเป็นเงินของเจ้าของคนเดียว)
+- ตาราง `portfolio_snapshots` (migration `0008`) — 1 แถว = 1 พอร์ต · ส่งซ้ำ = ทับของเดิม
+  · เก็บเป็น `jsonb` ทั้งก้อน ไม่แตกคอลัมน์ (ฝั่งโน้นเพิ่มตัวเลขแล้วไม่ต้องตามแก้ schema)
+- `src/lib/portfolio-snapshot.ts` = ตรวจด้วย zod แล้วแปลง snake_case → camelCase
+  **ครั้งเดียวตอนรับ** แล้วเก็บรูปที่แปลงแล้ว ⇒ ข้อมูลผิดรูปถูกปฏิเสธตั้งแต่ประตู
+  · `version` ใหม่กว่า `SUPPORTED_SNAPSHOT_VERSION` = ตอบ 409 ไม่ใช่เก็บมั่ว
+- ⚠️⚠️ index ของ `equity.values` = **วันปฏิทินนับจาก 1 ม.ค.** ไม่ใช่ "งวดที่" (วันหยุดก็มี
+  จุดของมัน เส้นแค่แบนราบ) ⇒ เส้นแบ่งเดือนต้องใช้ `equity.monthDivs` ที่ส่งมาเท่านั้น
+  ห้ามหารความยาวด้วย 12 เอง — กติกาเดียวกับฝั่ง Python (`db.mask_months`)
+- กราฟวาดด้วย SVG เองใน `src/components/PortfolioCharts.tsx` (ไม่ลง chart library)
+  · ⚠️ สีเขียว/แดงของแอปนี้ **แยกไม่ออกด้วยตาบอดสีเขียว-แดง** (วัดแล้ว ΔE 5.2 deutan)
+  ⇒ บาร์กำไรรายเดือน/รายขาใช้ **ทิศทาง** (ขวา = กำไร · ซ้าย = ขาดทุน) + เครื่องหมาย +/−
+  เป็นตัวบอกความหมาย สีเป็นของแถม — ห้ามแก้ให้เหลือสีอย่างเดียว
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know

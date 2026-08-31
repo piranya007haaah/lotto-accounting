@@ -204,3 +204,88 @@ export interface SummaryResponse {
   /** แยกตามธนาคารของบัญชีเรา — ขาเข้าเว็บคือบัญชีที่โอนออก ขาออกจากเว็บคือบัญชีที่รับเงิน */
   byBank: BankBucket[];
 }
+
+/* ------------------------------------------------------------------
+ * พอร์ตหวยจากแอป Streamlit (lottery-app)
+ *
+ * ตัวเลขทุกตัวคำนวณมาแล้วฝั่ง Python — แอปนี้ไม่คำนวณอะไรใหม่เลย แค่เอาไปวาด
+ * (engine backtest อยู่ที่ `src/backtest.py` ของอีกรีโป รันใน Node ไม่ได้)
+ * ⚠️ index ของ equity.values = **วันปฏิทินนับจาก 1 ม.ค.** ไม่ใช่ "งวดที่"
+ *    ⇒ แบ่งเดือนต้องใช้ equity.monthDivs เท่านั้น ห้ามหารด้วยจำนวนงวดเอง
+ * ------------------------------------------------------------------ */
+
+export interface PortfolioKpi {
+  capital: number;
+  profit: number;
+  roiPct: number;
+  /** ทุนที่เคยร่วงจากทุนตั้งต้นลึกสุด (เป็นเลขบวก) */
+  maxDrawdown: number;
+  sharpe: number;
+  /** null = ∞ (ไม่เคยขาดทุนเลย) — JSON ไม่มี Infinity */
+  profitFactor: number | null;
+  maxWinStreak: number;
+  maxLossStreak: number;
+  /** ยอดที่หายไปตอนแพ้ติดกันยาวที่สุด (เลขติดลบ) */
+  maxLossStreakAmount: number;
+  worstLossRunLen: number;
+  worstLossRunAmount: number;
+  /** เงินที่ต้องมีทน = ค่ามากกว่าระหว่าง Max DD กับยอดลบของช่วงแพ้หนักสุด */
+  reserveNeeded: number;
+  worstMonthDd: number;
+  worstMonthLabel: string;
+  wins: number;
+  draws: number;
+  winRate: number;
+}
+
+export interface PortfolioMonth {
+  label: string;
+  capitalStart: number;
+  profit: number;
+  /** ร่วงจากยอดสูงสุด "ภายในเดือนนั้น" — เดือนที่ปิดบวกก็ติดลบระหว่างทางได้ */
+  maxDd: number;
+  idxStart: number;
+  idxEnd: number;
+}
+
+export interface PortfolioLeg {
+  index: number;
+  name: string;
+  formula: string;
+  digits: number;
+  nBet: number;
+  betPerNumber: number;
+  payoutRate: number;
+  profit: number;
+  maxRealLoss: number;
+  worstMonthDd: number;
+  lossStreak: number;
+  lossStreakAmount: number;
+  wins: number;
+  /** งวดที่ขานี้ลงเงินจริง — งวดที่ไม่ได้แทง (n=0) ไม่นับ */
+  draws: number;
+  winRate: number;
+  /** กำไรสะสมของขานี้ อ้างอิงที่ 0 (ไม่ใช่ที่ทุนพอร์ต) */
+  curve: number[];
+  numbers: string[];
+  /** ขาที่ตั้งเลขแยกรายเดือน: {เลขเดือน: [เลขที่แทง]} */
+  monthSets: Record<string, string[]>;
+}
+
+export interface PortfolioSnapshot {
+  portfolioId: number;
+  name: string;
+  isActive: boolean;
+  version: number;
+  generatedAt: string;
+  receivedAt: string;
+  capital: number;
+  nLegs: number;
+  testYears: string[];
+  /** งวดล่าสุดของขาที่ข้อมูล "เก่าสุด" — ตัวที่จำกัดความน่าเชื่อของทั้งพอร์ต */
+  asOf: string;
+  kpi: PortfolioKpi;
+  equity: { capital: number; values: number[]; monthDivs: [string, number][] };
+  monthly: PortfolioMonth[];
+  legs: PortfolioLeg[];
+}

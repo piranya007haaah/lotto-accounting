@@ -16,17 +16,25 @@ const ITEMS = [
   },
 ] as const;
 
-const ADMIN_ITEM = {
-  href: "/admin",
-  label: "สมาชิก",
-  icon: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
-} as const;
+/** เมนูของผู้ดูแล — พอร์ตเป็นเงินของเจ้าของคนเดียว ไม่ใช่ข้อมูลร่วมเหมือนรายชื่อเว็บ */
+const ADMIN_ITEMS = [
+  {
+    href: "/portfolio",
+    label: "พอร์ต",
+    icon: "M3 17l5-5 4 3 5-7M3 21h18M3 3v18",
+  },
+  {
+    href: "/admin",
+    label: "สมาชิก",
+    icon: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
+  },
+] as const;
 
 /** แถบเมนูล่างแบบลอย — แท่งสีกรมท่า เมนูที่เปิดอยู่เป็นเม็ดยาสีขาว */
 export function Nav() {
   const pathname = usePathname();
   const { isAdmin } = useAuth();
-  const items = isAdmin ? [...ITEMS, ADMIN_ITEM] : ITEMS;
+  const items = isAdmin ? [...ITEMS, ...ADMIN_ITEMS] : ITEMS;
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-20 px-3 pb-3">
