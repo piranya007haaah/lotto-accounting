@@ -145,9 +145,12 @@ export interface OcrResult {
   counterparty: string | null;
   /** เลขบัญชีผู้รับตามที่พิมพ์บนสลิป (ถูกปิดบังบางส่วน) */
   counterpartyAccountNo: string | null;
+  /** ธนาคารของผู้รับ — ขาถอนคือธนาคารของบัญชีเรา */
+  counterpartyBank: string | null;
   /** ผู้โอน — ขาฝากคือบัญชีของเราที่เงินออก */
   senderName: string | null;
   senderAccountNo: string | null;
+  senderBank: string | null;
   siteHint: string | null;
   confidence: number;
   documentType: string;

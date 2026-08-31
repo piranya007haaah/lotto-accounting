@@ -34,9 +34,12 @@ export interface SlipFields {
   counterparty: string | null;
   /** เลขบัญชีผู้รับ — สลิปปิดบังไว้บางส่วน (เช่น "232-2-xxx484") เก็บตามที่เห็น */
   counterpartyAccountNo: string | null;
-  /** ชื่อและเลขบัญชีผู้โอน — ขาฝากคือบัญชีของเราที่เงินออก */
+  /** ธนาคารของผู้รับ — ขาถอนคือธนาคารของบัญชีเรา (QR บอกได้แต่ธนาคารต้นทาง) */
+  counterpartyBank: string | null;
+  /** ชื่อ เลขบัญชี และธนาคารของผู้โอน — ขาฝากคือบัญชีของเราที่เงินออก */
   senderName: string | null;
   senderAccountNo: string | null;
+  senderBank: string | null;
   siteHint: string | null;
 }
 
@@ -196,10 +199,11 @@ function findRefNo(lines: Line[]): string | null {
   return null;
 }
 
-/** ชื่อ + เลขบัญชีของฝั่งหนึ่งบนสลิป (ผู้โอน หรือ ผู้รับ) */
+/** ชื่อ + เลขบัญชี + ธนาคาร ของฝั่งหนึ่งบนสลิป (ผู้โอน หรือ ผู้รับ) */
 interface SlipParty {
   name: string | null;
   accountNo: string | null;
+  bank: string | null;
 }
 
 /**
@@ -227,6 +231,7 @@ function findParty(lines: Line[], own: RegExp, other: RegExp): SlipParty {
 
   let name: string | null = null;
   let accountNo: string | null = null;
+  let bank: string | null = null;
 
   for (let index = 0; index < lines.length; index += 1) {
     const after = labelAt(lines[index], own);
@@ -242,15 +247,17 @@ function findParty(lines: Line[], own: RegExp, other: RegExp): SlipParty {
       const next = lines[index + 1];
       if (next && slipAccountFrom(next.text) === null) name = clean(next.text);
     }
-    for (let next = index + 1; accountNo === null && next < Math.min(index + 5, lines.length); next += 1) {
+    // เลขบัญชีกับชื่อธนาคารของฝั่งนี้อยู่ในไม่กี่บรรทัดถัดไป จนกว่าจะชนป้ายของอีกฝั่ง
+    for (let next = index + 1; next < Math.min(index + 5, lines.length); next += 1) {
       if (labelAt(lines[next], other) !== null || labelAt(lines[next], own) !== null) break;
-      accountNo = slipAccountFrom(lines[next].text);
+      accountNo ??= slipAccountFrom(lines[next].text);
+      bank ??= findBank(lines[next].squashed);
     }
 
-    if (name || accountNo) return { name, accountNo };
+    if (name || accountNo || bank) return { name, accountNo, bank };
   }
 
-  return { name, accountNo };
+  return { name, accountNo, bank };
 }
 
 /** อ่านฟิลด์ทั้งหมดจากข้อความที่ OCR คืนมา */
@@ -283,8 +290,10 @@ export function extractSlipFields(
     bankName,
     counterparty: receiver.name,
     counterpartyAccountNo: receiver.accountNo,
+    counterpartyBank: receiver.bank,
     senderName: sender.name,
     senderAccountNo: sender.accountNo,
+    senderBank: sender.bank,
     siteHint: options.siteNames ? matchSiteName(text, options.siteNames) : null,
   };
 }

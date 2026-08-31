@@ -304,12 +304,14 @@ export function mergePair(input: {
 
   // สลิปบอกทั้งสองฝั่งไว้ (ปิดบังบางส่วน) — เอามาเติมช่องที่หน้าเว็บไม่ได้บอก
   const slipSender: AccountRef = {
-    bank: slipFields?.bankName ?? null,
+    // QR บอกธนาคารต้นทางแบบไม่มีทางเพี้ยน จึงชนะชื่อที่อ่านจากตัวหนังสือ
+    bank: slipFields?.bankName ?? slipFields?.senderBank ?? null,
     accountNo: slipFields?.senderAccountNo ?? null,
     accountName: slipFields?.senderName ?? null,
   };
   const slipReceiver: AccountRef = {
-    bank: null,
+    // ฝั่งผู้รับต้องอ่านจากตัวหนังสือ — QR ไม่มีธนาคารปลายทางให้
+    bank: slipFields?.counterpartyBank ?? null,
     accountNo: slipFields?.counterpartyAccountNo ?? null,
     accountName: slipFields?.counterparty ?? null,
   };

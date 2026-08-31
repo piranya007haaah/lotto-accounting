@@ -309,8 +309,10 @@ function slipImage(id: string, order: number, text: string): ReadImage {
     bankName: fields.bankName,
     counterparty: fields.counterparty,
     counterpartyAccountNo: fields.counterpartyAccountNo,
+    counterpartyBank: fields.counterpartyBank,
     senderName: fields.senderName,
     senderAccountNo: fields.senderAccountNo,
+    senderBank: fields.senderBank,
     siteHint: null,
     confidence: 0.9,
     documentType: "bank_transfer_slip",
@@ -372,5 +374,25 @@ for (const pair of pairImages(images)) {
     refNo: draft.refNo,
     webRefNo: draft.webRefNo,
     warnings: draft.warnings,
+  });
+}
+
+/**
+ * ขาถอน: ธนาคารของบัญชีเราอยู่ฝั่ง "ผู้รับ" ของสลิป ไม่ใช่ฝั่งผู้โอน
+ * เคยพลาดตรงนี้ รายการถอนเลยขึ้นว่า "ไม่ระบุธนาคาร" ในหน้าสรุปยอด
+ */
+console.log("\n=== ขาถอน มีแต่สลิป ต้องได้ธนาคารของฝั่งผู้รับ ===");
+console.log("ต้องได้: บัญชีเรา ไทยพาณิชย์ / บัญชีเว็บ กรุงเทพ");
+{
+  const draft = mergePair({
+    web: null,
+    slip: slipImage("slipW", 0, BBL_SLIP),
+    guessed: false,
+    direction: "withdraw",
+  });
+  console.log({
+    direction: draft.direction,
+    ourAccount: `${draft.bankName ?? "-"} ${draft.accountNo ?? "-"} ${draft.accountName ?? "-"}`,
+    theirAccount: `${draft.counterpartyBank ?? "-"} ${draft.counterpartyAccountNo ?? "-"} ${draft.counterparty ?? "-"}`,
   });
 }

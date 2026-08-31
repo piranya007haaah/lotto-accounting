@@ -51,8 +51,10 @@ function buildResult(input: {
     bankName: qr?.sendingBankName ?? fields?.bankName ?? null,
     counterparty: fields?.counterparty ?? null,
     counterpartyAccountNo: fields?.counterpartyAccountNo ?? null,
+    counterpartyBank: fields?.counterpartyBank ?? null,
     senderName: fields?.senderName ?? null,
     senderAccountNo: fields?.senderAccountNo ?? null,
+    senderBank: fields?.senderBank ?? null,
     siteHint: fields?.siteHint ?? null,
     confidence,
     documentType: qr

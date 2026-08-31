@@ -15,6 +15,7 @@ import {
   type PairDraft,
   type ReadImage,
 } from "@/lib/pairing";
+import { BANK_CHOICES } from "@/lib/thai-banks";
 import { formatThaiDateTime, toDatetimeLocalValue } from "@/lib/thai-date";
 import type { Direction, OcrStatus, SiteRow } from "@/lib/types";
 
@@ -38,6 +39,8 @@ interface Edit {
   siteId: string;
   amount: string;
   occurredAtLocal: string;
+  /** ธนาคารของบัญชีเรา — สรุปยอดแยกตามช่องนี้ ปล่อยว่างไว้ไม่ได้ */
+  bankName: string;
   note: string;
 }
 
@@ -51,12 +54,22 @@ function newId(): string {
     : `g${Date.now()}${Math.random()}`;
 }
 
+/**
+ * ตัวเลือกธนาคารของบัญชีเรา — เติมชื่อที่อ่านมาจากรูปเข้าไปด้วยถ้าเขียนไม่เหมือนในรายการ
+ * (QR คืน "ธนาคารไทยพาณิชย์" ส่วนตัวอ่านตัวหนังสือคืน "ไทยพาณิชย์") จะได้ไม่โชว์ช่องว่าง
+ */
+function bankOptions(current: string): string[] {
+  const list: string[] = [...BANK_CHOICES];
+  return current && !list.includes(current) ? [current, ...list] : list;
+}
+
 /** ผู้ใช้แก้ค่าที่อ่านมาหรือยัง — ใช้บอกที่มาของข้อมูลตอนบันทึก */
 function resolveOcrStatus(draft: PairDraft, edit: Edit, amount: number): OcrStatus {
   if (draft.amount === null && !draft.occurredAtLocal) return "manual";
   const sameAmount = draft.amount !== null && Math.abs(draft.amount - amount) < 0.005;
   const sameDate = draft.occurredAtLocal === edit.occurredAtLocal;
-  return sameAmount && sameDate ? "ocr" : "ocr_edited";
+  const sameBank = (draft.bankName ?? "") === edit.bankName.trim();
+  return sameAmount && sameDate && sameBank ? "ocr" : "ocr_edited";
 }
 
 export function PairUploader({
@@ -128,6 +141,7 @@ export function PairUploader({
       amount: draft.amount === null ? "" : String(draft.amount),
       // ไม่มีรูปให้อ่านวันเวลา (กรอกเอง) — ตั้งเป็นตอนนี้ไว้ก่อน
       occurredAtLocal: draft.occurredAtLocal ?? (draft.web || draft.slip ? "" : toDatetimeLocalValue(new Date())),
+      bankName: draft.bankName ?? "",
       note: "",
     }),
     [],
@@ -368,6 +382,20 @@ export function PairUploader({
       setSaves((c) => ({ ...c, [group.id]: { state: "error", message: "ยังไม่ได้เลือกวันที่และเวลา" } }));
       return false;
     }
+    // ปล่อยผ่านไม่ได้ — รายการที่ไม่มีธนาคารจะไปกองรวมกันเป็น "ไม่ระบุธนาคาร" ในหน้าสรุปยอด
+    if (!edit.bankName.trim()) {
+      setSaves((c) => ({
+        ...c,
+        [group.id]: {
+          state: "error",
+          message:
+            direction === "deposit"
+              ? "ยังไม่ได้เลือกธนาคารของบัญชีที่โอนออก"
+              : "ยังไม่ได้เลือกธนาคารของบัญชีที่รับเงิน",
+        },
+      }));
+      return false;
+    }
 
     setSaves((c) => ({ ...c, [group.id]: { state: "saving", message: null } }));
     try {
@@ -380,7 +408,7 @@ export function PairUploader({
           occurredAtLocal: edit.occurredAtLocal,
           note: edit.note || null,
           refNo: draft.refNo,
-          bankName: draft.bankName,
+          bankName: edit.bankName.trim(),
           counterparty: draft.counterparty,
           imagePath: draft.slip?.imagePath ?? null,
           imageHash: draft.slip?.imageHash ?? draft.web?.imageHash ?? null,
@@ -694,11 +722,34 @@ export function PairUploader({
               </div>
             </div>
 
+            <div>
+              <span className="field-label">
+                {direction === "deposit" ? "ธนาคารที่โอนออก" : "ธนาคารที่รับเงิน"} (ของเรา)
+              </span>
+              <select
+                className="field"
+                disabled={locked}
+                value={edit.bankName}
+                onChange={(event) => setEdit({ bankName: event.target.value })}
+              >
+                <option value="">— เลือกธนาคาร —</option>
+                {bankOptions(edit.bankName).map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+              {!edit.bankName && !locked ? (
+                <p className="muted mt-1 text-[11.5px]">
+                  อ่านธนาคารจากรูปไม่ได้ — เลือกเองก่อนบันทึก ไม่งั้นสรุปยอดจะขึ้นว่าไม่ระบุธนาคาร
+                </p>
+              ) : null}
+            </div>
+
             <dl className="muted grid grid-cols-1 gap-y-1 text-[11.5px]">
-              {draft.bankName || draft.accountNo || draft.accountName ? (
+              {draft.accountNo || draft.accountName ? (
                 <div>
-                  {direction === "deposit" ? "บัญชีที่โอนออก" : "บัญชีที่รับเงิน"} (ของเรา):{" "}
-                  {[draft.bankName, draft.accountNo, draft.accountName].filter(Boolean).join(" · ")}
+                  บัญชีของเรา: {[draft.accountNo, draft.accountName].filter(Boolean).join(" · ")}
                 </div>
               ) : null}
               {draft.counterpartyBank || draft.counterpartyAccountNo || draft.counterparty ? (

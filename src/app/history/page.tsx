@@ -6,6 +6,7 @@ import { OwnerPicker } from "@/components/OwnerPicker";
 import { SitePicker } from "@/components/SitePicker";
 import { Alert, AvatarCircle, Chip, EmptyState, PageHeader, SiteBadge, Spinner } from "@/components/ui";
 import { formatBahtShort, parseAmountInput } from "@/lib/format";
+import { BANK_CHOICES } from "@/lib/thai-banks";
 import {
   currentMonthKey,
   formatDateKey,
@@ -22,7 +23,15 @@ interface EditState {
   direction: Direction;
   amount: string;
   occurredAtLocal: string;
+  /** ธนาคารของบัญชีเรา — แก้ตรงนี้ได้ เผื่อรายการเก่าที่อ่านจากรูปไม่ได้ */
+  bankName: string;
   note: string;
+}
+
+/** ตัวเลือกธนาคาร — เติมชื่อที่บันทึกไว้เข้าไปด้วยถ้าเขียนไม่เหมือนในรายการ */
+function bankOptions(current: string): string[] {
+  const list: string[] = [...BANK_CHOICES];
+  return current && !list.includes(current) ? [current, ...list] : list;
 }
 
 type RangeMode = "today" | "yesterday" | "last7" | "last30" | "month";
@@ -123,6 +132,7 @@ export default function HistoryPage() {
       direction: row.direction,
       amount: String(row.amount),
       occurredAtLocal: toDatetimeLocalValue(new Date(row.occurred_at)),
+      bankName: row.bank_name ?? "",
       note: row.note ?? "",
     });
   }
@@ -144,6 +154,7 @@ export default function HistoryPage() {
           direction: editing.direction,
           amount,
           occurredAtLocal: editing.occurredAtLocal,
+          bankName: editing.bankName.trim() || null,
           note: editing.note || null,
         }),
       });
@@ -415,6 +426,22 @@ export default function HistoryPage() {
                               value={editing.occurredAtLocal}
                               onChange={(e) => setEditing({ ...editing, occurredAtLocal: e.target.value })}
                             />
+                            <select
+                              className="field"
+                              value={editing.bankName}
+                              onChange={(e) => setEditing({ ...editing, bankName: e.target.value })}
+                            >
+                              <option value="">
+                                {editing.direction === "deposit"
+                                  ? "— ธนาคารที่โอนออก —"
+                                  : "— ธนาคารที่รับเงิน —"}
+                              </option>
+                              {bankOptions(editing.bankName).map((name) => (
+                                <option key={name} value={name}>
+                                  {name}
+                                </option>
+                              ))}
+                            </select>
                             <input
                               className="field"
                               placeholder="โน้ต"
