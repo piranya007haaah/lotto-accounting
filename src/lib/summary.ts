@@ -2,7 +2,7 @@ import { APP_TIMEZONE } from "./env";
 import { HttpError } from "./http";
 import { isMissingColumnError, supabaseAdmin } from "./supabase";
 import { formatDateKey, formatThaiDate, formatThaiMonth } from "./thai-date";
-import type { BankBucket, SummaryBucket, SummaryResponse, TransactionWithSite } from "./types";
+import type { BankBucket, OwnerRef, SummaryBucket, SummaryResponse, TransactionWithSite } from "./types";
 
 const BASE_COLUMNS =
   "id, owner_id, site_id, direction, amount, occurred_at, occurred_date, ref_no, bank_name, counterparty, note, image_path, image_hash, ocr_status, ocr_confidence, created_at";
@@ -13,7 +13,7 @@ const PAIR_COLUMNS = [
   "account_no", "account_name", "counterparty_bank", "counterparty_account_no",
 ];
 
-const RELATIONS = "site:sites(id, name, color), owner:app_users(display_name)";
+const RELATIONS = "site:sites(id, name, color), owner:app_users(display_name, picture_url)";
 
 export const TRANSACTION_SELECT = `${BASE_COLUMNS}, ${PAIR_COLUMNS.join(", ")}, ${RELATIONS}`;
 
@@ -122,7 +122,7 @@ export function buildSummary(
 ): SummaryResponse {
   const byDay = new Map<string, SummaryBucket>();
   const byMonth = new Map<string, SummaryBucket>();
-  const bySite = new Map<string, SummaryBucket & { siteId: string; color: string | null }>();
+  const bySite = new Map<string, SummaryBucket & { siteId: string; color: string | null; owners: OwnerRef[] }>();
   const byBank = new Map<string, BankBucket>();
   const totals = { deposit: 0, withdraw: 0, net: 0, count: 0 };
 
@@ -137,26 +137,38 @@ export function buildSummary(
     if (!byMonth.has(monthKey)) byMonth.set(monthKey, emptyBucket(monthKey, formatThaiMonth(monthKey)));
     add(byMonth.get(monthKey)!, row.direction, amount);
 
+    const owner: OwnerRef = {
+      id: row.owner_id,
+      name: row.owner?.display_name ?? null,
+      picture: row.owner?.picture_url ?? null,
+    };
+
     const siteId = row.site_id;
     if (!bySite.has(siteId)) {
       bySite.set(siteId, {
         ...emptyBucket(siteId, row.site?.name ?? "(ไม่พบเว็บ)"),
         siteId,
         color: row.site?.color ?? null,
+        owners: [],
       });
     }
-    add(bySite.get(siteId)!, row.direction, amount);
+    const siteBucket = bySite.get(siteId)!;
+    add(siteBucket, row.direction, amount);
+    // ใครเล่นเว็บนี้บ้าง — ไว้แปะรูปโปรไฟล์เล็ก ๆ ตอนดูรวมทุกคน
+    if (!siteBucket.owners.some((item) => item.id === owner.id)) siteBucket.owners.push(owner);
 
     if (row.direction === "deposit") totals.deposit += amount;
     else totals.withdraw += amount;
 
     // bank_name คือธนาคารของบัญชีเราเสมอ — ขาเข้าเว็บคือบัญชีที่เงินออก ขาออกคือบัญชีที่เงินเข้า
+    // แยกตามคนด้วย เพราะบัญชีธนาคารเป็นของใครของมัน รวมกันแล้วอ่านไม่ได้ความ
     const bank = bankKey(row.bank_name);
-    const bucket = byBank.get(bank) ?? { key: bank, deposit: 0, withdraw: 0, count: 0 };
+    const bankKeyed = `${owner.id}|${bank}`;
+    const bucket = byBank.get(bankKeyed) ?? { key: bank, owner, deposit: 0, withdraw: 0, count: 0 };
     if (row.direction === "deposit") bucket.deposit += amount;
     else bucket.withdraw += amount;
     bucket.count += 1;
-    byBank.set(bank, bucket);
+    byBank.set(bankKeyed, bucket);
 
     totals.count += 1;
   }
@@ -175,7 +187,12 @@ export function buildSummary(
     byDay: [...byDay.values()].map(tidy).sort((a, b) => a.key.localeCompare(b.key)),
     byMonth: [...byMonth.values()].map(tidy).sort((a, b) => a.key.localeCompare(b.key)),
     bySite: [...bySite.values()]
-      .map((bucket) => ({ ...tidy(bucket), siteId: bucket.siteId, color: bucket.color }))
+      .map((bucket) => ({
+        ...tidy(bucket),
+        siteId: bucket.siteId,
+        color: bucket.color,
+        owners: bucket.owners,
+      }))
       .sort((a, b) => b.deposit + b.withdraw - (a.deposit + a.withdraw)),
     byBank: [...byBank.values()]
       .map((bucket) => ({

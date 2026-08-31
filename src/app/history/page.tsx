@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/LiffProvider";
 import { OwnerPicker } from "@/components/OwnerPicker";
 import { SitePicker } from "@/components/SitePicker";
-import { Alert, EmptyState, PageHeader, SiteBadge, Spinner } from "@/components/ui";
+import { Alert, AvatarCircle, EmptyState, PageHeader, SiteBadge, Spinner } from "@/components/ui";
 import { formatBahtShort, parseAmountInput } from "@/lib/format";
 import {
   currentMonthKey,
@@ -33,7 +33,7 @@ const OCR_LABEL: Record<string, string> = {
 };
 
 export default function HistoryPage() {
-  const { api, canViewAll, userId, viewOwner } = useAuth();
+  const { api, canViewAll, isAdmin, userId, viewOwner } = useAuth();
 
   const [month, setMonth] = useState(() => currentMonthKey());
   const [siteFilter, setSiteFilter] = useState("");
@@ -250,12 +250,18 @@ export default function HistoryPage() {
                           color={row.site?.color}
                           emoji={row.site ? emojiById.get(row.site.id) : null}
                         />
-                        {canViewAll ? (
+                        {/* ดูของคนเดียวอยู่แล้วไม่ต้องบอกซ้ำทุกแถว — บอกเฉพาะตอนดูรวมทุกคน */}
+                        {canViewAll && !viewOwner ? (
                           <span
-                            className="block truncate text-[11px]"
+                            className="mt-0.5 flex items-center gap-1.5 truncate text-[11px]"
                             style={{ color: isOpen ? "var(--nav-dim)" : "var(--dim)" }}
                           >
-                            👤 {row.owner?.display_name ?? "(ไม่ทราบชื่อ)"}
+                            <AvatarCircle
+                              name={row.owner?.display_name}
+                              src={row.owner?.picture_url}
+                              size={15}
+                            />
+                            <span className="truncate">{row.owner?.display_name ?? "(ไม่ทราบชื่อ)"}</span>
                           </span>
                         ) : null}
                         {row.note ? (
@@ -405,10 +411,17 @@ export default function HistoryPage() {
                             </button>
                           </div>
                         ) : (
-                          // รายการของคนอื่น — ดูได้อย่างเดียว (ฝั่ง API ก็กันไว้อีกชั้น)
-                          <p className="dim text-[11.5px]">
-                            รายการของ {row.owner?.display_name ?? "คนอื่น"} — ดูได้อย่างเดียว
-                          </p>
+                          // รายการของคนอื่น — แก้ไม่ได้ (ฝั่ง API ก็กันไว้อีกชั้น) ผู้ดูแลลบได้อย่างเดียว
+                          <div className="flex items-center gap-2">
+                            <p className="dim flex-1 text-[11.5px]">
+                              รายการของ {row.owner?.display_name ?? "คนอื่น"} — แก้ไขไม่ได้
+                            </p>
+                            {isAdmin ? (
+                              <button className="btn btn-danger" onClick={() => remove(row.id)} disabled={busy}>
+                                ลบ
+                              </button>
+                            ) : null}
+                          </div>
                         )}
                       </div>
                     ) : null}

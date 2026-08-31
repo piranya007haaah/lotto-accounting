@@ -79,8 +79,15 @@ export interface TransactionRow {
 
 export interface TransactionWithSite extends TransactionRow {
   site: Pick<SiteRow, "id" | "name" | "color"> | null;
-  /** เจ้าของรายการ — มีค่าเฉพาะตอนดูข้ามบัญชีด้วยสิทธิ์ can_view_all */
-  owner?: { display_name: string | null } | null;
+  /** เจ้าของรายการ — ใช้ตอนดูข้ามบัญชีด้วยสิทธิ์ can_view_all */
+  owner?: { display_name: string | null; picture_url: string | null } | null;
+}
+
+/** เจ้าของรายการแบบย่อ ไว้แปะรูปโปรไฟล์เล็ก ๆ ในหน้าสรุปยอด */
+export interface OwnerRef {
+  id: string;
+  name: string | null;
+  picture: string | null;
 }
 
 /** ข้อมูลที่ถอดจาก QR ตรวจสอบสลิปของธนาคาร — อ่านตรงจากรูป ไม่ผ่านการตีความ */
@@ -164,10 +171,14 @@ export interface SummaryBucket {
   count: number;
 }
 
-/** ยอดที่วิ่งผ่านบัญชีธนาคารของเรา แยกตามธนาคาร */
+/**
+ * ยอดที่วิ่งผ่านบัญชีธนาคารของเรา แยกตามธนาคาร — และแยกตามคนด้วยเสมอ
+ * เพราะบัญชีธนาคารเป็นของใครของมัน เอามารวมกันแล้วอ่านไม่ได้ความ
+ */
 export interface BankBucket {
-  /** ชื่อธนาคารที่ตัดคำว่า "ธนาคาร" ออกแล้ว ใช้เป็นทั้ง key และป้าย */
+  /** ชื่อธนาคารที่ตัดคำว่า "ธนาคาร" ออกแล้ว ใช้เป็นป้าย */
   key: string;
+  owner: OwnerRef;
   /** เงินที่โอนออกจากบัญชีธนาคารนี้เข้าเว็บ */
   deposit: number;
   /** เงินที่ถอนจากเว็บเข้าบัญชีธนาคารนี้ */
@@ -181,7 +192,8 @@ export interface SummaryResponse {
   totals: { deposit: number; withdraw: number; net: number; count: number };
   byDay: SummaryBucket[];
   byMonth: SummaryBucket[];
-  bySite: (SummaryBucket & { siteId: string; color: string | null })[];
+  /** owners = ใครเล่นเว็บนี้บ้างในช่วงนี้ (ตอนดูรวมทุกคน) */
+  bySite: (SummaryBucket & { siteId: string; color: string | null; owners: OwnerRef[] })[];
   /** แยกตามธนาคารของบัญชีเรา — ขาเข้าเว็บคือบัญชีที่โอนออก ขาออกจากเว็บคือบัญชีที่รับเงิน */
   byBank: BankBucket[];
 }

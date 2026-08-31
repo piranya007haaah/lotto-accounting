@@ -89,13 +89,11 @@ export const DELETE = route(async (request: Request, context: Context) => {
   const { id } = await context.params;
 
   // select("*") เพื่อให้ลบภาพหน้าเว็บได้ด้วยโดยไม่พังกับฐานข้อมูลที่ยังไม่มีคอลัมน์นั้น
-  const { data, error } = await supabaseAdmin()
-    .from("transactions")
-    .delete()
-    .eq("id", id)
-    .eq("owner_id", user.id)
-    .select("*")
-    .maybeSingle();
+  let query = supabaseAdmin().from("transactions").delete().eq("id", id);
+  // ผู้ดูแลลบของใครก็ได้ (ไว้เก็บกวาดรายการที่ลงผิด) คนอื่นลบได้เฉพาะของตัวเอง
+  if (!user.isAdmin) query = query.eq("owner_id", user.id);
+
+  const { data, error } = await query.select("*").maybeSingle();
 
   if (error) throw new HttpError(500, `ลบรายการไม่สำเร็จ: ${error.message}`);
   if (!data) throw new HttpError(404, "ไม่พบรายการนี้");
