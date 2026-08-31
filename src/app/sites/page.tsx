@@ -61,6 +61,136 @@ function EmojiInput({
   );
 }
 
+/**
+ * แผ่นตั้งสีกับอิโมจิของเว็บที่มีอยู่แล้ว
+ * เดิมแตะช่องหน้าชื่อเว็บได้แค่เปลี่ยนอิโมจิ ส่วนสีตั้งได้ตอนสร้างครั้งแรกครั้งเดียว
+ */
+function SiteStyleSheet({
+  site,
+  busy,
+  onClose,
+  onSave,
+}: {
+  site: SiteRow | null;
+  busy: boolean;
+  onClose: () => void;
+  onSave: (patch: { emoji: string | null; color: string }) => void;
+}) {
+  const [emoji, setEmoji] = useState("");
+  const [color, setColor] = useState(COLORS[0]);
+
+  useEffect(() => {
+    setEmoji(site?.emoji ?? "");
+    setColor(site?.color ?? COLORS[0]);
+  }, [site]);
+
+  useEffect(() => {
+    if (!site) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [site, onClose]);
+
+  if (!site) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-30 flex items-end"
+      style={{ background: "rgb(16 25 43 / 0.45)" }}
+      onClick={onClose}
+    >
+      <div
+        className="sheet mx-auto flex w-full max-w-md flex-col gap-3 px-4 pt-2.5 pb-6"
+        style={{ background: "var(--card)", borderRadius: "1.5rem 1.5rem 0 0" }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <span className="mx-auto h-1 w-10 rounded-full" style={{ background: "var(--line-strong)" }} />
+
+        <div className="flex items-center gap-3">
+          <span className="emoji-tile size-[44px] text-[22px]" style={{ background: siteTint(color) }}>
+            {emoji}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-[15px] font-bold">{site.name}</p>
+            <p className="dim text-[11.5px]">ตั้งสีและอิโมจิประจำเว็บ</p>
+          </div>
+        </div>
+
+        <div>
+          <span className="field-label">อิโมจิ</span>
+          <div className="flex items-center gap-3">
+            <EmojiInput value={emoji} onChange={setEmoji} color={color} ariaLabel="อิโมจิประจำเว็บ" size={40} />
+            <p className="dim text-[11.5px]">แตะช่องนี้แล้วกดปุ่มอิโมจิบนแป้นพิมพ์ เลือกตัวไหนก็ได้</p>
+          </div>
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            {QUICK_EMOJIS.map((value) => {
+              const active = emoji === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setEmoji(active ? "" : value)}
+                  aria-label={`เลือกอิโมจิ ${value}`}
+                  aria-pressed={active}
+                  className="emoji-tile size-[38px] text-[18px]"
+                  style={{
+                    background: active ? "var(--accent-tint)" : "var(--field-bg)",
+                    border: active ? "1px solid transparent" : "1px solid var(--field-line)",
+                  }}
+                >
+                  {value}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div>
+          <span className="field-label">สีประจำเว็บ</span>
+          <div className="flex flex-wrap gap-2.5">
+            {COLORS.map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setColor(value)}
+                aria-label={`เลือกสี ${value}`}
+                aria-pressed={color === value}
+                className="size-7 rounded-full"
+                style={{
+                  background: value,
+                  outline: color === value ? "2px solid var(--text)" : "none",
+                  outlineOffset: 2,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            className="btn btn-primary flex-1"
+            disabled={busy}
+            onClick={() => onSave({ emoji: emoji || null, color })}
+          >
+            บันทึก
+          </button>
+          <button type="button" className="btn btn-ghost" onClick={onClose} disabled={busy}>
+            ยกเลิก
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SitesPage() {
   const { api } = useAuth();
   const [sites, setSites] = useState<SiteRow[]>([]);
@@ -72,6 +202,7 @@ export default function SitesPage() {
   const [color, setColor] = useState(COLORS[0]);
   const [emoji, setEmoji] = useState("");
   const [domain, setDomain] = useState("");
+  const [styling, setStyling] = useState<SiteRow | null>(null);
 
   async function load() {
     setLoading(true);
@@ -122,20 +253,23 @@ export default function SitesPage() {
   }
 
   /** เปลี่ยนทันทีบนจอ แล้วค่อยยิงไปเก็บ — พลาดเมื่อไหร่ค่อยย้อนกลับ */
-  async function saveEmoji(site: SiteRow, next: string) {
-    const value = next || null;
-    if ((site.emoji ?? null) === value) return;
-    replaceSite({ ...site, emoji: value });
+  async function saveStyle(site: SiteRow, patch: { emoji: string | null; color: string }) {
+    setStyling(null);
+    if ((site.emoji ?? null) === patch.emoji && (site.color ?? null) === patch.color) return;
+    replaceSite({ ...site, ...patch });
     setError(null);
+    setBusy(true);
     try {
       const data = await api<{ site: SiteRow }>(`/api/sites/${site.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ emoji: value }),
+        body: JSON.stringify(patch),
       });
       replaceSite(data.site);
     } catch (caught) {
       replaceSite(site);
-      setError(caught instanceof Error ? caught.message : "เปลี่ยนอิโมจิไม่สำเร็จ");
+      setError(caught instanceof Error ? caught.message : "เปลี่ยนสี/อิโมจิไม่สำเร็จ");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -294,13 +428,21 @@ export default function SitesPage() {
                 {sites.map((site) => (
                   <li key={site.id} className="row py-2">
                     <div className="flex items-center gap-3">
-                      <EmojiInput
-                        value={site.emoji}
-                        onChange={(next) => saveEmoji(site, next)}
-                        color={site.color}
-                        ariaLabel={`อิโมจิของ ${site.name}`}
-                        size={32}
-                      />
+                      <button
+                        type="button"
+                        className="emoji-tile text-[17px]"
+                        aria-label={`ตั้งสีและอิโมจิของ ${site.name}`}
+                        onClick={() => setStyling(site)}
+                        style={{
+                          width: 32,
+                          height: 32,
+                          background: siteTint(site.color),
+                          border: site.emoji ? "1px solid transparent" : "1px dashed var(--line-strong)",
+                          color: "var(--dim)",
+                        }}
+                      >
+                        {site.emoji ?? "＋"}
+                      </button>
                       <span
                         className={`flex-1 truncate text-sm font-semibold ${
                           site.is_active ? "" : "line-through opacity-50"
@@ -334,13 +476,20 @@ export default function SitesPage() {
                 ))}
               </ul>
               <p className="muted mt-2.5 text-[11px]">
-                แตะช่องอิโมจิหน้าชื่อเว็บเพื่อเปลี่ยนได้เลย · ใส่โดเมนไว้เพื่อให้ระบบเลือกเว็บให้อัตโนมัติตอนอัปโหลดเป็นคู่ ·
+                แตะช่องหน้าชื่อเว็บเพื่อตั้งสีและอิโมจิ · ใส่โดเมนไว้เพื่อให้ระบบเลือกเว็บให้อัตโนมัติตอนอัปโหลดเป็นคู่ ·
                 ปิดใช้ = ยังอยู่ในรายการเก่า แต่ไม่ขึ้นตอนบันทึกใหม่
               </p>
             </>
           )}
         </section>
       ) : null}
+
+      <SiteStyleSheet
+        site={styling}
+        busy={busy}
+        onClose={() => setStyling(null)}
+        onSave={(patch) => styling && saveStyle(styling, patch)}
+      />
     </div>
   );
 }
