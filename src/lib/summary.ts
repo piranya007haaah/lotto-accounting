@@ -164,9 +164,22 @@ export function buildSummary(
     // แยกตามคนด้วย เพราะบัญชีธนาคารเป็นของใครของมัน รวมกันแล้วอ่านไม่ได้ความ
     const bank = bankKey(row.bank_name);
     const bankKeyed = `${owner.id}|${bank}`;
-    const bucket = byBank.get(bankKeyed) ?? { key: bank, owner, deposit: 0, withdraw: 0, count: 0 };
-    if (row.direction === "deposit") bucket.deposit += amount;
-    else bucket.withdraw += amount;
+    const bucket = byBank.get(bankKeyed) ?? {
+      key: bank,
+      owner,
+      deposit: 0,
+      withdraw: 0,
+      depositCount: 0,
+      withdrawCount: 0,
+      count: 0,
+    };
+    if (row.direction === "deposit") {
+      bucket.deposit += amount;
+      bucket.depositCount += 1;
+    } else {
+      bucket.withdraw += amount;
+      bucket.withdrawCount += 1;
+    }
     bucket.count += 1;
     byBank.set(bankKeyed, bucket);
 

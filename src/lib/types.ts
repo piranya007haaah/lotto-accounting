@@ -186,6 +186,10 @@ export interface BankBucket {
   deposit: number;
   /** เงินที่ถอนจากเว็บเข้าบัญชีธนาคารนี้ */
   withdraw: number;
+  /** จำนวนครั้งที่โอนออกจากบัญชีนี้ */
+  depositCount: number;
+  /** จำนวนครั้งที่รับเงินเข้าบัญชีนี้ */
+  withdrawCount: number;
   count: number;
 }
 

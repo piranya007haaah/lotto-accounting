@@ -186,7 +186,18 @@ export function StatCard({
 }
 
 /** แถบสัดส่วนเงินเข้า/ออก ใช้ในหน้าสรุปยอด — แถบเป็นสี pastel */
-export function BarRow({ value, max, tone }: { value: number; max: number; tone: "in" | "out" }) {
+export function BarRow({
+  value,
+  max,
+  tone,
+  count,
+}: {
+  value: number;
+  max: number;
+  tone: "in" | "out";
+  /** จำนวนครั้งของแถบนี้ — ไม่ส่งมาก็ไม่แสดง (บางหน้าไม่ได้นับแยกขาเข้า-ขาออก) */
+  count?: number;
+}) {
   const width = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   const color = tone === "in" ? "var(--pastel-in)" : "var(--pastel-out)";
   return (
@@ -197,6 +208,9 @@ export function BarRow({ value, max, tone }: { value: number; max: number; tone:
       <span className="tnum w-[76px] flex-none text-right text-[11px]" style={{ color: "var(--muted)" }}>
         {formatBahtShort(value)}
       </span>
+      {count !== undefined ? (
+        <span className="tnum dim w-[44px] flex-none text-right text-[10.5px]">{count} ครั้ง</span>
+      ) : null}
     </div>
   );
 }

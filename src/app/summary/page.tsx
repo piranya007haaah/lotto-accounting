@@ -120,7 +120,10 @@ function SummaryRow({
   );
 }
 
-/** บัญชีธนาคารเป็นของใครของมัน — ดูรวมทุกคนจึงต้องแยกหัวข้อตามคนก่อน */
+/**
+ * บัญชีธนาคารเป็นของใครของมัน — ดูรวมทุกคนจึงแยกเป็นกล่องคนละกล่อง
+ * ไม่ใช่แค่หัวข้อคั่น เพราะพอมีหลายคนหลายธนาคารแล้วดูไม่ออกว่าแถวไหนของใคร
+ */
 function BankGroups({ buckets, max, showOwner }: { buckets: BankBucket[]; max: number; showOwner: boolean }) {
   const groups = new Map<string, { owner: OwnerRef; items: BankBucket[] }>();
   for (const bucket of buckets) {
@@ -129,26 +132,48 @@ function BankGroups({ buckets, max, showOwner }: { buckets: BankBucket[]; max: n
     groups.set(bucket.owner.id, group);
   }
 
+  // ดูของคนเดียวก็ไม่ต้องมีกล่องซ้อนกล่อง แสดงเป็นแถวธรรมดาพอ
+  if (!showOwner) {
+    return (
+      <div>
+        {buckets.map((bucket) => (
+          <BankRow key={`${bucket.owner.id}|${bucket.key}`} bucket={bucket} max={max} />
+        ))}
+      </div>
+    );
+  }
+
   return (
-    <div>
-      {[...groups.values()].map((group) => (
-        <div key={group.owner.id}>
-          {showOwner ? (
-            <div className="mt-2.5 mb-0.5 flex items-center gap-2 first:mt-0">
-              <AvatarCircle name={group.owner.name} src={group.owner.picture} size={18} />
-              <span className="muted text-[12px] font-bold">{group.owner.name ?? "(ไม่ทราบชื่อ)"}</span>
+    <div className="mt-1 flex flex-col gap-2.5">
+      {[...groups.values()].map((group) => {
+        const net = group.items.reduce((sum, item) => sum + item.withdraw - item.deposit, 0);
+        return (
+          <div key={group.owner.id} className="owner-panel">
+            <div className="owner-panel-head">
+              <AvatarCircle name={group.owner.name} src={group.owner.picture} size={20} />
+              <span className="truncate text-[12.5px] font-bold">
+                {group.owner.name ?? "(ไม่ทราบชื่อ)"}
+              </span>
+              <span
+                className="tnum ml-auto flex-none text-[12.5px] font-bold"
+                style={{ color: net >= 0 ? "var(--color-money-out)" : "var(--color-money-in)" }}
+              >
+                {formatSigned(net)}
+              </span>
             </div>
-          ) : null}
-          {group.items.map((bucket) => (
-            <BankRow key={`${bucket.owner.id}|${bucket.key}`} bucket={bucket} max={max} />
-          ))}
-        </div>
-      ))}
+            <div className="px-3">
+              {group.items.map((bucket) => (
+                <BankRow key={`${bucket.owner.id}|${bucket.key}`} bucket={bucket} max={max} />
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-/** บัญชีธนาคารของเราแต่ละธนาคาร มีเงินออกไปเข้าเว็บและรับกลับมาเท่าไหร่ */
+/** บัญชีธนาคารของเราแต่ละธนาคาร มีเงินออกไปเข้าเว็บและรับกลับมาเท่าไหร่ กี่ครั้ง */
 function BankRow({ bucket, max }: { bucket: BankBucket; max: number }) {
   return (
     <div className="row py-2.5">
@@ -170,8 +195,8 @@ function BankRow({ bucket, max }: { bucket: BankBucket; max: number }) {
         </span>
       </div>
       <div className="mt-1.5 flex flex-col gap-1">
-        <BarRow value={bucket.deposit} max={max} tone="in" />
-        <BarRow value={bucket.withdraw} max={max} tone="out" />
+        <BarRow value={bucket.deposit} max={max} tone="in" count={bucket.depositCount} />
+        <BarRow value={bucket.withdraw} max={max} tone="out" count={bucket.withdrawCount} />
       </div>
     </div>
   );
@@ -366,7 +391,8 @@ export default function SummaryPage() {
 
                 {breakdown === "bank" ? (
                   <p className="dim mt-2.5 text-[11px]">
-                    แถบชมพู = โอนออกจากบัญชีนี้เข้าเว็บ · แถบเขียวมินต์ = ถอนจากเว็บเข้าบัญชีนี้
+                    แถบชมพู = โอนออกจากบัญชีนี้เข้าเว็บ · แถบเขียวมินต์ = ถอนจากเว็บเข้าบัญชีนี้ ·
+                    ตัวเลขขวาสุด = จำนวนครั้ง
                   </p>
                 ) : null}
               </>

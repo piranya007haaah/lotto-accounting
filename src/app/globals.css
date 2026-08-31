@@ -374,6 +374,22 @@ button.field:disabled {
   background: var(--subtle);
 }
 
+/* กล่องของแต่ละคนในสรุปยอดตามธนาคาร — บัญชีเป็นของใครของมัน ต้องแยกให้ขาด */
+.owner-panel {
+  border: 1px solid var(--line);
+  border-radius: 0.875rem;
+  overflow: hidden;
+}
+
+.owner-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4375rem 0.75rem;
+  background: var(--subtle);
+  border-bottom: 1px solid var(--line);
+}
+
 /* กรอบเส้นประสำหรับปุ่มเลือกรูป */
 .dropzone {
   width: 100%;
