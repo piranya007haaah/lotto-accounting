@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/LiffProvider";
 import { OwnerPicker } from "@/components/OwnerPicker";
 import { SitePicker } from "@/components/SitePicker";
-import { Alert, AvatarCircle, EmptyState, PageHeader, SiteBadge, Spinner } from "@/components/ui";
+import { Alert, AvatarCircle, Chip, EmptyState, PageHeader, SiteBadge, Spinner } from "@/components/ui";
 import { formatBahtShort, parseAmountInput } from "@/lib/format";
 import {
   currentMonthKey,
@@ -25,6 +25,16 @@ interface EditState {
   note: string;
 }
 
+type RangeMode = "today" | "yesterday" | "last7" | "last30" | "month";
+
+const RANGES: Array<{ value: RangeMode; label: string }> = [
+  { value: "today", label: "วันนี้" },
+  { value: "yesterday", label: "เมื่อวาน" },
+  { value: "last7", label: "7 วัน" },
+  { value: "last30", label: "30 วัน" },
+  { value: "month", label: "รายเดือน" },
+];
+
 const OCR_LABEL: Record<string, string> = {
   ocr: "อ่านจากรูป",
   ocr_edited: "อ่านจากรูป + แก้",
@@ -35,7 +45,9 @@ const OCR_LABEL: Record<string, string> = {
 export default function HistoryPage() {
   const { api, canViewAll, isAdmin, userId, viewOwner } = useAuth();
 
+  const [mode, setMode] = useState<RangeMode>("month");
   const [month, setMonth] = useState(() => currentMonthKey());
+  const [rangeLabel, setRangeLabel] = useState("");
   const [siteFilter, setSiteFilter] = useState("");
   const [directionFilter, setDirectionFilter] = useState("");
 
@@ -61,18 +73,21 @@ export default function HistoryPage() {
     setLoading(true);
     setError(null);
     try {
-      const query = new URLSearchParams({ month });
+      const query = new URLSearchParams(mode === "month" ? { month } : { range: mode });
       if (siteFilter) query.set("siteId", siteFilter);
       if (directionFilter) query.set("direction", directionFilter);
       if (viewOwner) query.set("ownerId", viewOwner.id);
-      const data = await api<{ transactions: TransactionWithSite[] }>(`/api/transactions?${query}`);
+      const data = await api<{ label: string; transactions: TransactionWithSite[] }>(
+        `/api/transactions?${query}`,
+      );
       setRows(data.transactions);
+      setRangeLabel(data.label);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "โหลดรายการไม่สำเร็จ");
     } finally {
       setLoading(false);
     }
-  }, [api, month, siteFilter, directionFilter, viewOwner]);
+  }, [api, mode, month, siteFilter, directionFilter, viewOwner]);
 
   useEffect(() => {
     void load();
@@ -171,12 +186,22 @@ export default function HistoryPage() {
     <div className="space-y-3.5">
       <PageHeader
         title="รายการทั้งหมด"
-        subtitle={`${rows.length} รายการในเดือนที่เลือก${viewOwner ? ` · ของ ${viewOwner.name}` : ""}`}
+        subtitle={`${rangeLabel || "—"} · ${rows.length} รายการ${viewOwner ? ` · ของ ${viewOwner.name}` : ""}`}
       />
+
+      <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+        {RANGES.map((item) => (
+          <Chip key={item.value} active={mode === item.value} onClick={() => setMode(item.value)}>
+            {item.label}
+          </Chip>
+        ))}
+      </div>
 
       <div className="card space-y-2 p-3">
         <OwnerPicker />
-        <input type="month" className="field" value={month} onChange={(e) => setMonth(e.target.value)} />
+        {mode === "month" ? (
+          <input type="month" className="field" value={month} onChange={(e) => setMonth(e.target.value)} />
+        ) : null}
         <div className="grid grid-cols-2 gap-2">
           <SitePicker
             sites={sites}
@@ -196,7 +221,7 @@ export default function HistoryPage() {
 
       {error ? <Alert tone="error">{error}</Alert> : null}
       {loading ? <Spinner label="กำลังโหลด…" /> : null}
-      {!loading && rows.length === 0 ? <EmptyState>ยังไม่มีรายการในเดือนนี้</EmptyState> : null}
+      {!loading && rows.length === 0 ? <EmptyState>ยังไม่มีรายการในช่วงนี้</EmptyState> : null}
 
       {[...groups.entries()].map(([dateKey, items]) => {
         const dayDeposit = items.filter((i) => i.direction === "deposit").reduce((sum, i) => sum + i.amount, 0);
@@ -213,7 +238,7 @@ export default function HistoryPage() {
               </span>
             </div>
 
-            <ul className="divide-y" style={{ borderColor: "var(--divider)" }}>
+            <ul>
               {items.map((row) => {
                 const parts = zonedParts(new Date(row.occurred_at));
                 const isOpen = openId === row.id;

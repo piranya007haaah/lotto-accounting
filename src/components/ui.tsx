@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { formatBahtShort, formatSigned } from "@/lib/format";
+import { bankMark } from "@/lib/thai-banks";
 
 export function Alert({
   tone = "info",
@@ -26,6 +28,62 @@ export function Alert({
       {title ? <p className="font-bold">{title}</p> : null}
       {children ? <div className={title ? "mt-1" : ""}>{children}</div> : null}
     </div>
+  );
+}
+
+/** สีตัวอักษรบนป้ายธนาคาร — สีแบรนด์อ่อนอย่างเหลืองกรุงศรีต้องใช้ตัวหนังสือสีเข้ม */
+function inkOn(hex: string): string {
+  const value = hex.replace("#", "");
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(value.slice(i, i + 2), 16) / 255);
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luminance > 0.6 ? "#1a1a1a" : "#ffffff";
+}
+
+/** โลโก้ที่ลองโหลดแล้วไม่มีไฟล์ — จำไว้ทั้งหน้า จะได้ไม่ยิงซ้ำทุกแถว */
+const missingBankLogos = new Set<string>();
+
+/**
+ * ไอคอนธนาคาร
+ *
+ * อยากได้โลโก้จริง ให้วางไฟล์เองที่ `public/banks/<ตัวย่อ>.png` (เช่น `scb.png`, `kbank.png`)
+ * แล้วมันจะขึ้นเองทันที — ในโค้ดไม่ได้แนบโลโก้มาให้เพราะเป็นเครื่องหมายการค้าของธนาคาร
+ * ไม่มีไฟล์ก็ใช้วงกลมสีประจำแบรนด์พร้อมตัวย่อแทน
+ */
+export function BankBadge({ name, size = 26 }: { name: string | null | undefined; size?: number }) {
+  const mark = bankMark(name);
+  const code = (mark?.short ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const [logoMissing, setLogoMissing] = useState(() => !code || missingBankLogos.has(code));
+
+  if (code && !logoMissing) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={`/banks/${code}.png`}
+        alt={name ?? ""}
+        className="flex-none rounded-full object-contain"
+        style={{ width: size, height: size, background: "#fff" }}
+        onError={() => {
+          missingBankLogos.add(code);
+          setLogoMissing(true);
+        }}
+      />
+    );
+  }
+
+  return (
+    <span
+      className="emoji-tile flex-none rounded-full font-bold"
+      style={{
+        width: size,
+        height: size,
+        fontSize: Math.max(7, size * 0.3),
+        letterSpacing: "0.02em",
+        background: mark?.color ?? "var(--accent-tint)",
+        color: mark ? inkOn(mark.color) : "var(--muted)",
+      }}
+    >
+      {mark?.short ?? "—"}
+    </span>
   );
 }
 

@@ -6,6 +6,7 @@ import { OwnerPicker } from "@/components/OwnerPicker";
 import {
   Alert,
   AvatarCircle,
+  BankBadge,
   BarRow,
   Chip,
   EmptyState,
@@ -16,7 +17,6 @@ import {
   StatCard,
 } from "@/components/ui";
 import { formatSigned } from "@/lib/format";
-import { bankMark } from "@/lib/thai-banks";
 import { currentMonthKey } from "@/lib/thai-date";
 import type { BankBucket, OwnerRef, SiteRow, SummaryBucket, SummaryResponse } from "@/lib/types";
 
@@ -34,8 +34,8 @@ const MODES: Array<{ value: RangeMode; label: string }> = [
 type Breakdown = "site" | "bank" | "day" | "month";
 
 const BREAKDOWNS: Array<{ value: Breakdown; label: string }> = [
-  { value: "site", label: "ตามเว็บ" },
   { value: "bank", label: "ตามธนาคาร" },
+  { value: "site", label: "ตามเว็บ" },
   { value: "day", label: "ตามวัน" },
   { value: "month", label: "ตามเดือน" },
 ];
@@ -120,14 +120,6 @@ function SummaryRow({
   );
 }
 
-/** สีตัวอักษรบนป้ายธนาคาร — สีแบรนด์อ่อนอย่างเหลืองกรุงศรีต้องใช้ตัวหนังสือสีเข้ม */
-function inkOn(hex: string): string {
-  const value = hex.replace("#", "");
-  const [r, g, b] = [0, 2, 4].map((i) => parseInt(value.slice(i, i + 2), 16) / 255);
-  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  return luminance > 0.6 ? "#1a1a1a" : "#ffffff";
-}
-
 /** บัญชีธนาคารเป็นของใครของมัน — ดูรวมทุกคนจึงต้องแยกหัวข้อตามคนก่อน */
 function BankGroups({ buckets, max, showOwner }: { buckets: BankBucket[]; max: number; showOwner: boolean }) {
   const groups = new Map<string, { owner: OwnerRef; items: BankBucket[] }>();
@@ -158,21 +150,11 @@ function BankGroups({ buckets, max, showOwner }: { buckets: BankBucket[]; max: n
 
 /** บัญชีธนาคารของเราแต่ละธนาคาร มีเงินออกไปเข้าเว็บและรับกลับมาเท่าไหร่ */
 function BankRow({ bucket, max }: { bucket: BankBucket; max: number }) {
-  const mark = bankMark(bucket.key);
   return (
     <div className="row py-2.5">
       <div className="flex items-center justify-between gap-2">
         <span className="flex min-w-0 items-center gap-2 text-[13.5px] font-semibold">
-          <span
-            className="emoji-tile h-[18px] px-1.5 text-[9px] font-bold tracking-wide"
-            style={
-              mark
-                ? { background: mark.color, color: inkOn(mark.color) }
-                : { background: "var(--accent-tint)", color: "var(--muted)" }
-            }
-          >
-            {mark?.short ?? "—"}
-          </span>
+          <BankBadge name={bucket.key} size={26} />
           <span className="truncate">{bucket.key}</span>
         </span>
         <span
@@ -205,7 +187,7 @@ export default function SummaryPage() {
   const [error, setError] = useState<string | null>(null);
   /** emoji ของแต่ละเว็บ (key = site id) — โหลดแยก ไม่ต้องรอ ไม่บล็อกสรุปยอด */
   const [siteEmoji, setSiteEmoji] = useState<Record<string, string | null>>({});
-  const [breakdown, setBreakdown] = useState<Breakdown>("site");
+  const [breakdown, setBreakdown] = useState<Breakdown>("bank");
   const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
