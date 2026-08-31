@@ -85,7 +85,12 @@ const KNOWN_TLDS = new Set([
   "pro", "one", "plus", "today", "world", "link", "life", "top", "space", "website",
 ]);
 
-const DOMAIN_RE = /\b((?:[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?\.)+[a-z]{2,10})\b/gi;
+/**
+ * โดเมนบนภาพ — รับชื่อภาษาไทยด้วย (ถูกเบอร์.net) แต่บังคับให้นามสกุลเป็นอังกฤษหรือ .ไทย
+ * ถ้าปล่อยให้นามสกุลเป็นภาษาไทยอะไรก็ได้ คำอย่าง "น.ส." หรือ "ธ.ก.ส." จะกลายเป็นโดเมน
+ */
+const DOMAIN_RE =
+  /(?<![\p{L}\p{N}\p{M}@.])((?:[\p{L}\p{N}][\p{L}\p{N}\p{M}-]{0,40}\.)+(?:[a-z]{2,10}|ไทย))(?![\p{L}\p{N}\p{M}])/giu;
 
 /** รหัสรายการที่เว็บออกให้ ขึ้นต้นด้วย QR แล้วตามด้วยตัวเลขยาว ๆ */
 const WEB_REF_RE = /\bQR[\s-]?(\d{8,24})\b/i;
@@ -118,6 +123,37 @@ function looksLikeName(line: Line): boolean {
   return findBank(line.squashed) === null;
 }
 
+/** อักขระประดับที่บางเว็บใส่คร่อมชื่อบัญชี เช่น "//+++ชนินทร์ ศิริบุตร+++//" */
+const DECOR_HEAD_RE = /^[\s/+*=~_.\-]+/;
+const DECOR_TAIL_RE = /[\s/+*=~_\-]+$/;
+const WRAP_HEAD_RE = /^[/+*=~_.\-]{2,}/;
+const WRAP_TAIL_RE = /[/+*=~_\-]{2,}$/;
+
+function cleanName(text: string): string {
+  return text.replace(DECOR_HEAD_RE, "").replace(DECOR_TAIL_RE, "").trim().slice(0, 200);
+}
+
+/**
+ * ชื่อบัญชีที่บรรทัดนี้ — การ์ดแคบ ๆ ตัดชื่อขึ้นบรรทัดใหม่กลางคำได้
+ * เปิดด้วยอักขระประดับแล้วยังไม่ปิดในบรรทัดเดียวกัน แปลว่าชื่อยังไม่จบ ต่อบรรทัดถัดไปให้
+ * ("//+++ชนินทร์ ศิริ" + "บุตร+++//" → "ชนินทร์ ศิริบุตร")
+ */
+function nameAt(lines: Line[], index: number): string | null {
+  const line = lines[index];
+  if (!looksLikeName(line)) return null;
+
+  const next = lines[index + 1];
+  const wrapped =
+    WRAP_HEAD_RE.test(line.text) &&
+    !WRAP_TAIL_RE.test(line.text) &&
+    Boolean(next) &&
+    !/\d/.test(next.text) &&
+    WRAP_TAIL_RE.test(next.text);
+
+  const cleaned = cleanName(wrapped ? `${line.text}${next.text}` : line.text);
+  return cleaned.length >= 3 ? cleaned : null;
+}
+
 /** ค่าที่เขียนต่อท้ายป้ายบนบรรทัดเดียวกัน เช่น "ชื่อบัญชี : สหภูมิ ฟองเมฆ" */
 function valueAfterLabel(text: string, labels: string[]): string | null {
   for (const label of labels) {
@@ -125,7 +161,7 @@ function valueAfterLabel(text: string, labels: string[]): string | null {
     if (at !== 0) continue;
     // เทียบตำแหน่งบนข้อความจริงไม่ได้ตรง ๆ เพราะ squash ตัดอักขระทิ้ง — ตัดด้วย regex แทน
     const rest = text.replace(/^[^\s:：]*[\s:：]*/, "").trim();
-    if (rest && !/\d/.test(rest) && rest.length >= 3) return rest.slice(0, 200);
+    if (rest && !/\d/.test(rest) && rest.length >= 3) return cleanName(rest);
   }
   return null;
 }
@@ -159,10 +195,8 @@ function readAccountBlock(lines: Line[], start: number, stop: number): AccountRe
       else if (includesAny(line.squashed, ACCOUNT_NAME_LABELS)) {
         // หน้าเว็บบางแบบวาง "ชื่อบัญชี:" กับ "เลขที่บัญชี:" ติดกันแล้วค่อยตามด้วยค่าทั้งคู่
         for (let next = index + 1; next < Math.min(index + 4, lines.length); next += 1) {
-          if (looksLikeName(lines[next])) {
-            accountName = lines[next].text.slice(0, 200);
-            break;
-          }
+          accountName = nameAt(lines, next);
+          if (accountName) break;
         }
       }
     }
@@ -173,7 +207,7 @@ function readAccountBlock(lines: Line[], start: number, stop: number): AccountRe
   if (accountName === null) {
     const titledAt = (index: number): string | null => {
       const titled = lines[index]?.text.match(TITLED_NAME_RE)?.[1];
-      return titled ? titled.replace(/[+\-\s]+$/, "").trim().slice(0, 200) : null;
+      return titled ? cleanName(titled) : null;
     };
     const below = accountNoAt >= 0 ? accountNoAt + 1 : start;
     for (let index = below; accountName === null && index < stop; index += 1) {
@@ -189,7 +223,8 @@ function readAccountBlock(lines: Line[], start: number, stop: number): AccountRe
   if (accountName === null) {
     const scan = (from: number, to: number): string | null => {
       for (let index = from; index < to; index += 1) {
-        if (looksLikeName(lines[index])) return lines[index].text.slice(0, 200);
+        const found = nameAt(lines, index);
+        if (found) return found;
       }
       return null;
     };
@@ -336,7 +371,7 @@ function findDomain(text: string): string | null {
       continue;
     }
     const tld = domain.split(".").pop() ?? "";
-    if (!KNOWN_TLDS.has(tld) && tld.length > 3) continue;
+    if (tld !== "ไทย" && !KNOWN_TLDS.has(tld) && tld.length > 3) continue;
     return domain;
   }
   return null;

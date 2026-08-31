@@ -169,6 +169,37 @@ cmt6psysh17r6hawbqqgs5uco REF: W-1279213471506
 Copyright © 2023-2024 All rights reserved.
 chokddd365.run`;
 
+/**
+ * หน้าสถานะฝากเงินของ ถูกเบอร์ — โดเมนเป็นภาษาไทย และชื่อบัญชีมีอักขระประดับคร่อม
+ * แถมถูกตัดขึ้นบรรทัดใหม่กลางชื่อ ("//+++ชนินทร์ ศิริ" / "บุตร+++//")
+ */
+const THAI_DOMAIN_PAGE = `20:03
+ถูกเบอร์
+TUKBER
+ผู้ใช้
+ติดต่อเรา
+เว็บซื้อหวยออ
+หน้าหลัก
+$ สถานะฝากเงิน
+ทั้งหมด
+ฝาก
+ถอน
+ธนาคารกรุงไทย
+อนุมัติ
+เติมครดิต
+2,480.23
+31-Aug-2026 20:03
+ชื่อบัญชี:
+เลขที่บัญชี:
+//+++ชนินทร์ ศิริ
+บุตร+++//
+979-0-70991-9
+หมายเหตุ:
+-
+SECURE WEBSITE GUARANTEE 100%
+Copyright © 2021-2022 All Rights Reserved.
+ถูกเบอร์.net`;
+
 const SITES = [
   { id: "site-1", name: "LOTTOVIP" },
   { id: "site-2", name: "chokddd365", domain: null as string | null },
@@ -198,12 +229,17 @@ console.log("\n=== หน้าสถานะ ที่โชว์รายก
 console.log("ต้องได้: withdraw · 7000 · 24 ส.ค. 08:56 · บัญชีเรา SCB 5502761877 · ref W-1279213471506");
 console.log(extractWebPageFields(WITHDRAW_RECORD_PAGE, { siteNames: SITES.map((s) => s.name) }));
 
+console.log("\n=== หน้าเว็บที่โดเมนเป็นภาษาไทย (ถูกเบอร์.net) ===");
+console.log("ต้องได้: deposit · 2480.23 · โดเมน ถูกเบอร์.net · บัญชี กรุงไทย 9790709919 ชนินทร์ ศิริบุตร");
+console.log(extractWebPageFields(THAI_DOMAIN_PAGE));
+
 console.log("\n=== แยกประเภทรูป ===");
 for (const [name, text] of [
   ["หน้าฝากเงิน", DEPOSIT_PAGE],
   ["หน้าถอนเงิน", WITHDRAW_PAGE],
   ["หน้ารายการฝาก-ถอน", HISTORY_PAGE],
   ["หน้าสถานะ (ถอนเครดิต)", WITHDRAW_RECORD_PAGE],
+  ["หน้าเว็บโดเมนไทย", THAI_DOMAIN_PAGE],
   ["สลิปธนาคาร", SLIP_TEXT],
   ["สลิปกรุงเทพ", BBL_SLIP],
 ] as const) {

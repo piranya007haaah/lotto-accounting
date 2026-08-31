@@ -42,7 +42,11 @@ const domainSchema = z
   .trim()
   .toLowerCase()
   .transform((value) => value.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, ""))
-  .refine((value) => /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(value), "โดเมนไม่ถูกต้อง เช่น chokddd365.run")
+  // รับโดเมนภาษาไทยด้วย (ถูกเบอร์.net) — เว็บหวยไทยหลายเจ้าใช้ชื่อไทย
+  .refine(
+    (value) => /^[\p{L}\p{N}\p{M}-]+(\.[\p{L}\p{N}\p{M}-]+)+$/u.test(value),
+    "โดเมนไม่ถูกต้อง เช่น chokddd365.run",
+  )
   .refine((value) => value.length <= 120, "โดเมนยาวเกินไป");
 
 export const siteInputSchema = z.object({
