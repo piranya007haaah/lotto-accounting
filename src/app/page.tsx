@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/LiffProvider";
+import { OwnerSheet } from "@/components/OwnerPicker";
 import { PairUploader } from "@/components/PairUploader";
 import { AvatarCircle } from "@/components/ui";
 import { formatBahtShort, formatSigned } from "@/lib/format";
@@ -28,10 +30,12 @@ const DIRECTIONS: Array<{ value: Direction; label: string; hint: string }> = [
 ];
 
 export default function EntryPage() {
-  const { api, profile } = useAuth();
+  const { api, profile, canViewAll, setViewOwner } = useAuth();
+  const router = useRouter();
 
   const [direction, setDirection] = useState<Direction>("deposit");
   const [today, setToday] = useState<SummaryResponse | null>(null);
+  const [ownerSheetOpen, setOwnerSheetOpen] = useState(false);
 
   const loadToday = useCallback(async () => {
     try {
@@ -55,8 +59,48 @@ export default function EntryPage() {
           <h1 className="page-title">บันทึกรายการ</h1>
           <p className="page-sub truncate">สวัสดี {profile?.displayName ?? "ผู้ใช้"}</p>
         </div>
-        <AvatarCircle name={profile?.displayName} src={profile?.pictureUrl} />
+        {canViewAll ? (
+          // มีสิทธิ์ดูข้ามบัญชี — แตะรูปโปรไฟล์เพื่อไปดูรายการของคนอื่น
+          // (หน้านี้ยังเป็นการบันทึกในนามตัวเองเสมอ จึงพาไปหน้ารายการแทนการสลับที่นี่)
+          <button
+            type="button"
+            className="relative flex-none"
+            aria-label="ดูรายการของคนอื่น"
+            onClick={() => setOwnerSheetOpen(true)}
+          >
+            <AvatarCircle name={profile?.displayName} src={profile?.pictureUrl} />
+            <span
+              className="absolute -bottom-0.5 -right-0.5 flex size-[17px] items-center justify-center rounded-full"
+              style={{ background: "var(--card)", boxShadow: "0 1px 4px rgb(22 36 61 / 0.25)" }}
+            >
+              <svg
+                width="11"
+                height="11"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--muted)"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </span>
+          </button>
+        ) : (
+          <AvatarCircle name={profile?.displayName} src={profile?.pictureUrl} />
+        )}
       </header>
+
+      <OwnerSheet
+        open={ownerSheetOpen}
+        onClose={() => setOwnerSheetOpen(false)}
+        onPick={(owner) => {
+          setViewOwner(owner);
+          router.push("/history");
+        }}
+      />
 
       {today ? (
         <Link href="/summary" className="hero">

@@ -27,6 +27,8 @@ export function isMissingPairColumn(error: { code?: string; message?: string } |
 
 interface FetchParams {
   ownerId: string;
+  /** ดูของคนใดคนหนึ่ง (ต้องมีสิทธิ์ can_view_all) — ระบุแล้วจะไม่สนใจ includeAllOwners */
+  viewOwnerId?: string | null;
   /** true = ดูข้ามทุกบัญชี (ต้องมีสิทธิ์ can_view_all) — ต้องระบุชัดเจนเท่านั้น */
   includeAllOwners?: boolean;
   from: Date;
@@ -47,7 +49,8 @@ export async function fetchTransactions(params: FetchParams): Promise<Transactio
       .order("occurred_at", { ascending: false })
       .limit(params.limit ?? 2000);
 
-    if (!params.includeAllOwners) query = query.eq("owner_id", params.ownerId);
+    if (params.viewOwnerId) query = query.eq("owner_id", params.viewOwnerId);
+    else if (!params.includeAllOwners) query = query.eq("owner_id", params.ownerId);
     if (params.siteId) query = query.eq("site_id", params.siteId);
     if (params.direction) query = query.eq("direction", params.direction);
     return query;

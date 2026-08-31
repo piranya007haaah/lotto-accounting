@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/LiffProvider";
+import { OwnerPicker } from "@/components/OwnerPicker";
 import {
   Alert,
   BarRow,
@@ -132,7 +133,7 @@ function BankRow({ bucket, max }: { bucket: BankBucket; max: number }) {
 }
 
 export default function SummaryPage() {
-  const { api } = useAuth();
+  const { api, viewOwner } = useAuth();
   const [mode, setMode] = useState<RangeMode>("month");
   const [month, setMonth] = useState(() => currentMonthKey());
   const [year, setYear] = useState(() => Number(currentMonthKey().slice(0, 4)));
@@ -158,13 +159,14 @@ export default function SummaryPage() {
           : mode === "year"
             ? `from=${year}-01-01&to=${year}-12-31`
             : `range=${mode}`;
-      setData(await api<SummaryResponse & { label: string }>(`/api/summary?${query}`));
+      const owner = viewOwner ? `&ownerId=${viewOwner.id}` : "";
+      setData(await api<SummaryResponse & { label: string }>(`/api/summary?${query}${owner}`));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "โหลดสรุปยอดไม่สำเร็จ");
     } finally {
       setLoading(false);
     }
-  }, [api, mode, month, year]);
+  }, [api, mode, month, year, viewOwner]);
 
   useEffect(() => {
     void load();
@@ -179,8 +181,14 @@ export default function SummaryPage() {
     <div className="space-y-3.5">
       <PageHeader
         title="สรุปยอด"
-        subtitle={data ? `${data.label} · ${data.totals.count} รายการ` : "—"}
+        subtitle={
+          data
+            ? `${data.label} · ${data.totals.count} รายการ${viewOwner ? ` · ของ ${viewOwner.name}` : ""}`
+            : "—"
+        }
       />
+
+      <OwnerPicker />
 
       <div className="flex gap-1.5 overflow-x-auto pb-0.5">
         {MODES.map((item) => (

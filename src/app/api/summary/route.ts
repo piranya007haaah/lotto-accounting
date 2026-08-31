@@ -11,13 +11,17 @@ export const GET = route(async (request) => {
   const params = new URL(request.url).searchParams;
   const { from, to, label, kind } = resolveRange(params);
 
+  const viewOwnerId = user.canViewAll ? params.get("ownerId") : null;
+
   const summary = await getSummary({
     ownerId: user.id,
     includeAllOwners: user.canViewAll,
+    viewOwnerId,
     from,
     to,
     siteId: params.get("siteId"),
   });
 
-  return ok({ label, kind, scope: user.canViewAll ? "all" : "own", ...summary });
+  const scope = viewOwnerId ? "owner" : user.canViewAll ? "all" : "own";
+  return ok({ label, kind, scope, ...summary });
 });

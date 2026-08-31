@@ -13,6 +13,15 @@ export interface LineProfile {
 
 type Status = "loading" | "ready" | "error" | "unconfigured" | "pending";
 
+/** คนที่กำลังเปิดดูรายการอยู่ — null = ดูรวมทุกคน */
+export interface ViewOwner {
+  id: string;
+  name: string;
+  pictureUrl: string | null;
+}
+
+const VIEW_OWNER_KEY = "lotto:viewOwner";
+
 interface AuthContextValue {
   status: Status;
   error: string | null;
@@ -24,6 +33,11 @@ interface AuthContextValue {
   isAdmin: boolean;
   /** เห็นรายการและสรุปยอดของทุกคน (อ่านอย่างเดียว) */
   canViewAll: boolean;
+  /** id ของเราในตาราง app_users — ใช้เทียบว่าแถวไหนแก้ไข/ลบได้ */
+  userId: string | null;
+  /** กำลังดูรายการของใครอยู่ (null = ทุกคน) — ใช้ร่วมกันทุกหน้า */
+  viewOwner: ViewOwner | null;
+  setViewOwner: (owner: ViewOwner | null) => void;
   api: <T>(path: string, init?: RequestInit) => Promise<T>;
 }
 
@@ -59,8 +73,21 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
   const [pairColumnsReady, setPairColumnsReady] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [canViewAll, setCanViewAll] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [viewOwner, setViewOwnerState] = useState<ViewOwner | null>(null);
   const tokenRef = useRef<string | null>(null);
   const liffRef = useRef<LiffLike | null>(null);
+
+  /** จำไว้ว่าเปิดดูของใครค้างไว้ จะได้ไม่ต้องเลือกใหม่ทุกหน้าและทุกครั้งที่เปิดแอป */
+  const setViewOwner = useCallback((owner: ViewOwner | null) => {
+    setViewOwnerState(owner);
+    try {
+      if (owner) localStorage.setItem(VIEW_OWNER_KEY, JSON.stringify(owner));
+      else localStorage.removeItem(VIEW_OWNER_KEY);
+    } catch {
+      /* โหมดส่วนตัวของเบราว์เซอร์เขียนไม่ได้ก็ไม่เป็นไร แค่จำข้ามหน้าไม่ได้ */
+    }
+  }, []);
 
   /** เรียก API พร้อมแนบ LINE ID token ให้อัตโนมัติ */
   const api = useCallback(async <T,>(path: string, init: RequestInit = {}): Promise<T> => {
@@ -128,6 +155,16 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
         if (cancelled) return;
         setOcrEnabled(me.ocrEnabled);
         setPairColumnsReady(me.pairColumnsReady !== false);
+        setUserId(me.user.id);
+
+        // คนที่ไม่มีสิทธิ์ข้ามบัญชีเห็นแต่ของตัวเอง — ค่าที่ค้างไว้ต้องถูกล้างทิ้ง
+        try {
+          const saved = me.canViewAll ? localStorage.getItem(VIEW_OWNER_KEY) : null;
+          if (saved) setViewOwnerState(JSON.parse(saved) as ViewOwner);
+          else localStorage.removeItem(VIEW_OWNER_KEY);
+        } catch {
+          /* อ่านค่าเดิมไม่ได้ก็เริ่มที่ "ทุกคน" ตามปกติ */
+        }
         setIsAdmin(me.isAdmin);
         setCanViewAll(me.canViewAll);
         setProfile((current) =>
@@ -218,7 +255,19 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ status, error, profile, ocrEnabled, pairColumnsReady, isAdmin, canViewAll, api }}>
+    <AuthContext.Provider value={{
+        status,
+        error,
+        profile,
+        ocrEnabled,
+        pairColumnsReady,
+        isAdmin,
+        canViewAll,
+        userId,
+        viewOwner,
+        setViewOwner,
+        api,
+      }}>
       {children}
     </AuthContext.Provider>
   );

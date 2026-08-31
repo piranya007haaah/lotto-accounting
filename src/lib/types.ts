@@ -28,6 +28,13 @@ export interface MemberRow {
   is_admin: boolean;
 }
 
+/** สมาชิกแบบย่อ ไว้เลือกว่ากำลังดูรายการของใคร (ไม่มีข้อมูลสิทธิ์ติดมาด้วย) */
+export interface MemberOption {
+  id: string;
+  display_name: string | null;
+  picture_url: string | null;
+}
+
 export interface SiteRow {
   id: string;
   /** ไม่ใช้แล้ว — เว็บทุกแถวเป็นของส่วนกลาง (ดู migration 0006) */

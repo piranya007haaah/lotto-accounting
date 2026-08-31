@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/LiffProvider";
+import { OwnerPicker } from "@/components/OwnerPicker";
 import { SitePicker } from "@/components/SitePicker";
 import { Alert, EmptyState, PageHeader, SiteBadge, Spinner } from "@/components/ui";
 import { formatBahtShort, parseAmountInput } from "@/lib/format";
@@ -32,7 +33,7 @@ const OCR_LABEL: Record<string, string> = {
 };
 
 export default function HistoryPage() {
-  const { api, canViewAll} = useAuth();
+  const { api, canViewAll, userId, viewOwner } = useAuth();
 
   const [month, setMonth] = useState(() => currentMonthKey());
   const [siteFilter, setSiteFilter] = useState("");
@@ -63,6 +64,7 @@ export default function HistoryPage() {
       const query = new URLSearchParams({ month });
       if (siteFilter) query.set("siteId", siteFilter);
       if (directionFilter) query.set("direction", directionFilter);
+      if (viewOwner) query.set("ownerId", viewOwner.id);
       const data = await api<{ transactions: TransactionWithSite[] }>(`/api/transactions?${query}`);
       setRows(data.transactions);
     } catch (caught) {
@@ -70,7 +72,7 @@ export default function HistoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [api, month, siteFilter, directionFilter]);
+  }, [api, month, siteFilter, directionFilter, viewOwner]);
 
   useEffect(() => {
     void load();
@@ -167,9 +169,13 @@ export default function HistoryPage() {
 
   return (
     <div className="space-y-3.5">
-      <PageHeader title="รายการทั้งหมด" subtitle={`${rows.length} รายการในเดือนที่เลือก`} />
+      <PageHeader
+        title="รายการทั้งหมด"
+        subtitle={`${rows.length} รายการในเดือนที่เลือก${viewOwner ? ` · ของ ${viewOwner.name}` : ""}`}
+      />
 
       <div className="card space-y-2 p-3">
+        <OwnerPicker />
         <input type="month" className="field" value={month} onChange={(e) => setMonth(e.target.value)} />
         <div className="grid grid-cols-2 gap-2">
           <SitePicker
@@ -389,7 +395,7 @@ export default function HistoryPage() {
                               </button>
                             </div>
                           </div>
-                        ) : (
+                        ) : row.owner_id === userId ? (
                           <div className="flex gap-2">
                             <button className="btn btn-ghost flex-1" onClick={() => startEdit(row)}>
                               แก้ไข
@@ -398,6 +404,11 @@ export default function HistoryPage() {
                               ลบ
                             </button>
                           </div>
+                        ) : (
+                          // รายการของคนอื่น — ดูได้อย่างเดียว (ฝั่ง API ก็กันไว้อีกชั้น)
+                          <p className="dim text-[11.5px]">
+                            รายการของ {row.owner?.display_name ?? "คนอื่น"} — ดูได้อย่างเดียว
+                          </p>
                         )}
                       </div>
                     ) : null}

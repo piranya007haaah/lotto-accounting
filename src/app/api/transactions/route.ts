@@ -16,10 +16,14 @@ export const GET = route(async (request) => {
   const params = new URL(request.url).searchParams;
   const { from, to, label } = resolveRange(params);
 
+  // เจาะดูของคนใดคนหนึ่งได้เฉพาะคนที่มีสิทธิ์ — ไม่มีสิทธิ์ก็เห็นแต่ของตัวเองเหมือนเดิม
+  const viewOwnerId = user.canViewAll ? params.get("ownerId") : null;
+
   const transactions = await fetchTransactions({
     ownerId: user.id,
     // มีสิทธิ์ can_view_all เท่านั้นจึงเห็นข้ามบัญชี — การเพิ่ม/แก้/ลบยังผูกกับตัวเองเสมอ
     includeAllOwners: user.canViewAll,
+    viewOwnerId,
     from,
     to,
     siteId: params.get("siteId"),
