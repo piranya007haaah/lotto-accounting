@@ -397,6 +397,11 @@ export default function HistoryPage() {
 
                         {isEditing && editing ? (
                           <div className="space-y-2">
+                            {row.owner_id !== userId ? (
+                              <Alert tone="warn">
+                                กำลังแก้รายการของ {row.owner?.display_name ?? "คนอื่น"} ในฐานะผู้ดูแล
+                              </Alert>
+                            ) : null}
                             <SitePicker
                               sites={sites}
                               value={editing.siteId}
@@ -457,7 +462,7 @@ export default function HistoryPage() {
                               </button>
                             </div>
                           </div>
-                        ) : row.owner_id === userId ? (
+                        ) : row.owner_id === userId || isAdmin ? (
                           <div className="flex gap-2">
                             <button className="btn btn-ghost flex-1" onClick={() => startEdit(row)}>
                               แก้ไข
@@ -467,17 +472,10 @@ export default function HistoryPage() {
                             </button>
                           </div>
                         ) : (
-                          // รายการของคนอื่น — แก้ไม่ได้ (ฝั่ง API ก็กันไว้อีกชั้น) ผู้ดูแลลบได้อย่างเดียว
-                          <div className="flex items-center gap-2">
-                            <p className="dim flex-1 text-[11.5px]">
-                              รายการของ {row.owner?.display_name ?? "คนอื่น"} — แก้ไขไม่ได้
-                            </p>
-                            {isAdmin ? (
-                              <button className="btn btn-danger" onClick={() => remove(row.id)} disabled={busy}>
-                                ลบ
-                              </button>
-                            ) : null}
-                          </div>
+                          // ไม่ใช่ของเราและไม่ใช่ผู้ดูแล — ดูได้อย่างเดียว (ฝั่ง API กันไว้อีกชั้น)
+                          <p className="dim text-[11.5px]">
+                            รายการของ {row.owner?.display_name ?? "คนอื่น"} — แก้ไขไม่ได้
+                          </p>
                         )}
                       </div>
                     ) : null}

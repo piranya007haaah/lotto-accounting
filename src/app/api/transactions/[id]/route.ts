@@ -67,14 +67,12 @@ export const PATCH = route(async (request: Request, context: Context) => {
 
   if (Object.keys(patch).length === 0) throw new HttpError(400, "ไม่มีข้อมูลที่จะแก้ไข");
 
-  const write = (columns: string) =>
-    supabase
-      .from("transactions")
-      .update(patch)
-      .eq("id", id)
-      .eq("owner_id", user.id)
-      .select(columns)
-      .maybeSingle();
+  const write = (columns: string) => {
+    let query = supabase.from("transactions").update(patch).eq("id", id);
+    // ผู้ดูแลแก้ของใครก็ได้ (ไว้เก็บกวาดรายการที่อ่านจากรูปเพี้ยน) เหมือนกับสิทธิ์ลบ
+    if (!user.isAdmin) query = query.eq("owner_id", user.id);
+    return query.select(columns).maybeSingle();
+  };
 
   let { data, error } = await write(TRANSACTION_SELECT);
   if (isMissingPairColumn(error)) ({ data, error } = await write(TRANSACTION_SELECT_BASE));
