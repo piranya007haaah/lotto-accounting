@@ -95,7 +95,9 @@ export async function getOrCreateUser(profile: {
     displayName: data.display_name as string | null,
     pictureUrl: data.picture_url as string | null,
     isAdmin,
-    canViewAll: Boolean(data.can_view_all),
+    // ผู้ดูแลเห็นทุกบัญชีเสมอ — หน้า /admin ไม่มีปุ่มเปิดสิทธิ์นี้ให้ตัวเอง
+    // (เปิดให้คนอื่นได้อย่างเดียว) ถ้าไม่ให้อัตโนมัติก็จะเปิดของตัวเองไม่ได้เลย
+    canViewAll: Boolean(data.can_view_all) || isAdmin,
   };
 }
 
