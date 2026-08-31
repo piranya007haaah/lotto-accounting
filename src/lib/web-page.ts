@@ -166,6 +166,14 @@ function valueAfterLabel(text: string, labels: string[]): string | null {
   return null;
 }
 
+/** ป้ายสถานะ — การ์ดหนึ่งใบมีอันเดียว จึงใช้นับว่าหน้านี้มีกี่รายการ */
+const STATUS_MARKS = ["อนุมัติ", "รออนุมัติ", "ไม่อนุมัติ", "ยกเลิก"];
+
+/** บรรทัดหัวการ์ด — อยู่เหนือป้ายสถานะหรือวันที่ของการ์ดใบนั้น */
+const CARD_HEADER_MARKS = [
+  ...STATUS_MARKS, "เติมเครดิต", "เติมครดิต", "ถอนเครดิต", "ถอนครดิต",
+];
+
 function anchorRole(line: Line): "from" | "to" | null {
   if (includesAny(line.squashed, FROM_ANCHORS)) return "from";
   if (includesAny(line.squashed, TO_ANCHORS)) return "to";
@@ -279,6 +287,39 @@ function clusterAccounts(lines: Line[]): AccountRef[] {
   }
 
   return clusters;
+}
+
+/**
+ * หน้ารายการของเว็บโชว์หลายรายการเรียงกัน — เอาเฉพาะใบบนสุดใบเดียว
+ *
+ * ไม่ตัดก่อนจะพังหนัก: ยอดมาจากใบแรก แต่เลขบัญชีไปหยิบของใบที่สอง แล้วชื่อธนาคาร
+ * เป็นของใบที่สาม กลายเป็นรายการที่ไม่มีอยู่จริง
+ * หน้าแจ้งโอน (มีป้าย "โอนจากบัญชีนี้" / "โอนถึงบัญชี") ไม่ตัด เพราะมีสองบัญชีจริง ๆ
+ */
+function firstRecordOnly(lines: Line[], now: Date): Line[] {
+  if (lines.some((line) => anchorRole(line) !== null)) return lines;
+
+  const at = (test: (line: Line) => boolean) =>
+    lines.map((line, index) => (test(line) ? index : -1)).filter((index) => index >= 0);
+
+  // ป้ายสถานะคือตัวนับที่แม่นที่สุด ไม่มีก็นับจากบรรทัดวันเวลาแทน (การ์ดละหนึ่งอัน)
+  const statuses = at((line) => includesAny(line.squashed, STATUS_MARKS));
+  const boundaries =
+    statuses.length >= 2
+      ? statuses
+      : at((line) => CLOCK_RE.test(line.text) && saneDate(parseLooseDateTime(line.text), now) !== null);
+  if (boundaries.length < 2) return lines;
+
+  // หัวการ์ดใบถัดไป (ชื่อธนาคาร / ป้ายสถานะ / ป้ายเติม-ถอนเครดิต) อยู่เหนือจุดที่นับได้
+  let cut = boundaries[1];
+  while (
+    cut > 0 &&
+    (findBank(lines[cut - 1].squashed) !== null ||
+      includesAny(lines[cut - 1].squashed, CARD_HEADER_MARKS))
+  ) {
+    cut -= 1;
+  }
+  return lines.slice(0, Math.max(cut, boundaries[0] + 1));
 }
 
 function findAccounts(lines: Line[]): { from: AccountRef | null; to: AccountRef | null } {
@@ -478,7 +519,7 @@ export function extractWebPageFields(
   NEGATIVE_AMOUNT_RE.lastIndex = 0;
   const text = raw.replace(NEGATIVE_AMOUNT_RE, "$1$2");
 
-  const lines = toLines(text);
+  const lines = firstRecordOnly(toLines(text), now);
   const webRef = text.match(WEB_REF_RE);
   const siteRef = text.match(SITE_REF_RE);
 
