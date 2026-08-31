@@ -269,26 +269,30 @@ export default function HistoryPage() {
                       >
                         {pad2(parts.hour)}:{pad2(parts.minute)}
                       </span>
-                      <span className="min-w-0 flex-1 truncate">
-                        <SiteBadge
-                          name={row.site?.name ?? "—"}
-                          color={row.site?.color}
-                          emoji={row.site ? emojiById.get(row.site.id) : null}
-                        />
-                        {/* ดูของคนเดียวอยู่แล้วไม่ต้องบอกซ้ำทุกแถว — บอกเฉพาะตอนดูรวมทุกคน */}
-                        {canViewAll && !viewOwner ? (
-                          <span
-                            className="mt-0.5 flex items-center gap-1.5 truncate text-[11px]"
-                            style={{ color: isOpen ? "var(--nav-dim)" : "var(--dim)" }}
-                          >
-                            <AvatarCircle
-                              name={row.owner?.display_name}
-                              src={row.owner?.picture_url}
-                              size={15}
-                            />
-                            <span className="truncate">{row.owner?.display_name ?? "(ไม่ทราบชื่อ)"}</span>
-                          </span>
-                        ) : null}
+                      <span className="min-w-0 flex-1">
+                        <span className="flex min-w-0 items-center gap-2">
+                          <SiteBadge
+                            name={row.site?.name ?? "—"}
+                            color={row.site?.color}
+                            emoji={row.site ? emojiById.get(row.site.id) : null}
+                          />
+                          {/* ดูของคนเดียวอยู่แล้วไม่ต้องบอกซ้ำทุกแถว — บอกเฉพาะตอนดูรวมทุกคน */}
+                          {canViewAll && !viewOwner ? (
+                            <span
+                              className="flex flex-none items-center gap-1 text-[11px]"
+                              style={{ color: isOpen ? "var(--nav-dim)" : "var(--dim)" }}
+                            >
+                              <AvatarCircle
+                                name={row.owner?.display_name}
+                                src={row.owner?.picture_url}
+                                size={15}
+                              />
+                              <span className="max-w-[90px] truncate">
+                                {row.owner?.display_name ?? "(ไม่ทราบชื่อ)"}
+                              </span>
+                            </span>
+                          ) : null}
+                        </span>
                         {row.note ? (
                           <span
                             className="block truncate text-[11px]"
