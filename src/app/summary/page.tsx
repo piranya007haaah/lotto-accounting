@@ -22,6 +22,12 @@ import type { BankBucket, OwnerRef, SiteRow, SummaryBucket, SummaryResponse } fr
 
 type RangeMode = "today" | "yesterday" | "last7" | "month" | "year";
 
+/**
+ * คำตอบจาก /api/summary — scope บอกว่ากำลังดูของใคร
+ *   own   = เห็นได้แต่ของตัวเอง   owner = เจาะดูทีละคน   all = ดูรวมทุกคน
+ */
+type SummaryData = SummaryResponse & { label: string; scope?: "own" | "owner" | "all" };
+
 const MODES: Array<{ value: RangeMode; label: string }> = [
   { value: "today", label: "วันนี้" },
   { value: "yesterday", label: "เมื่อวาน" },
@@ -132,7 +138,7 @@ function BankGroups({ buckets, max, showOwner }: { buckets: BankBucket[]; max: n
     groups.set(bucket.owner.id, group);
   }
 
-  // ดูของคนเดียวก็ไม่ต้องมีกล่องซ้อนกล่อง แสดงเป็นแถวธรรมดาพอ
+  // เจาะดูของคนเดียวอยู่แล้วก็ไม่ต้องมีกล่องซ้อนกล่อง แสดงเป็นแถวธรรมดาพอ
   if (!showOwner) {
     return (
       <div>
@@ -207,7 +213,7 @@ export default function SummaryPage() {
   const [mode, setMode] = useState<RangeMode>("month");
   const [month, setMonth] = useState(() => currentMonthKey());
   const [year, setYear] = useState(() => Number(currentMonthKey().slice(0, 4)));
-  const [data, setData] = useState<(SummaryResponse & { label: string }) | null>(null);
+  const [data, setData] = useState<SummaryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   /** emoji ของแต่ละเว็บ (key = site id) — โหลดแยก ไม่ต้องรอ ไม่บล็อกสรุปยอด */
@@ -232,7 +238,7 @@ export default function SummaryPage() {
             ? `from=${year}-01-01&to=${year}-12-31`
             : `range=${mode}`;
       const owner = viewOwner ? `&ownerId=${viewOwner.id}` : "";
-      setData(await api<SummaryResponse & { label: string }>(`/api/summary?${query}${owner}`));
+      setData(await api<SummaryData>(`/api/summary?${query}${owner}`));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "โหลดสรุปยอดไม่สำเร็จ");
     } finally {
@@ -263,10 +269,13 @@ export default function SummaryPage() {
           : (data?.byMonth ?? []);
   const rows = showAll ? allRows : allRows.slice(0, LIST_CAP);
   const hiddenCount = allRows.length - rows.length;
-  const bankOwners = new Set((data?.byBank ?? []).map((bucket) => bucket.owner.id)).size;
-  // มีคนเดียวก็ไม่ต้องแปะรูปโปรไฟล์ให้รก — แปะเมื่อดูรวมแล้วมีหลายคนเท่านั้น
-  const siteOwners = new Set((data?.bySite ?? []).flatMap((bucket) => bucket.owners.map((o) => o.id))).size;
-  const showOwners = !viewOwner && siteOwners > 1;
+  /**
+   * เลือก "ทุกคน" ไว้ก็ต้องบอกเสมอว่าแถวไหนของใคร ไม่ใช่ดูจากว่าช่วงนี้บังเอิญมีกี่คน
+   * ไม่งั้นเดือนที่มีคนลงรายการอยู่คนเดียวจะกลายเป็นแถวเปล่า ๆ ไม่มีชื่อ
+   * แล้วพอกด 7 วันซึ่งคาบไปถึงรายการของอีกคน ชื่อถึงโผล่ — หน้าตาเปลี่ยนไปมาจนงง
+   * scope มาจาก API จึงตรงกับข้อมูลชุดที่แสดงอยู่จริง ไม่แกว่งตามตอนกำลังโหลด
+   */
+  const allOwnersView = data?.scope === "all";
 
   return (
     <div className="space-y-3.5">
@@ -365,7 +374,7 @@ export default function SummaryPage() {
                   <BankGroups
                     buckets={rows as BankBucket[]}
                     max={maxBank}
-                    showOwner={bankOwners > 1}
+                    showOwner={allOwnersView}
                   />
                 ) : (
                   <div>
@@ -376,7 +385,7 @@ export default function SummaryPage() {
                           bucket={bucket}
                           max={breakdown === "site" ? maxSite : breakdown === "day" ? maxDay : maxMonth}
                           emoji={bucket.siteId ? siteEmoji[bucket.siteId] : null}
-                          owners={showOwners ? bucket.owners : undefined}
+                          owners={allOwnersView ? bucket.owners : undefined}
                         />
                       ),
                     )}
