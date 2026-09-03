@@ -14,6 +14,22 @@
 ถ้า Supabase MCP ในเซสชันไหน login อยู่กับบัญชีของ lubewatch ให้ถือว่า **เข้าไม่ถึงฐานข้อมูลของโปรเจกต์นี้**
 — ให้ส่ง SQL migration ให้เจ้าของไปรันเองใน SQL Editor ของบัญชีที่ถูกต้อง อย่าไปสร้างตารางในโปรเจกต์ที่มองเห็นแทน
 
+## ต่อ Supabase MCP ให้ตรงบัญชี (ไม่ผ่าน connector ของ claude.ai)
+
+connector Supabase ของ claude.ai ผูกกับ **บัญชีที่ล็อกอินอยู่** ซึ่งบางเซสชันคือบัญชีของ
+lubewatch ⇒ มองไม่เห็นโปรเจกต์นี้เลย · แก้ด้วย MCP server แบบ **stdio + Personal Access
+Token** ที่ `.mcp.json` (project scope) — ลำดับความสำคัญของ Claude Code คือ
+local > **project** > user > plugin > **claude.ai connector** ⇒ ตัวนี้ชนะ connector
+
+- `.mcp.json` **ห้ามใส่ token จริง** — ใช้ `${SUPABASE_ACCESS_TOKEN}` / `${SUPABASE_PROJECT_REF}`
+  แล้วตั้งค่าจริงเป็น environment variable ของ environment (Claude Code on the web:
+  Settings → Environments) หรือ export เองตอนรันในเครื่อง
+- ออก token ที่ Supabase Dashboard → Account → Access Tokens · ใช้ **scoped token**
+  (`sbp_fc…`) จำกัดเฉพาะโปรเจกต์นี้ได้ ปลอดภัยกว่า token เต็มบัญชี
+- `--project-ref` ทำให้ MCP แตะได้โปรเจกต์เดียว (เครื่องมือระดับบัญชีปิดหมด)
+  · เพิ่ม `--read-only` ได้ถ้าอยากให้ query อ่านอย่างเดียว (migration จะรันไม่ได้)
+- server ใหม่ **ต้องรีสตาร์ทเซสชัน + กดอนุมัติ** ครั้งแรก ถึงจะเชื่อมต่อ
+
 ## การตั้งค่า
 
 ค่าเชื่อมต่อทั้งหมดอ่านจาก environment variables (`.env.example` เป็นตัวอย่าง)
