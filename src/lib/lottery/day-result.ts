@@ -10,7 +10,7 @@
  * (วันหยุดก็กินหนึ่งช่อง) ไม่ใช่ "งวดที่"
  */
 
-import type { LotteryPortfolio, PortfolioLegConfig } from "./portfolio-config";
+import type { LotteryPortfolio, PortfolioConfig, PortfolioLegConfig } from "./portfolio-config";
 import {
   legBetAt,
   replayPortfolio,
@@ -71,7 +71,7 @@ export interface DayReport {
 }
 
 /** {ชื่อหวย: "HH:MM"} — `portfolio_report.schedule_times` ฝั่ง Python */
-export function scheduleTimes(portfolio: LotteryPortfolio): Record<string, string> {
+export function scheduleTimes(portfolio: { config: PortfolioConfig }): Record<string, string> {
   const raw = portfolio.config.schedule?.lottery_times;
   if (!raw || typeof raw !== "object") return {};
   const out: Record<string, string> = {};
@@ -88,6 +88,31 @@ export function minutesOf(time: string | null | undefined): number {
   const [h, m] = time.split(":").map((v) => Number.parseInt(v, 10));
   if (!Number.isFinite(h) || !Number.isFinite(m)) return 24 * 60 + 1;
   return h * 60 + m;
+}
+
+/**
+ * ลำดับตำแหน่งภายในหวยเดียวกัน: **สามบน → สองบน → สองล่าง**
+ *
+ * ⚠️ อย่าใช้ `localeCompare` แทน — มันบังเอิญให้ลำดับนี้กับสามชื่อที่มีอยู่ตอนนี้
+ * แต่ตำแหน่งชื่ออื่นที่เพิ่มมาทีหลังจะไปแทรกกลางแบบเดาไม่ได้
+ */
+const POSITION_ORDER = ["สามบน", "สองบน", "สองล่าง"];
+
+export function positionRank(position: string): number {
+  const i = POSITION_ORDER.indexOf(position.trim());
+  return i === -1 ? POSITION_ORDER.length : i;
+}
+
+/** เรียงขาในหวยเดียวกัน — หลักมากก่อน แล้วตามลำดับตำแหน่งข้างบน */
+export function comparePositions(
+  a: { digits: number; position: string },
+  b: { digits: number; position: string },
+): number {
+  return (
+    b.digits - a.digits ||
+    positionRank(a.position) - positionRank(b.position) ||
+    a.position.localeCompare(b.position, "th")
+  );
 }
 
 /** ปี พ.ศ. 2 หลักของวันที่ (UTC) */
@@ -200,7 +225,7 @@ export function computeDay(input: {
   const lotteries = [...groups.values()];
   for (const group of lotteries) {
     // สามบน → สองบน → สองล่าง (ลำดับเดียวกับรายงานเดิมฝั่ง Python)
-    group.legs.sort((a, b) => b.digits - a.digits || a.position.localeCompare(b.position, "th"));
+    group.legs.sort(comparePositions);
     group.complete = group.legs.every((l) => l.status !== "pending");
     group.untouched = group.legs.every((l) => l.status === "pending");
   }
@@ -313,7 +338,7 @@ export function monthTable(input: {
   });
 
   if (columns.length === 0 || ceYear === null) return null;
-  columns.sort((a, b) => b.digits - a.digits || a.position.localeCompare(b.position, "th"));
+  columns.sort(comparePositions);
 
   const lastDay = new Date(Date.UTC(ceYear, month, 0)).getUTCDate();
   const days: number[] = [];

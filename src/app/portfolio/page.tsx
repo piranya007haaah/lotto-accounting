@@ -45,6 +45,7 @@ import {
   requiredSequenceKeys,
   type DatasetSequence,
 } from "@/lib/lottery/portfolio-engine";
+import { comparePositions, minutesOf, scheduleTimes } from "@/lib/lottery/day-result";
 import type { PortfolioSnapshot } from "@/lib/types";
 
 /** 1 แถวของตาราง `lottery_portfolios` ที่ API ส่งมา (คีย์ snake_case เหมือนฝั่ง Python) */
@@ -389,6 +390,35 @@ export default function PortfolioPage() {
   const totalCost = legs.reduce((sum, leg) => sum + legCost(leg), 0);
   const showEdit = Boolean(draft) && isAdmin && tab === "edit";
 
+  /**
+   * ลำดับที่โชว์ในแท็บแก้ไข = ลำดับที่หวยออกจริง (เวลาใน `schedule.lottery_times`)
+   * แล้วในหวยเดียวกันเป็น **สามบน → สองบน → สองล่าง** — ตรงกับฟอร์มกรอกผลและการ์ด LINE
+   * ⚠️ เก็บ `index` เดิมของ config ติดไปด้วย เพราะปุ่มแก้/ลบอ้างตำแหน่งจริงในอาร์เรย์
+   */
+  const orderedLegs = useMemo(() => {
+    const times = draft ? scheduleTimes(draft) : {};
+    const lotteryOrder = new Map<string, number>();
+    legs.forEach((leg) => {
+      if (!lotteryOrder.has(leg.lottery)) lotteryOrder.set(leg.lottery, lotteryOrder.size);
+    });
+    return legs
+      .map((leg, index) => ({ leg, index }))
+      .sort((a, b) => {
+        if (a.leg.lottery !== b.leg.lottery) {
+          return (
+            minutesOf(times[a.leg.lottery] ?? null) - minutesOf(times[b.leg.lottery] ?? null) ||
+            (lotteryOrder.get(a.leg.lottery) ?? 0) - (lotteryOrder.get(b.leg.lottery) ?? 0)
+          );
+        }
+        return (
+          comparePositions(
+            { digits: a.leg.digits ?? 2, position: a.leg.position },
+            { digits: b.leg.digits ?? 2, position: b.leg.position },
+          ) || a.index - b.index
+        );
+      });
+  }, [legs, draft]);
+
   const setLegs = (next: typeof legs) => {
     if (!draft) return;
     setDraft({ ...draft, config: { ...draft.config, legs: next } as PortfolioConfig });
@@ -495,7 +525,10 @@ export default function PortfolioPage() {
             onChange={(config) => setDraft({ ...draft, config })}
           />
 
-          {legs.map((leg, index) => (
+          {/* เรียงตามที่หวยออกจริง แล้วในหวยเดียวกันเป็น สามบน → สองบน → สองล่าง
+              ⚠️ `index` ที่ส่งให้ LegEditor ต้องเป็น **ตำแหน่งจริงใน config** ไม่ใช่ลำดับที่โชว์
+              ไม่งั้นแก้/ลบไปโดนขาอื่น */}
+          {orderedLegs.map(({ leg, index }) => (
             <LegEditor
               key={`${leg.lottery}|${leg.position}|${index}`}
               leg={leg}

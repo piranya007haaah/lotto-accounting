@@ -69,12 +69,16 @@ export function ScheduleEditor({
           <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold">
             {flag} {lottery}
           </span>
-          <input
-            className="field tnum w-[104px] flex-none px-2 py-1.5 text-center text-[12.5px]"
-            type="time"
-            value={times[lottery] ?? ""}
-            onChange={(event) => setTime(lottery, event.target.value)}
-          />
+          {/* ⚠️ `.field` ตั้ง width:100% ทับคลาสความกว้างของ Tailwind ⇒ ต้องคุมกว้างที่กล่องนอก
+              ไม่งั้นช่องเวลากินทั้งแถวจนชื่อหวยถูกบีบหาย */}
+          <div className="flex-none" style={{ width: 108 }}>
+            <input
+              className="field tnum px-2 py-1.5 text-center text-[12.5px]"
+              type="time"
+              value={times[lottery] ?? ""}
+              onChange={(event) => setTime(lottery, event.target.value)}
+            />
+          </div>
         </div>
       ))}
       <p className="dim pt-1 text-[10.5px] leading-relaxed">
