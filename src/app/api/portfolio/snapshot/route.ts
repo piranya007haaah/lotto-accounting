@@ -4,10 +4,9 @@
  *       ไม่ใช่ข้อมูลร่วมแบบรายชื่อเว็บ)
  */
 
-import { timingSafeEqual } from "node:crypto";
 import { requireAdmin } from "@/lib/auth";
-import { portfolioSnapshotSecret } from "@/lib/env";
 import { HttpError, ok, route } from "@/lib/http";
+import { readJsonBody, requireIngestSecret } from "@/lib/ingest-auth";
 import {
   fromRow,
   SUPPORTED_SNAPSHOT_VERSION,
@@ -20,46 +19,13 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const TABLE = "portfolio_snapshots";
-const HEADER = "x-snapshot-secret";
 /** 1 พอร์ต ~40 KB (เส้นทุน + เส้นรายขา + เลขที่แทง) — 2 MB เผื่อไว้เยอะแล้ว */
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
-/** เทียบ secret แบบไม่รั่วเวลา — ความยาวต่างกันก็ต้องไม่ตอบเร็วกว่า */
-function secretMatches(given: string, expected: string): boolean {
-  const a = Buffer.from(given);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
-
-function requireSnapshotSecret(request: Request): void {
-  const expected = portfolioSnapshotSecret();
-  if (!expected) {
-    // ไม่ตั้ง = ปิดรับ ไม่ใช่ "รับใครก็ได้"
-    throw new HttpError(503, "ยังไม่ได้ตั้ง PORTFOLIO_SNAPSHOT_SECRET ที่ฝั่งเซิร์ฟเวอร์", "not_configured");
-  }
-  const given = request.headers.get(HEADER) ?? "";
-  if (!given || !secretMatches(given, expected)) {
-    throw new HttpError(401, "secret ไม่ถูกต้อง", "bad_secret");
-  }
-}
-
 export const POST = route(async (request) => {
-  requireSnapshotSecret(request);
+  requireIngestSecret(request);
 
-  const raw = await request.text();
-  if (raw.length > MAX_BODY_BYTES) {
-    throw new HttpError(413, "snapshot ใหญ่เกินไป", "too_large");
-  }
-
-  let json: unknown;
-  try {
-    json = JSON.parse(raw);
-  } catch {
-    throw new HttpError(400, "body ไม่ใช่ JSON ที่อ่านได้", "bad_json");
-  }
-
-  const parsed = snapshotPayloadSchema.safeParse(json);
+  const parsed = snapshotPayloadSchema.safeParse(await readJsonBody(request, MAX_BODY_BYTES));
   if (!parsed.success) {
     const first = parsed.error.issues[0];
     throw new HttpError(

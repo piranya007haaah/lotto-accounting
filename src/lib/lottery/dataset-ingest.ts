@@ -1,0 +1,29 @@
+/**
+ * รูปแบบข้อมูลผลหวยที่รับจากแอป Streamlit (`scripts/sync_to_supabase.py`)
+ *
+ * แยกออกจาก route เพื่อให้ตรวจได้โดยไม่ต้องยิง HTTP จริง
+ * (`npx tsx scripts/lottery-ingest-check.ts`)
+ */
+
+import { z } from "zod";
+
+export const entrySchema = z.object({
+  lottery: z.string().min(1).max(200),
+  position: z.string().min(1).max(40),
+  year: z.string().min(1).max(4),
+  flag: z.string().max(16).default("🎰"),
+  // ผลทั้งปี — 2 ตัวอักษร/วัน (สูงสุด 366 วัน = 732 ตัวอักษร เผื่อไว้เท่าตัว)
+  sequence: z.string().max(2000).default(""),
+  isDateSorted: z.boolean().default(false),
+});
+
+export const payloadSchema = z.object({
+  entries: z.array(entrySchema).max(3000),
+  payouts: z
+    .array(z.object({ lottery: z.string().min(1).max(200), payout: z.number().int().min(1) }))
+    .max(1000)
+    .default([]),
+});
+
+export type DatasetEntry = z.infer<typeof entrySchema>;
+export type DatasetPayload = z.infer<typeof payloadSchema>;
