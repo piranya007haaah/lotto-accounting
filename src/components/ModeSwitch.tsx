@@ -14,8 +14,8 @@ import { useAuth } from "./LiffProvider";
  */
 export function ModeSwitch() {
   const pathname = usePathname();
-  const { isAdmin } = useAuth();
-  const modes = modesFor(isAdmin);
+  const { isAdmin, canViewLottery } = useAuth();
+  const modes = modesFor({ canViewLottery });
   const current = modeOf(pathname);
   if (modes.length < 2 && !isAdmin) return null;
 

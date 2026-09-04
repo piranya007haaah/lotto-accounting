@@ -11,6 +11,8 @@ export interface AuthUser {
   isAdmin: boolean;
   /** เห็นรายการและสรุปยอดของทุกคน (อ่านอย่างเดียว) — ค่าเริ่มต้นคือเห็นเฉพาะของตัวเอง */
   canViewAll: boolean;
+  /** เห็นโหมดหวย (พอร์ต + สูตร) — ผู้ดูแลเห็นเสมอ คนอื่นต้องถูกเปิดสิทธิ์ให้ */
+  canViewLottery: boolean;
 }
 
 /** แถวผู้ใช้ที่หน้าผู้ดูแลเอาไปแสดง */
@@ -21,6 +23,8 @@ export interface MemberRow {
   picture_url: string | null;
   is_active: boolean;
   can_view_all: boolean;
+  /** ยังไม่ได้รัน migration 0010 = ไม่มีคีย์นี้ → ถือว่าไม่มีสิทธิ์ */
+  can_view_lottery?: boolean;
   approved_at: string | null;
   last_seen_at: string | null;
   created_at: string;

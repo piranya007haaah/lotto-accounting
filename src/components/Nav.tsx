@@ -12,10 +12,10 @@ import { useAuth } from "./LiffProvider";
  */
 export function Nav() {
   const pathname = usePathname();
-  const { isAdmin } = useAuth();
+  const { canViewLottery } = useAuth();
   const mode = modeOf(pathname);
   // คนที่ไม่ใช่ผู้ดูแลเข้าโหมดหวยไม่ได้อยู่แล้ว — กันกรณีพิมพ์ URL เอง
-  const items = mode.adminOnly && !isAdmin ? [] : mode.items;
+  const items = mode.lotteryOnly && !canViewLottery ? [] : mode.items;
   if (items.length === 0) return null;
 
   return (

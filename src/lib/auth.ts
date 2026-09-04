@@ -1,6 +1,6 @@
 import { allowedLineUserIds, isAdminLineUserId, isDevAuthBypassEnabled, requireEnv } from "./env";
 import { HttpError } from "./http";
-import { supabaseAdmin } from "./supabase";
+import { isMissingColumnError, supabaseAdmin } from "./supabase";
 import type { AuthUser } from "./types";
 
 interface VerifiedIdToken {
@@ -77,13 +77,25 @@ export async function getOrCreateUser(profile: {
   if (isAdmin) payload.is_active = true;
 
   const supabase = supabaseAdmin();
-  const { data, error } = await supabase
+  const columns = "id, line_user_id, display_name, picture_url, is_active, can_view_all";
+  let { data, error } = await supabase
     .from("app_users")
     .upsert(payload, { onConflict: "line_user_id" })
-    .select("id, line_user_id, display_name, picture_url, is_active, can_view_all")
+    .select(`${columns}, can_view_lottery`)
     .single();
 
+  // ยังไม่ได้รัน migration 0010 = ไม่มีคอลัมน์ can_view_lottery — ให้ล็อกอินได้ตามปกติ
+  // แล้วถือว่าไม่มีใครมีสิทธิ์ดูหน้าหวย (ยกเว้นผู้ดูแล) ดีกว่าล็อกทุกคนออกจากทั้งแอป
+  if (isMissingColumnError(error, "can_view_lottery")) {
+    ({ data, error } = await supabase
+      .from("app_users")
+      .upsert(payload, { onConflict: "line_user_id" })
+      .select(columns)
+      .single());
+  }
+
   if (error) throw new HttpError(500, `บันทึกข้อมูลผู้ใช้ไม่สำเร็จ: ${error.message}`);
+  if (!data) throw new HttpError(500, "บันทึกข้อมูลผู้ใช้ไม่สำเร็จ");
   if (!data.is_active) {
     // ครอบทั้งคนที่เพิ่งเข้ามาครั้งแรก และคนที่ถูกถอนสิทธิ์ภายหลัง
     throw new HttpError(403, "บัญชีนี้ยังไม่ได้รับสิทธิ์ใช้งาน — รอผู้ดูแลอนุมัติ", "pending_approval");
@@ -98,6 +110,8 @@ export async function getOrCreateUser(profile: {
     // ผู้ดูแลเห็นทุกบัญชีเสมอ — หน้า /admin ไม่มีปุ่มเปิดสิทธิ์นี้ให้ตัวเอง
     // (เปิดให้คนอื่นได้อย่างเดียว) ถ้าไม่ให้อัตโนมัติก็จะเปิดของตัวเองไม่ได้เลย
     canViewAll: Boolean(data.can_view_all) || isAdmin,
+    // ผู้ดูแลเห็นโหมดหวยเสมอ (เป็นพอร์ตของเจ้าของเอง) — คนอื่นต้องถูกเปิดสิทธิ์ที่หน้า /admin
+    canViewLottery: Boolean((data as { can_view_lottery?: boolean }).can_view_lottery) || isAdmin,
   };
 }
 
@@ -126,6 +140,20 @@ export async function requireUser(request: Request): Promise<AuthUser> {
     displayName: token.name ?? null,
     pictureUrl: token.picture ?? null,
   });
+}
+
+/**
+ * เหมือน requireUser แต่ต้องมีสิทธิ์ดูโหมดหวย (พอร์ต/สูตร)
+ *
+ * ⚠️ หน้าหวยโชว์เงินจริงของเจ้าของ — เปิดให้คนอื่นทีละคนที่หน้า /admin เท่านั้น
+ * ไม่ใช่เปิดให้ทุกคนที่ล็อกอินได้
+ */
+export async function requireLotteryViewer(request: Request): Promise<AuthUser> {
+  const user = await requireUser(request);
+  if (!user.canViewLottery) {
+    throw new HttpError(403, "หน้าหวยเปิดให้เฉพาะคนที่ผู้ดูแลอนุญาต", "not_lottery_viewer");
+  }
+  return user;
 }
 
 /** เหมือน requireUser แต่ต้องเป็นผู้ดูแลเท่านั้น */

@@ -6,7 +6,7 @@
  * (จนกว่าจะย้ายหน้ากรอกผลมาด้วย) — POST ซ้ำด้วยคีย์เดิม = ทับของเดิม
  */
 
-import { requireAdmin } from "@/lib/auth";
+import { requireLotteryViewer } from "@/lib/auth";
 import { HttpError, ok, route } from "@/lib/http";
 import { readJsonBody, requireIngestSecret } from "@/lib/ingest-auth";
 import { readAllDatasetRows } from "@/lib/lottery/dataset-read";
@@ -66,7 +66,7 @@ export const POST = route(async (request) => {
 });
 
 export const GET = route(async (request) => {
-  await requireAdmin(request);
+  await requireLotteryViewer(request);
 
   // ระบุหวย+ตำแหน่ง = ขอ "ผลจริงทั้งปี" ของกลุ่มเดียว (ไม่กี่ KB) ไว้ให้หน้าจอ
   // คำนวณสูตรเองในเบราว์เซอร์ — ปรับ n_bet/ทุน/เรตจ่ายแล้วเห็นผลทันทีโดยไม่ยิงเซิร์ฟเวอร์ซ้ำ

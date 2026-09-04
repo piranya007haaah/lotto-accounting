@@ -83,7 +83,8 @@ export const memberPatchSchema = z
   .object({
     isActive: z.boolean().optional(),
     canViewAll: z.boolean().optional(),
+    canViewLottery: z.boolean().optional(),
   })
-  .refine((v) => v.isActive !== undefined || v.canViewAll !== undefined, {
+  .refine((v) => v.isActive !== undefined || v.canViewAll !== undefined || v.canViewLottery !== undefined, {
     message: "ไม่มีข้อมูลที่จะแก้ไข",
   });

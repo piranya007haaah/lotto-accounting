@@ -100,7 +100,7 @@ function LegRow({ leg, max }: { leg: PortfolioLeg; max: number }) {
 }
 
 export default function PortfolioPage() {
-  const { api, isAdmin } = useAuth();
+  const { api, canViewLottery } = useAuth();
   const [data, setData] = useState<SnapshotResponse | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -121,15 +121,15 @@ export default function PortfolioPage() {
   }, [api, selected]);
 
   useEffect(() => {
-    if (isAdmin) void load();
+    if (canViewLottery) void load();
     else setLoading(false);
-  }, [isAdmin, load]);
+  }, [canViewLottery, load]);
 
-  if (!isAdmin) {
+  if (!canViewLottery) {
     return (
       <div className="space-y-3.5">
         <PageHeader title="พอร์ต" />
-        <Alert tone="warn">หน้านี้สำหรับผู้ดูแลเท่านั้น</Alert>
+        <Alert tone="warn">หน้านี้เปิดให้เฉพาะคนที่ผู้ดูแลอนุญาต</Alert>
       </div>
     );
   }

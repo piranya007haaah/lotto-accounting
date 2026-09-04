@@ -94,7 +94,7 @@ function Kpi({ label, value, sub, tone = "plain" }: {
 }
 
 export default function FormulasPage() {
-  const { api, isAdmin } = useAuth();
+  const { api, canViewLottery } = useAuth();
 
   const [years, setYears] = useState<string[]>([]);
   const [formula, setFormula] = useState(DEFAULT_FORMULA);
@@ -118,7 +118,7 @@ export default function FormulasPage() {
 
   // รายชื่อปีที่มีข้อมูล — ปีล่าสุดเป็นค่าเริ่มต้น (สดที่สุด = ที่คนอยากดู)
   useEffect(() => {
-    if (!isAdmin) {
+    if (!canViewLottery) {
       setLoading(false);
       return;
     }
@@ -139,11 +139,11 @@ export default function FormulasPage() {
     return () => {
       cancelled = true;
     };
-  }, [api, isAdmin]);
+  }, [api, canViewLottery]);
 
   // คำนวณตารางอันดับใหม่เมื่อค่าตั้งเปลี่ยน — หน่วงไว้ก่อน เพราะพิมพ์เลขทีละหลัก
   useEffect(() => {
-    if (!isAdmin || !testYear) return;
+    if (!canViewLottery || !testYear) return;
     let cancelled = false;
     setLoading(true);
     const timer = setTimeout(() => {
@@ -172,7 +172,7 @@ export default function FormulasPage() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [api, isAdmin, formula, testYear, mode, capital, bet, payout]);
+  }, [api, canViewLottery, formula, testYear, mode, capital, bet, payout]);
 
   // เปลี่ยนค่าตั้งค่าใด ๆ = ตัวเลขในกล่องรายละเอียดเก่าใช้ไม่ได้แล้ว
   const openDetail = useCallback(
@@ -249,11 +249,11 @@ export default function FormulasPage() {
 
   const maxProfit = Math.max(1, ...(rows ?? []).map((row) => Math.abs(row.profit)));
 
-  if (!isAdmin) {
+  if (!canViewLottery) {
     return (
       <div className="space-y-3.5">
         <PageHeader title="สูตร" />
-        <Alert tone="warn">หน้านี้สำหรับผู้ดูแลเท่านั้น</Alert>
+        <Alert tone="warn">หน้านี้เปิดให้เฉพาะคนที่ผู้ดูแลอนุญาต</Alert>
       </div>
     );
   }

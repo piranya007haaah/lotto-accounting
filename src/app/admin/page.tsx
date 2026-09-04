@@ -16,6 +16,36 @@ function formatWhen(value: string | null): string {
   });
 }
 
+/** ปุ่มสลับสิทธิ์ 1 อย่างของสมาชิก — เปิดอยู่ = พื้นเขียวอ่อน, ปิด = โครงเปล่า */
+function PermButton({
+  busy,
+  on,
+  onClick,
+  onLabel,
+  offLabel,
+}: {
+  busy: boolean;
+  on: boolean;
+  onClick: () => void;
+  onLabel: string;
+  offLabel: string;
+}) {
+  return (
+    <button
+      className="rounded-full border px-2.5 py-1 text-xs font-semibold"
+      disabled={busy}
+      onClick={onClick}
+      style={
+        on
+          ? { background: "var(--tint-out)", borderColor: "#bee5d2", color: "var(--tint-out-text)" }
+          : { background: "transparent", borderColor: "var(--line-strong)", color: "var(--muted)" }
+      }
+    >
+      {on ? onLabel : offLabel}
+    </button>
+  );
+}
+
 function MemberCard({
   member,
   busy,
@@ -23,57 +53,68 @@ function MemberCard({
 }: {
   member: MemberRow;
   busy: boolean;
-  onPatch: (member: MemberRow, patch: { isActive?: boolean; canViewAll?: boolean }) => void;
+  onPatch: (
+    member: MemberRow,
+    patch: { isActive?: boolean; canViewAll?: boolean; canViewLottery?: boolean },
+  ) => void;
 }) {
+  // ปุ่มสิทธิ์ 2 อย่างวางเป็นแถวเต็มความกว้างใต้ชื่อ — ถ้าซ้อนไว้คอลัมน์ขวา
+  // ชื่อสมาชิกจะถูกบีบจนอ่านไม่ออก (เหลือ "Sukol…") ซึ่งเป็นสิ่งที่ต้องอ่านที่สุดในแถว
   return (
-    <li className="card flex items-center gap-3 p-3">
-      <AvatarCircle name={member.display_name} src={member.picture_url} size={40} />
+    <li className="card space-y-2 p-3">
+      <div className="flex items-center gap-3">
+        <AvatarCircle name={member.display_name} src={member.picture_url} size={40} />
 
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold">{member.display_name ?? "(ไม่มีชื่อ)"}</p>
-        <p className="dim truncate text-xs">
-          {member.is_admin
-            ? "ผู้ดูแลระบบ"
-            : member.is_active
-              ? `อนุมัติเมื่อ ${formatWhen(member.approved_at)}`
-              : `เข้ามาเมื่อ ${formatWhen(member.created_at)}`}
-        </p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold">{member.display_name ?? "(ไม่มีชื่อ)"}</p>
+          <p className="dim truncate text-xs">
+            {member.is_admin
+              ? "ผู้ดูแลระบบ"
+              : member.is_active
+                ? `อนุมัติเมื่อ ${formatWhen(member.approved_at)}`
+                : `เข้ามาเมื่อ ${formatWhen(member.created_at)}`}
+          </p>
+        </div>
+
+        <div className="flex shrink-0 items-center">
+          {member.is_admin ? (
+            <span
+              className="rounded-full px-2.5 py-1 text-xs font-bold"
+              style={{ background: "var(--accent-tint)", color: "var(--accent)" }}
+            >
+              ผู้ดูแล
+            </span>
+          ) : (
+            <button
+              className={`btn ${member.is_active ? "" : "btn-primary"}`}
+              disabled={busy}
+              onClick={() => onPatch(member, { isActive: !member.is_active })}
+            >
+              {member.is_active ? "ถอนสิทธิ์" : "อนุมัติ"}
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="flex shrink-0 flex-col items-end gap-1.5">
-        {member.is_admin ? (
-          <span
-            className="rounded-full px-2.5 py-1 text-xs font-bold"
-            style={{ background: "var(--accent-tint)", color: "var(--accent)" }}
-          >
-            ผู้ดูแล
-          </span>
-        ) : (
-          <button
-            className={`btn ${member.is_active ? "" : "btn-primary"}`}
-            disabled={busy}
-            onClick={() => onPatch(member, { isActive: !member.is_active })}
-          >
-            {member.is_active ? "ถอนสิทธิ์" : "อนุมัติ"}
-          </button>
-        )}
-
-        {/* ผู้ดูแลเห็นทุกบัญชีอยู่แล้ว ปุ่มนี้จึงไม่มีผล — ไม่ต้องขึ้นให้รก */}
-        {member.is_active && !member.is_admin ? (
-          <button
-            className="rounded-full border px-2.5 py-1 text-xs font-semibold"
-            disabled={busy}
+      {/* ผู้ดูแลเห็นทุกบัญชี/หน้าหวยอยู่แล้ว ปุ่มพวกนี้จึงไม่มีผล — ไม่ต้องขึ้นให้รก */}
+      {member.is_active && !member.is_admin ? (
+        <div className="flex flex-wrap gap-1.5 pl-[52px]">
+          <PermButton
+            busy={busy}
+            on={member.can_view_all}
             onClick={() => onPatch(member, { canViewAll: !member.can_view_all })}
-            style={
-              member.can_view_all
-                ? { background: "var(--tint-out)", borderColor: "#bee5d2", color: "var(--tint-out-text)" }
-                : { background: "transparent", borderColor: "var(--line-strong)", color: "var(--muted)" }
-            }
-          >
-            {member.can_view_all ? "เห็นทุกบัญชี" : "เห็นเฉพาะของตัวเอง"}
-          </button>
-        ) : null}
-      </div>
+            onLabel="เห็นทุกบัญชี"
+            offLabel="เห็นเฉพาะของตัวเอง"
+          />
+          <PermButton
+            busy={busy}
+            on={Boolean(member.can_view_lottery)}
+            onClick={() => onPatch(member, { canViewLottery: !member.can_view_lottery })}
+            onLabel="🎲 เห็นหน้าหวย"
+            offLabel="🎲 ไม่เห็นหน้าหวย"
+          />
+        </div>
+      ) : null}
     </li>
   );
 }
@@ -104,7 +145,10 @@ export default function AdminPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
 
-  async function patchMember(member: MemberRow, patch: { isActive?: boolean; canViewAll?: boolean }) {
+  async function patchMember(
+    member: MemberRow,
+    patch: { isActive?: boolean; canViewAll?: boolean; canViewLottery?: boolean },
+  ) {
     setBusyId(member.id);
     setError(null);
     try {

@@ -21,8 +21,11 @@ export interface NavMode {
   key: "money" | "lottery";
   label: string;
   emoji: string;
-  /** true = เฉพาะผู้ดูแล (พอร์ต/สูตร เป็นเรื่องเงินของเจ้าของคนเดียว) */
-  adminOnly?: boolean;
+  /**
+   * true = ต้องมีสิทธิ์ "ดูหน้าหวย" ถึงจะเห็น (พอร์ตเป็นเงินของเจ้าของคนเดียว)
+   * ผู้ดูแลเปิดให้ทีละคนที่หน้า /admin · ผู้ดูแลเองเห็นเสมอ
+   */
+  lotteryOnly?: boolean;
   items: NavItem[];
 }
 
@@ -46,7 +49,7 @@ export const MODES: NavMode[] = [
     key: "lottery",
     label: "หวย",
     emoji: "🎲",
-    adminOnly: true,
+    lotteryOnly: true,
     items: [
       { href: "/portfolio", label: "พอร์ต", icon: "M3 17l5-5 4 3 5-7M3 21h18M3 3v18" },
       { href: "/formulas", label: "สูตร", icon: "M4 5h16M9 5v6l-5 8h16l-5-8V5" },
@@ -70,6 +73,7 @@ export function modeOf(pathname: string): NavMode {
   return found ?? MODES[0];
 }
 
-export function modesFor(isAdmin: boolean): NavMode[] {
-  return MODES.filter((mode) => !mode.adminOnly || isAdmin);
+/** โหมดที่คนนี้เห็น — โหมดหวยต้องมีสิทธิ์ `canViewLottery` (ผู้ดูแลได้มาเองอยู่แล้ว) */
+export function modesFor(access: { canViewLottery: boolean }): NavMode[] {
+  return MODES.filter((mode) => !mode.lotteryOnly || access.canViewLottery);
 }

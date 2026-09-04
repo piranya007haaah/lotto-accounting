@@ -4,7 +4,7 @@
  *       ไม่ใช่ข้อมูลร่วมแบบรายชื่อเว็บ)
  */
 
-import { requireAdmin } from "@/lib/auth";
+import { requireLotteryViewer } from "@/lib/auth";
 import { HttpError, ok, route } from "@/lib/http";
 import { readJsonBody, requireIngestSecret } from "@/lib/ingest-auth";
 import {
@@ -72,7 +72,7 @@ export const POST = route(async (request) => {
 });
 
 export const GET = route(async (request) => {
-  await requireAdmin(request);
+  await requireLotteryViewer(request);
 
   const { data, error } = await supabaseAdmin()
     .from(TABLE)

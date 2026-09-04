@@ -27,6 +27,7 @@ export const GET = route(async (request) => {
     },
     isAdmin: user.isAdmin,
     canViewAll: user.canViewAll,
+    canViewLottery: user.canViewLottery,
     ocrEnabled: isVisionConfigured(),
     /** false = ยังไม่ได้รัน supabase/migrations/0007_slip_pairs.sql */
     pairColumnsReady: await hasPairColumns(),

@@ -11,7 +11,7 @@
  * server แยกต่างหาก ⇒ ตัวเลขในตารางกับในหน้ารายละเอียดตรงกันเสมอ
  */
 
-import { requireAdmin } from "@/lib/auth";
+import { requireLotteryViewer } from "@/lib/auth";
 import { HttpError, ok, route } from "@/lib/http";
 import { readAllDatasetRows } from "@/lib/lottery/dataset-read";
 import { FORMULAS } from "@/lib/lottery/formulas";
@@ -28,7 +28,7 @@ function intParam(value: string | null, fallback: number, min: number, max: numb
 }
 
 export const GET = route(async (request) => {
-  await requireAdmin(request);
+  await requireLotteryViewer(request);
 
   const query = new URL(request.url).searchParams;
   const formula = (query.get("formula") ?? "").trim();

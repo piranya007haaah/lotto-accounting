@@ -33,6 +33,8 @@ interface AuthContextValue {
   isAdmin: boolean;
   /** เห็นรายการและสรุปยอดของทุกคน (อ่านอย่างเดียว) */
   canViewAll: boolean;
+  /** เห็นโหมดหวย (พอร์ต + สูตร) — ผู้ดูแลเห็นเสมอ คนอื่นต้องถูกเปิดสิทธิ์ให้ */
+  canViewLottery: boolean;
   /** id ของเราในตาราง app_users — ใช้เทียบว่าแถวไหนแก้ไข/ลบได้ */
   userId: string | null;
   /** กำลังดูรายการของใครอยู่ (null = ทุกคน) — ใช้ร่วมกันทุกหน้า */
@@ -73,6 +75,7 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
   const [pairColumnsReady, setPairColumnsReady] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [canViewAll, setCanViewAll] = useState(false);
+  const [canViewLottery, setCanViewLottery] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [viewOwner, setViewOwnerState] = useState<ViewOwner | null>(null);
   const tokenRef = useRef<string | null>(null);
@@ -150,6 +153,7 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
           pairColumnsReady?: boolean;
           isAdmin: boolean;
           canViewAll: boolean;
+          canViewLottery?: boolean;
         }>("/api/me");
 
         if (cancelled) return;
@@ -167,6 +171,7 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
         }
         setIsAdmin(me.isAdmin);
         setCanViewAll(me.canViewAll);
+        setCanViewLottery(Boolean(me.canViewLottery));
         setProfile((current) =>
           current ?? {
             userId: me.user.id,
@@ -263,6 +268,7 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
         pairColumnsReady,
         isAdmin,
         canViewAll,
+        canViewLottery,
         userId,
         viewOwner,
         setViewOwner,
