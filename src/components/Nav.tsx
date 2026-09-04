@@ -2,31 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { modeOf } from "@/lib/nav";
 import { useAuth } from "./LiffProvider";
 
-/** เส้น path ของไอคอน — วาดบน viewBox 24×24 แบบเส้นขอบอย่างเดียว */
-const ITEMS = [
-  { href: "/", label: "บันทึก", icon: "M12 5v14M5 12h14" },
-  { href: "/summary", label: "สรุปยอด", icon: "M4 20h16M7 16v-5M12 16V7M17 16v-9" },
-  { href: "/history", label: "รายการ", icon: "M4 6h16M4 12h16M4 18h10" },
-  {
-    href: "/sites",
-    label: "เว็บ",
-    icon: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M3 12h18M12 3c-2.4 2.8-2.4 15.2 0 18M12 3c2.4 2.8 2.4 15.2 0 18",
-  },
-] as const;
-
-const ADMIN_ITEM = {
-  href: "/admin",
-  label: "สมาชิก",
-  icon: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
-} as const;
-
-/** แถบเมนูล่างแบบลอย — แท่งสีกรมท่า เมนูที่เปิดอยู่เป็นเม็ดยาสีขาว */
+/** แถบเมนูล่างแบบลอย — แท่งสีกรมท่า เมนูที่เปิดอยู่เป็นเม็ดยาสีขาว
+ *
+ * โชว์เฉพาะหน้าของ "โหมด" ที่เปิดอยู่ (บัญชี / หวย) — สลับโหมดที่หัวจอ
+ * ⇒ ย้ายหน้าจาก Streamlit มาเพิ่มได้เรื่อย ๆ โดยแถบล่างไม่แน่นขึ้น
+ */
 export function Nav() {
   const pathname = usePathname();
   const { isAdmin } = useAuth();
-  const items = isAdmin ? [...ITEMS, ADMIN_ITEM] : ITEMS;
+  const mode = modeOf(pathname);
+  // คนที่ไม่ใช่ผู้ดูแลเข้าโหมดหวยไม่ได้อยู่แล้ว — กันกรณีพิมพ์ URL เอง
+  const items = mode.adminOnly && !isAdmin ? [] : mode.items;
+  if (items.length === 0) return null;
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-20 px-3 pb-3">
