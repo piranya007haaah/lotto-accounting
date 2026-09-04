@@ -214,7 +214,7 @@ function LotteryCard({
 }
 
 export default function DrawsPage() {
-  const { api, canViewLottery, isAdmin } = useAuth();
+  const { api, canViewLottery, isAdmin, profile } = useAuth();
 
   const [date, setDate] = useState(todayBkk());
   const [portfolioId, setPortfolioId] = useState<number | null>(null);
@@ -324,10 +324,28 @@ export default function DrawsPage() {
           </div>
         ) : null}
         {data && !data.lineReady ? (
-          <p className="dim text-[10.5px] leading-relaxed">
-            ⚠️ ยังไม่ได้ตั้งปลายทาง LINE — บันทึกผลได้ตามปกติ แต่การ์ดจะไม่ถูกส่ง
-            (ตั้ง <code className="text-[10px]">LINE_REPORT_TO</code> ใน environment)
-          </p>
+          <div className="dim space-y-1 text-[10.5px] leading-relaxed">
+            <p>
+              ⚠️ ยังไม่ได้ตั้งปลายทาง LINE — บันทึกผลได้ตามปกติ แต่การ์ดจะไม่ถูกส่ง
+              (ตั้ง <code className="text-[10px]">LINE_REPORT_TO</code> ที่ Vercel แล้ว Redeploy)
+            </p>
+            {/* ปลายทางที่ง่ายที่สุดคือแชทส่วนตัวกับ OA — id ของตัวเองอยู่ตรงนี้แล้ว
+                ไม่ต้องไปงมที่ไหน · จะส่งเข้ากลุ่มค่อยเชิญ OA เข้ากลุ่มแล้วพิมพ์ /id */}
+            {profile?.userId ? (
+              <p>
+                จะส่งเข้าแชทส่วนตัวก่อนก็ได้ — ใช้ id นี้:{" "}
+                <button
+                  type="button"
+                  className="tnum underline"
+                  onClick={() => void navigator.clipboard?.writeText(profile.userId)}
+                  title="แตะเพื่อคัดลอก"
+                >
+                  {profile.userId}
+                </button>
+              </p>
+            ) : null}
+            <p>ส่งเข้ากลุ่ม: เชิญ OA เข้ากลุ่มนั้น แล้วพิมพ์ <code className="text-[10px]">/id</code> ในกลุ่ม</p>
+          </div>
         ) : null}
       </section>
 
