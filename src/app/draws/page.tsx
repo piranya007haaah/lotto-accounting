@@ -67,6 +67,14 @@ interface SaveResponse {
   line: { sent: boolean; reason: string | null };
 }
 
+interface TestResponse {
+  test: true;
+  lottery: string;
+  messages: number;
+  day: DayState;
+  line: { sent: boolean; reason: string | null };
+}
+
 /** วันนี้ตามเวลาไทย — เซิร์ฟเวอร์เป็น UTC ถ้าไม่ชดเชยจะได้ "เมื่อวาน" ก่อนเที่ยงคืนไทย */
 function todayBkk(): string {
   return new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10);
@@ -223,6 +231,7 @@ export default function DrawsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [savingFor, setSavingFor] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -281,6 +290,28 @@ export default function DrawsPage() {
     },
     [api, date, portfolioId],
   );
+
+  /** ส่งการ์ดจากผลที่มีอยู่แล้ว — ไม่เขียนอะไรลงฐานข้อมูล ไว้ดูว่าปลายทางตั้งถูกไหม */
+  const sendTest = useCallback(async () => {
+    setTesting(true);
+    setSaveError(null);
+    setNote(null);
+    try {
+      const result = await api<TestResponse>("/api/lottery/draws", {
+        method: "POST",
+        body: JSON.stringify({ portfolioId, date, test: true }),
+      });
+      setNote(
+        result.line.sent
+          ? `ส่งการ์ดทดสอบแล้ว (${result.lottery} · ${result.messages} ข้อความ) — ไปดูใน LINE ได้เลย ไม่มีอะไรถูกบันทึก`
+          : `ส่งไม่สำเร็จ: ${result.line.reason ?? "ไม่ทราบสาเหตุ"}`,
+      );
+    } catch (caught) {
+      setSaveError(caught instanceof Error ? caught.message : "ส่งการ์ดทดสอบไม่สำเร็จ");
+    } finally {
+      setTesting(false);
+    }
+  }, [api, date, portfolioId]);
 
   const day = data?.day ?? null;
   const roi = useMemo(() => (day && day.cost > 0 ? (day.pnl / day.cost) * 100 : null), [day]);
@@ -375,6 +406,18 @@ export default function DrawsPage() {
             ออกแล้ว {day.doneCount} จาก {day.totalCount} หวย · ลงเงิน {formatBahtShort(day.cost)} บ.
             {roi === null ? "" : ` · ${roi >= 0 ? "+" : "−"}${Math.abs(roi).toFixed(1)}% ของเงินที่ลง`}
           </p>
+          {/* ทดสอบปลายทาง/หน้าตาการ์ดโดยไม่ต้องกรอกผลปลอม — กรอกแล้วมันล็อก
+              ต้องกด "แก้ไขผล" ทับ ซึ่งการ์ดที่ผิดก็ส่งไป LINE แล้ว */}
+          {isAdmin && data?.lineReady && day.doneCount > 0 ? (
+            <button
+              type="button"
+              className="btn btn-ghost mt-2 w-full py-2 text-[12.5px]"
+              disabled={testing}
+              onClick={() => void sendTest()}
+            >
+              {testing ? "กำลังส่ง..." : "📤 ส่งการ์ดทดสอบเข้า LINE (ไม่บันทึกอะไร)"}
+            </button>
+          ) : null}
         </div>
       ) : null}
 

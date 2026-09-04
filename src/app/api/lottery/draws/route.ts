@@ -168,6 +168,8 @@ interface SavePayload {
   send?: boolean;
   /** true = ยอมทับผลเดิมของวันนั้น (คนกดสั่งแก้เอง) — ดีฟอลต์คือห้ามทับ */
   overwrite?: boolean;
+  /** true = **ส่งการ์ดอย่างเดียว ไม่เขียนอะไรลงฐานข้อมูล** (ไว้ทดสอบปลายทาง/หน้าตาการ์ด) */
+  test?: boolean;
 }
 
 export const POST = route(async (request) => {
@@ -175,13 +177,56 @@ export const POST = route(async (request) => {
 
   const body = (await readJsonBody(request, MAX_BODY_BYTES)) as SavePayload;
   const date = parseDate(body.date ?? null);
-  const lottery = String(body.lottery ?? "").trim();
-  if (!lottery) throw new HttpError(400, "ต้องบอกว่ากรอกผลของหวยตัวไหน", "bad_payload");
-
   const rows = await loadPortfolios();
   const row = pickPortfolio(rows, body.portfolioId ?? null);
   const portfolio = toPortfolio(row);
   const yearBe = yearBeOf(date);
+
+  /* ── โหมดทดสอบ: ส่งการ์ดจากผลที่มีอยู่แล้ว **ไม่เขียนอะไรเลย** ──
+   * มีไว้เพื่อไม่ต้องกรอกผลปลอมเพื่อดูว่าปลายทาง LINE ตั้งถูกไหม
+   * (กรอกแล้วมันล็อก · ต้องกด "แก้ไขผล" ทับ แล้วการ์ดผิดก็ส่งไปแล้ว) */
+  if (body.test === true) {
+    const sequences = await loadSequences(portfolio);
+    const replay = prepareReplay(portfolio, sequences);
+    const report = computeDay({ portfolio, replay, date });
+    const done = report.lotteries.filter((l) => !l.untouched);
+    const target = String(body.lottery ?? "").trim() || done[done.length - 1]?.lottery;
+    if (!target) {
+      throw new HttpError(
+        400,
+        `วันที่ ${date.toISOString().slice(0, 10)} ยังไม่มีผลหวยสักตัว — เลือกวันที่ที่มีผลแล้วค่อยส่งทดสอบ`,
+        "no_result",
+      );
+    }
+    let snapshot = null;
+    try {
+      snapshot = computeSnapshot({ portfolio, sequences });
+    } catch {
+      snapshot = null;
+    }
+    const to = env("LINE_REPORT_TO");
+    if (!isReportConfigured() || !to) {
+      throw new HttpError(400, "ยังไม่ได้ตั้ง LINE_REPORT_TO / LINE_REPORT_TOKEN", "line_not_ready");
+    }
+    const messages = buildDrawCard({
+      report,
+      lottery: target,
+      month: monthTable({ portfolio, replay, lottery: target, date }),
+      snapshot,
+      appUrl: appUrl(),
+    });
+    const result = await pushMessageResult(to, messages);
+    return ok({
+      test: true,
+      lottery: target,
+      messages: messages.length,
+      day: summarise(report),
+      line: { sent: result.ok, reason: result.error },
+    });
+  }
+
+  const lottery = String(body.lottery ?? "").trim();
+  if (!lottery) throw new HttpError(400, "ต้องบอกว่ากรอกผลของหวยตัวไหน", "bad_payload");
 
   const legs = (portfolio.config.legs ?? []).filter(
     (leg) => leg.lottery === lottery && String(leg.test_year) === yearBe,
