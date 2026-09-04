@@ -32,8 +32,19 @@ const UP = "#0f9d63";
 const DOWN = "#d93a3f";
 const UP_SOFT = "#e2f5ec";
 
-/** เผื่อจากเพดาน 30 KB ของ LINE ไว้พอสมควร — เกินแล้วมันปฏิเสธทั้งข้อความ */
-const MAX_JSON_BYTES = 22_000;
+/**
+ * เพดานของ LINE คือ JSON 30 KB ต่อข้อความ Flex — เกินแล้วมันปฏิเสธทั้งข้อความ
+ *
+ * ⚠️ ตั้งเผื่อไว้มากเกินไปก็เจ็บ: เคยตั้ง 22,000 แล้วตารางรายเดือน 31 แถวไม่เคยผ่าน
+ * สักรอบ ⇒ `fitCarousel` ไล่ลดวันจนเหลือ 0 แล้ว **ตัดทั้งใบทิ้ง** โดยหน้าจอไม่ฟ้องอะไร
+ * (จับได้ตอนรัน `scripts/card-preview.ts` กับข้อมูลจริง)
+ */
+const MAX_JSON_BYTES = 29_000;
+
+/** ขนาดจริงเป็นไบต์ — `.length` นับ UTF-16 ซึ่งภาษาไทยจะน้อยกว่าไบต์จริงราว 2 เท่า */
+function jsonBytes(value: unknown): number {
+  return new TextEncoder().encode(JSON.stringify(value)).length;
+}
 
 const TH_MONTHS = [
   "", "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
@@ -65,7 +76,9 @@ function shortPosition(position: string): string {
 /* ─────────────────────────── ชิ้นส่วน Flex ─────────────────────────── */
 
 function text(value: string, opts: Record<string, unknown> = {}): LineMessage {
-  return { type: "text", text: value, wrap: false, ...opts };
+  // ไม่ใส่ `wrap: false` เพราะเป็นค่าเริ่มต้นของ LINE อยู่แล้ว — ตารางเต็มเดือนมีร้อยกว่า
+  // ช่อง คีย์ที่ไม่จำเป็นคีย์เดียวก็กินพื้นที่พอให้ตารางโดนตัดวันทิ้ง
+  return { type: "text", text: value, ...opts };
 }
 
 /** แถว "ป้ายซ้าย · ตัวเลขขวา" — ใช้ทุกใบ */
@@ -244,16 +257,21 @@ function monthBubble(table: MonthTable, maxDays: number): LineMessage | null {
   const shown = table.days.slice(-maxDays);
   const trimmed = table.days.length - shown.length;
 
-  const cell = (value: string, hit: boolean): LineMessage => ({
-    type: "box",
-    layout: "vertical",
-    flex: 3,
-    backgroundColor: hit ? UP_SOFT : undefined,
-    cornerRadius: hit ? "4px" : undefined,
-    contents: [
-      text(value, { size: "xxs", align: "center", color: hit ? UP : DIM, weight: hit ? "bold" : "regular" }),
-    ],
-  });
+  // ⚠️ ตารางเต็มเดือนมี 31 แถว × 2-3 คอลัมน์ ⇒ ทุกไบต์ต่อช่องคูณเกือบร้อย
+  // ช่องที่ **ไม่ถูก** จึงเป็น text เปล่า ๆ (ไม่มีกล่องห่อ ไม่ตั้งสี/น้ำหนัก ใช้ค่าเริ่มต้น)
+  // เหลือกล่องเฉพาะช่องที่ **ถูก** ซึ่งต้องมีพื้นหลัง — ประหยัดไปครึ่งหนึ่งของตาราง
+  // และทำให้ตารางอยู่ครบทั้งเดือนโดยไม่ชนเพดาน 30 KB ของ LINE
+  const cell = (value: string, hit: boolean): LineMessage =>
+    hit
+      ? {
+          type: "box",
+          layout: "vertical",
+          flex: 3,
+          backgroundColor: UP_SOFT,
+          cornerRadius: "4px",
+          contents: [text(value, { size: "xxs", align: "center", color: UP, weight: "bold" })],
+        }
+      : text(value, { size: "xxs", align: "center", flex: 3 });
 
   const header: LineMessage = {
     type: "box",
@@ -345,6 +363,11 @@ function portfolioBubble(snapshot: PortfolioSnapshot, monthLabel: string): LineM
   });
 }
 
+/** "🇻🇳 หวยฮานอยพิเศษ · สามบน (เทส 69)" → "🇻🇳 หวยฮานอยพิเศษ · สามบน" (ทั้งใบปีเดียวกัน) */
+function legName(name: string): string {
+  return name.replace(/\s*\(เทส\s*\d+\)\s*$/, "");
+}
+
 function legsBubble(snapshot: PortfolioSnapshot, buttons: LineMessage[]): LineMessage {
   const legs = [...snapshot.legs].sort((a, b) => b.profit - a.profit);
   const widest = Math.max(1, ...legs.map((l) => Math.abs(l.profit)));
@@ -354,34 +377,24 @@ function legsBubble(snapshot: PortfolioSnapshot, buttons: LineMessage[]): LineMe
     if (i > 0) rows.push(separator("xs"));
     const share = Math.max(1, Math.round((Math.abs(leg.profit) / widest) * 50));
     // แถบยิงจากกลางออกไป — ขวา = บวก · ซ้าย = ลบ (อ่านออกโดยไม่ต้องแยกสี)
+    const fill = { type: "box", layout: "vertical", flex: share, backgroundColor: leg.profit >= 0 ? UP : DOWN, contents: [{ type: "filler" }] };
+    const rest = { type: "filler", flex: Math.max(1, 50 - share) };
+    const half = { type: "filler", flex: 50 };
     const bar: LineMessage = {
       type: "box",
       layout: "horizontal",
       height: "4px",
-      margin: "xs",
-      contents:
-        leg.profit >= 0
-          ? [
-              { type: "filler", flex: 50 },
-              { type: "box", layout: "vertical", flex: share, backgroundColor: UP, cornerRadius: "2px", contents: [{ type: "filler" }] },
-              { type: "filler", flex: Math.max(1, 50 - share) },
-            ]
-          : [
-              { type: "filler", flex: Math.max(1, 50 - share) },
-              { type: "box", layout: "vertical", flex: share, backgroundColor: DOWN, cornerRadius: "2px", contents: [{ type: "filler" }] },
-              { type: "filler", flex: 50 },
-            ],
+      contents: leg.profit >= 0 ? [half, fill, rest] : [rest, fill, half],
     };
     rows.push({
       type: "box",
       layout: "vertical",
-      margin: "xs",
       contents: [
         {
           type: "box",
           layout: "horizontal",
           contents: [
-            text(leg.name, { size: "xxs", weight: "bold", color: INK, flex: 5 }),
+            text(legName(leg.name), { size: "xxs", weight: "bold", color: INK, flex: 5 }),
             text(signed(leg.profit), { size: "xxs", weight: "bold", align: "end", color: tone(leg.profit), flex: 3 }),
           ],
         },
@@ -428,16 +441,34 @@ export interface CardInput {
   corrected?: boolean;
 }
 
-/** ตัดวันเก่าของตารางรายเดือนออกจนกว่า JSON จะไม่เกินเพดานของ LINE */
-function fitCarousel(build: (maxDays: number) => LineMessage[]): LineMessage[] {
-  for (const maxDays of [31, 24, 18, 12, 8, 0]) {
-    const bubbles = build(maxDays);
-    if (JSON.stringify(bubbles).length <= MAX_JSON_BYTES) return bubbles;
+/** ตัดวันเก่าออกจนกว่าจะไม่เกินเพดาน — คืน null ถ้าตัดจนหมดก็ยังไม่พอ */
+function fitMonth(month: MonthTable): LineMessage | null {
+  for (const maxDays of [31, 24, 18, 12, 8]) {
+    const bubble = monthBubble(month, maxDays);
+    if (!bubble) return null;
+    if (jsonBytes(bubble) <= MAX_JSON_BYTES) return bubble;
   }
-  return build(0);
+  return null;
 }
 
-export function buildDrawCard(input: CardInput): LineMessage {
+function flex(altText: string, bubbles: LineMessage[]): LineMessage {
+  return {
+    type: "flex",
+    altText: altText.slice(0, 390),
+    contents: bubbles.length === 1 ? bubbles[0] : { type: "carousel", contents: bubbles },
+  };
+}
+
+/**
+ * คืน **ข้อความ 1-2 ก้อน** (push ทีเดียวได้ LINE รับได้ 5 ก้อนต่อครั้ง):
+ *   [0] carousel ของผลงวดนี้/วันนี้/พอร์ต/รายขา
+ *   [1] ตารางรายวันของเดือน — **แยกก้อน** เพราะเพดาน 30 KB เป็นของ *แต่ละข้อความ*
+ *
+ * ⚠️ เคยยัดตารางไว้ใน carousel เดียวกันแล้วมันโดนตัดเหลือ 12-18 วันทุกครั้ง
+ * (วัดจริงด้วย `scripts/card-preview.ts`: ตารางเต็มเดือน ~13 KB + ใบอื่นอีก ~15 KB = เกิน)
+ * แยกก้อนแล้วได้ครบทั้งเดือนโดยไม่ต้องตัดอะไรทิ้ง
+ */
+export function buildDrawCard(input: CardInput): LineMessage[] {
   const { report, lottery, month, snapshot, appUrl } = input;
   const group = report.lotteries.find((l) => l.lottery === lottery);
   const seq = report.lotteries.filter((l) => !l.untouched).findIndex((l) => l.lottery === lottery) + 1;
@@ -448,36 +479,37 @@ export function buildDrawCard(input: CardInput): LineMessage {
     linkButton("เปิดหน้าพอร์ต", `${appUrl}/portfolio`, false),
   ];
 
-  const bubbles = fitCarousel((maxDays) => {
-    const list: LineMessage[] = [];
-    const first = drawBubble(report, lottery, Math.max(1, seq), input.corrected ?? false);
-    if (first) list.push(first);
-    const day = dayBubble(report);
-    if (day) list.push(day);
-    if (month && maxDays > 0) {
-      const table = monthBubble(month, maxDays);
-      if (table) list.push(table);
-    }
-    if (snapshot) {
-      list.push(portfolioBubble(snapshot, monthLabel));
-      if (snapshot.legs.length > 0) list.push(legsBubble(snapshot, buttons));
-    }
-    if (list.length > 0 && !list.some((b) => b.footer)) {
-      list[list.length - 1].footer = {
-        type: "box", layout: "vertical", spacing: "sm", paddingAll: "14px", contents: buttons,
-      };
-    }
-    return list.slice(0, 12);
-  });
+  const bubbles: LineMessage[] = [];
+  const first = drawBubble(report, lottery, Math.max(1, seq), input.corrected ?? false);
+  if (first) bubbles.push(first);
+  const day = dayBubble(report);
+  if (day) bubbles.push(day);
+  if (snapshot) {
+    bubbles.push(portfolioBubble(snapshot, monthLabel));
+    if (snapshot.legs.length > 0) bubbles.push(legsBubble(snapshot, buttons));
+  }
+  if (bubbles.length > 0 && !bubbles.some((b) => b.footer)) {
+    bubbles[bubbles.length - 1].footer = {
+      type: "box", layout: "vertical", spacing: "sm", paddingAll: "14px", contents: buttons,
+    };
+  }
 
   const head = input.corrected ? "แก้ไขผลของ " : "";
   const alt = group
     ? `${head}${group.flag} ${group.lottery}${group.time ? ` ${group.time}` : ""} ${thaiDate(report.date)} → ${signed(group.pnl)} · วันนี้รวม ${signed(report.pnl)}`
     : `${head}ผลหวย ${thaiDate(report.date)} · วันนี้รวม ${signed(report.pnl)}`;
 
-  return {
-    type: "flex",
-    altText: alt.slice(0, 390),
-    contents: bubbles.length === 1 ? bubbles[0] : { type: "carousel", contents: bubbles },
-  };
+  const messages: LineMessage[] = [];
+  if (bubbles.length > 0) messages.push(flex(alt, bubbles.slice(0, 12)));
+
+  const table = month ? fitMonth(month) : null;
+  if (table) {
+    messages.push(
+      flex(
+        `${shortLottery(month!.lottery)} รายวัน ${TH_MONTHS[month!.month]} 25${month!.yearBe} → ${signed(month!.pnl)}`,
+        [table],
+      ),
+    );
+  }
+  return messages;
 }

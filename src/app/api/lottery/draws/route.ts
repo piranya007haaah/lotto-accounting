@@ -295,7 +295,7 @@ export const POST = route(async (request) => {
     if (!isMessagingConfigured() || !to) {
       line = { sent: false, reason: "ยังไม่ได้ตั้ง LINE_REPORT_TO / LINE_MESSAGING_CHANNEL_ACCESS_TOKEN" };
     } else {
-      const card = buildDrawCard({
+      const messages = buildDrawCard({
         report,
         lottery,
         month: table,
@@ -305,7 +305,8 @@ export const POST = route(async (request) => {
         corrected: body.overwrite === true,
       });
       // ผลหวยบันทึกลงฐานข้อมูลไปแล้ว — ส่งไม่ผ่านห้ามทำให้ทั้งคำขอล้ม แต่ต้องบอกตรง ๆ
-      const result = await pushMessageResult(to, [card]);
+      // (2 ก้อน: carousel + ตารางรายเดือน — LINE รับได้ 5 ก้อนต่อ push)
+      const result = await pushMessageResult(to, messages);
       line = { sent: result.ok, reason: result.error };
     }
   }
