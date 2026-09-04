@@ -19,7 +19,13 @@ import { Alert, Chip, EmptyState, PageHeader, SectionTitle, Spinner } from "@/co
 import { formatBahtShort, formatSigned } from "@/lib/format";
 import { computeRiskMetrics, randomBaseline } from "@/lib/lottery/engine";
 import { DEFAULT_FORMULA, FORMULA_NAMES } from "@/lib/lottery/formulas";
-import { analyzeGroup, type GroupAnalysis, type RankMode, type RankRow } from "@/lib/lottery/rank";
+import {
+  analyzeGroup,
+  trainYearsOf,
+  type GroupAnalysis,
+  type RankMode,
+  type RankRow,
+} from "@/lib/lottery/rank";
 
 interface GroupsResponse {
   groups: { lottery: string; position: string; flag: string; years: string[] }[];
@@ -99,6 +105,8 @@ export default function FormulasPage() {
   const [years, setYears] = useState<string[]>([]);
   const [formula, setFormula] = useState(DEFAULT_FORMULA);
   const [testYear, setTestYear] = useState("");
+  /** ปีที่ใช้เทรน — ลิสต์ว่าง = **ทุกปีก่อน test** (ของเดิม) ไม่ใช่ "ไม่เทรนเลย" */
+  const [trainYears, setTrainYears] = useState<string[]>([]);
   const [mode, setMode] = useState<RankMode>("train");
   const [capital, setCapital] = useState(100_000);
   const [bet, setBet] = useState(100);
@@ -142,6 +150,21 @@ export default function FormulasPage() {
     };
   }, [api, canViewLottery]);
 
+  // ปีที่เลือกเป็น train ได้ = ปีก่อน test เท่านั้น (ปีหลังคือ lookahead)
+  const trainOptions = useMemo(
+    () => years.filter((year) => year < testYear).sort().reverse(),
+    [years, testYear],
+  );
+
+  // เปลี่ยนปี test แล้วปีที่เคยเลือกไว้อาจกลายเป็นปีอนาคต → ตัดทิ้ง
+  // (เหลือศูนย์ = กลับไปเป็น "ทุกปีก่อนหน้า" เอง ไม่ใช่ตารางว่างเปล่าโดยไม่บอกสาเหตุ)
+  useEffect(() => {
+    setTrainYears((current) => current.filter((year) => year < testYear));
+  }, [testYear]);
+
+  /** ส่งเป็นสตริงเดียวเพื่อให้ใช้เป็น dependency ของ effect ได้ (array สร้างใหม่ทุกเรนเดอร์) */
+  const trainParam = [...trainYears].sort().join(",");
+
   // คำนวณตารางอันดับใหม่เมื่อค่าตั้งเปลี่ยน — หน่วงไว้ก่อน เพราะพิมพ์เลขทีละหลัก
   useEffect(() => {
     if (!canViewLottery || !testYear) return;
@@ -158,6 +181,7 @@ export default function FormulasPage() {
             bet: String(bet),
             payout: String(payout),
           });
+          if (trainParam) query.set("train", trainParam);
           const data = await api<RankResponse>(`/api/lottery/rank?${query}`);
           if (cancelled) return;
           setRows(data.rows);
@@ -173,7 +197,7 @@ export default function FormulasPage() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [api, canViewLottery, formula, testYear, mode, capital, bet, payout]);
+  }, [api, canViewLottery, formula, testYear, trainParam, mode, capital, bet, payout]);
 
   // เปลี่ยนค่าตั้งค่าใด ๆ = ตัวเลขในกล่องรายละเอียดเก่าใช้ไม่ได้แล้ว
   const openDetail = useCallback(
@@ -196,17 +220,20 @@ export default function FormulasPage() {
           cache.current.set(key, entries);
         }
         const testStr = entries.find((entry) => entry.year === testYear)?.sequence ?? "";
-        const trainYears = entries
-          .map((entry) => entry.year)
-          .filter((year) => year < testYear)
-          .sort();
-        const trainStr = trainYears
+        // ⚠️ ต้องกรองด้วยกติกาเดียวกับ `trainYearsOf` ฝั่ง server เป๊ะ ๆ ไม่งั้นเลขในกล่อง
+        // รายละเอียดจะไม่ตรงกับแถวในตารางที่เพิ่งกดเปิด — คนอ่านจับไม่ได้ว่าอันไหนจริง
+        const usedTrainYears = trainYearsOf(
+          entries.map((entry) => entry.year),
+          testYear,
+          trainYears,
+        );
+        const trainStr = usedTrainYears
           .map((year) => entries?.find((entry) => entry.year === year)?.sequence ?? "")
           .join("");
         const result = analyzeGroup({
           trainStr,
           testStr,
-          trainYears,
+          trainYears: usedTrainYears,
           formula,
           mode,
           capital,
@@ -219,14 +246,14 @@ export default function FormulasPage() {
         setDetailError(caught instanceof Error ? caught.message : "โหลดรายละเอียดไม่สำเร็จ");
       }
     },
-    [api, bet, capital, formula, mode, openKey, payout, testYear],
+    [api, bet, capital, formula, mode, openKey, payout, testYear, trainYears],
   );
 
   // ค่าตั้งเปลี่ยน = ปิดกล่องรายละเอียด ไม่ให้ค้างตัวเลขของค่าตั้งเก่า
   useEffect(() => {
     setOpenKey(null);
     setAnalysis(null);
-  }, [formula, testYear, mode, capital, bet, payout]);
+  }, [formula, testYear, trainParam, mode, capital, bet, payout]);
 
   const choice = analysis?.choices.find((item) => item.rank === chosenRank) ?? analysis?.choices[0];
   const equity = useMemo(
@@ -290,6 +317,35 @@ export default function FormulasPage() {
         </div>
 
         <div>
+          <p className="field-label">ปี train (ข้อมูลที่สูตรเอาไปนับ)</p>
+          <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+            <Chip active={trainYears.length === 0} onClick={() => setTrainYears([])}>
+              ทุกปีก่อนหน้า
+            </Chip>
+            {trainOptions.map((year) => (
+              <Chip
+                key={year}
+                active={trainYears.includes(year)}
+                onClick={() =>
+                  setTrainYears((current) =>
+                    current.includes(year)
+                      ? current.filter((item) => item !== year)
+                      : [...current, year],
+                  )
+                }
+              >
+                25{year}
+              </Chip>
+            ))}
+          </div>
+          <p className="dim mt-1 text-[10.5px] leading-relaxed">
+            {trainYears.length === 0
+              ? "ใช้ทุกปีที่อยู่ก่อนปี test ของหวยนั้น — หวยที่มีข้อมูลไม่เท่ากันก็ใช้เท่าที่มี"
+              : `เทรนด้วย ${[...trainYears].sort().map((year) => `25${year}`).join(" · ")} เท่านั้น — หวยที่ไม่มีปีพวกนี้จะหลุดจากตาราง`}
+          </p>
+        </div>
+
+        <div>
           <p className="field-label">เลือก n_bet จาก</p>
           <div className="flex gap-1.5">
             <Chip active={mode === "train"} onClick={() => setMode("train")}>
@@ -320,7 +376,18 @@ export default function FormulasPage() {
 
       {!loading && rows && rows.length === 0 ? (
         <div className="card px-4 py-5">
-          <EmptyState>ไม่มีหวยที่มีผลของปี 25{testYear} และมีปีก่อนหน้าให้เทรน</EmptyState>
+          <EmptyState>
+            {trainYears.length === 0
+              ? `ไม่มีหวยที่มีผลของปี 25${testYear} และมีปีก่อนหน้าให้เทรน`
+              : `ไม่มีหวยที่มีทั้งผลปี 25${testYear} และปี train ที่เลือกไว้`}
+          </EmptyState>
+          {trainYears.length > 0 ? (
+            // ตารางว่างเพราะ "เลือกปีแคบไป" กับ "ไม่มีข้อมูลจริง ๆ" หน้าตาเหมือนกัน
+            // ⇒ ต้องบอกทางออกไว้ ไม่ใช่ปล่อยให้เดาว่าระบบพัง
+            <p className="muted text-center text-[12px] leading-relaxed">
+              ลองกด “ทุกปีก่อนหน้า” หรือเลือกปีให้น้อยลง
+            </p>
+          ) : null}
         </div>
       ) : null}
 

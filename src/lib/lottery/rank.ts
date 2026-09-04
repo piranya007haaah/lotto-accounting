@@ -10,8 +10,10 @@
  *   (มีไว้ดูเพดานทฤษฎีเท่านั้น หน้าจอต้องเตือนทุกครั้ง)
  * - train = **ทุกปีที่อยู่ก่อนปี test** ต่อกันเป็นสตริงเดียว (สูตรนับความถี่เป็นคู่ ๆ
  *   การต่อสตริงจึงไม่ทำให้เพี้ยน) — ปีหลัง test ห้ามแตะ = ไม่มี lookahead
- * - ตารางนี้มีแต่ขา **2 ตัว** เพราะ `lottery_datasets` รับมาเฉพาะตาราง `datasets`
- *   ของฝั่งโน้น (3 ตัวอยู่คนละตาราง ยังไม่ได้ย้ายมา)
+ *   · เลือกเองได้ด้วย `trainYears` (เช่นอยากเทรนแค่ 2 ปีล่าสุด) แต่ **กรองปี ≥ test
+ *   ทิ้งเสมอ** ไม่ว่าคนเรียกจะส่งอะไรมา — lookahead ต้องเป็นไปไม่ได้ ไม่ใช่แค่ไม่ควรทำ
+ * - ตารางนี้อ่านเฉพาะขา **2 ตัว** (`readAllDatasetRows({digits: 2})`) — ตาราง
+ *   `lottery_datasets` มีสามบนปนอยู่ด้วย ซึ่งสูตร 2 ตัวอ่านแล้วได้เลขมั่ว
  */
 
 import { equityCurve, randomBaseline, runAllSizes, type BacktestParams, type SizeResult } from "./engine";
@@ -72,9 +74,20 @@ export function groupRows(rows: readonly DatasetRow[]): Group[] {
   return [...groups.values()];
 }
 
-/** ปีก่อนหน้า test ทั้งหมด เรียงจากเก่า→ใหม่ (ปีเป็น พ.ศ. 2 หลัก เช่น "64") */
-export function trainYearsOf(years: Iterable<string>, testYear: string): string[] {
-  return [...years].filter((year) => year < testYear).sort();
+/**
+ * ปีที่ใช้เทรน เรียงจากเก่า→ใหม่ (ปีเป็น พ.ศ. 2 หลัก เช่น "64")
+ *
+ * `only` = เจาะจงว่าจะเอาปีไหนบ้าง (ไม่ส่ง/ส่งลิสต์ว่าง = ทุกปีก่อน test เหมือนเดิม)
+ * ⚠️ เงื่อนไข `year < testYear` อยู่นอก `only` เสมอ — คนเรียกส่งปี test หรือปีหลัง
+ * เข้ามาก็ต้องถูกทิ้ง ไม่งั้นได้ผลลัพธ์ที่ "รู้อนาคต" โดยหน้าจอไม่มีทางรู้เลย
+ */
+export function trainYearsOf(
+  years: Iterable<string>,
+  testYear: string,
+  only?: readonly string[],
+): string[] {
+  const allow = only && only.length > 0 ? new Set(only) : null;
+  return [...years].filter((year) => year < testYear && (!allow || allow.has(year))).sort();
 }
 
 export interface GroupStrings {
@@ -83,9 +96,13 @@ export interface GroupStrings {
   trainYears: string[];
 }
 
-export function stringsFor(group: Group, testYear: string): GroupStrings | null {
+export function stringsFor(
+  group: Group,
+  testYear: string,
+  onlyTrainYears?: readonly string[],
+): GroupStrings | null {
   const testStr = group.years.get(testYear) ?? "";
-  const trainYears = trainYearsOf(group.years.keys(), testYear);
+  const trainYears = trainYearsOf(group.years.keys(), testYear, onlyTrainYears);
   if (!testStr || trainYears.length === 0) return null;
   const trainStr = trainYears.map((year) => group.years.get(year) ?? "").join("");
   if (!trainStr) return null;
@@ -124,6 +141,8 @@ export interface RankOptions extends BacktestParams {
   formula: string;
   testYear: string;
   mode: RankMode;
+  /** เจาะจงปีที่ใช้เทรน — ไม่ส่ง = ทุกปีก่อน test (ของเดิม) · หวยที่ไม่มีปีที่เลือกเลยจะหลุดจากตาราง */
+  trainYears?: readonly string[];
 }
 
 /** ตารางอันดับของทุกกลุ่มที่มีปี test นั้น — เรียงกำไรมาก→น้อย */
@@ -138,7 +157,7 @@ export function rankGroups(options: RankOptions): RankRow[] {
 
   const out: RankRow[] = [];
   for (const group of groupRows(options.rows)) {
-    const strings = stringsFor(group, options.testYear);
+    const strings = stringsFor(group, options.testYear, options.trainYears);
     if (!strings) continue;
     const sortedNums = formulaFn(strings.trainStr);
     const picked = pickSize(strings, sortedNums, params, options.mode);

@@ -17,7 +17,7 @@
  */
 import engineGolden from "../src/lib/lottery/__fixtures__/engine-golden.json";
 import rankGolden from "../src/lib/lottery/__fixtures__/rank-golden.json";
-import { analyzeGroup, pickSize, type RankMode } from "../src/lib/lottery/rank";
+import { analyzeGroup, pickSize, trainYearsOf, type RankMode } from "../src/lib/lottery/rank";
 import { FORMULAS } from "../src/lib/lottery/formulas";
 
 interface PyParams {
@@ -134,6 +134,20 @@ for (const pyCase of rankCases) {
     }
   }
 }
+
+/* ───────────────────────── เลือกปี train เองได้ (ไม่มีเฉลยฝั่ง Python) ─────────────────────────
+ * ฝั่ง Streamlit ให้ติ๊กปี train เองอยู่แล้ว หน้านี้เพิ่งตามมา ⇒ ไม่มีเฉลยให้เทียบ
+ * แต่ **คุณสมบัติที่ห้ามพลาดคือกันปี ≥ test** — หลุดเมื่อไหร่คือ lookahead เงียบ ๆ
+ */
+const YEARS = ["64", "65", "66", "67", "68", "69"];
+
+expect("ไม่ระบุปี train = ทุกปีก่อน test", trainYearsOf(YEARS, "68"), ["64", "65", "66", "67"]);
+expect("ลิสต์ว่าง = ทุกปีก่อน test", trainYearsOf(YEARS, "68", []), ["64", "65", "66", "67"]);
+expect("เลือกเอง = เอาเท่าที่เลือก เรียงเก่า→ใหม่", trainYearsOf(YEARS, "68", ["67", "65"]), ["65", "67"]);
+expect("ปีที่ไม่มีข้อมูลก็แค่ไม่โผล่", trainYearsOf(YEARS, "68", ["63", "67"]), ["67"]);
+// ⚠️⚠️ หัวใจ: ต่อให้คนเรียกยัดปี test / ปีอนาคตมาเอง ก็ต้องถูกทิ้งเสมอ
+expect("ปี test เองถูกทิ้ง", trainYearsOf(YEARS, "68", ["67", "68"]), ["67"]);
+expect("ปีหลัง test ถูกทิ้ง", trainYearsOf(YEARS, "68", ["68", "69"]), []);
 
 if (failures.length > 0) {
   console.error(`❌ ไม่ตรงกับ Python ${failures.length} จุด (จากทั้งหมด ${checks} จุด)`);

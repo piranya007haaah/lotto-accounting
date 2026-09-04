@@ -38,6 +38,14 @@ export const GET = route(async (request) => {
   if (!/^\d{2}$/.test(testYear)) throw new HttpError(400, "ปี test ต้องเป็น พ.ศ. 2 หลัก", "bad_year");
 
   const mode: RankMode = query.get("mode") === "hindsight" ? "hindsight" : "train";
+
+  // เจาะจงปีที่ใช้เทรน เช่น `train=67,68` — ไม่ส่ง = ทุกปีก่อน test (ของเดิม)
+  // ปีที่ ≥ test ถูกทิ้งใน `trainYearsOf` อยู่แล้ว ตรงนี้แค่กันค่าที่ไม่ใช่ปีเข้าไปปนเฉย ๆ
+  const trainYears = (query.get("train") ?? "")
+    .split(",")
+    .map((year) => year.trim())
+    .filter((year) => /^\d{2}$/.test(year))
+    .slice(0, 40);
   const capital = intParam(query.get("capital"), 100000, 0, 1_000_000_000);
   const betPerNumber = intParam(query.get("bet"), 100, 1, 1_000_000);
   const payoutRate = intParam(query.get("payout"), 100, 1, 10000);
@@ -58,11 +66,12 @@ export const GET = route(async (request) => {
     rows: entries,
     formula,
     testYear,
+    trainYears,
     mode,
     capital,
     betPerNumber,
     payoutRate,
   });
 
-  return ok({ formula, testYear, mode, capital, betPerNumber, payoutRate, rows });
+  return ok({ formula, testYear, trainYears, mode, capital, betPerNumber, payoutRate, rows });
 });
