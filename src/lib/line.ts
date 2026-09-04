@@ -22,9 +22,27 @@ export function reportToken(): string | undefined {
   return env("LINE_REPORT_TOKEN") ?? env("LINE_MESSAGING_CHANNEL_ACCESS_TOKEN");
 }
 
+/**
+ * ยังส่งการ์ดไม่ได้เพราะอะไร — คืน `null` เมื่อพร้อมส่งแล้ว
+ *
+ * ⚠️ เดิมบอกรวบว่า "ยังไม่ได้ตั้ง LINE_REPORT_TO / LINE_REPORT_TOKEN" ซึ่งอ่านแล้ว
+ * ไม่รู้ว่าขาดตัวไหน — ตั้งไปตัวหนึ่งแล้วยังเห็นข้อความเดิมเป๊ะ เลยต้องไปนั่งเดาว่า
+ * พิมพ์ชื่อผิด · ตั้งผิด environment · หรือยัง deploy ไม่ทัน · บอกให้ชัดถูกกว่า
+ */
+export function reportConfigProblem(): string | null {
+  const to = env("LINE_REPORT_TO");
+  const token = reportToken();
+  if (to && token) return null;
+  if (!to && !token) {
+    return "ยังไม่ได้ตั้งทั้ง LINE_REPORT_TO (ปลายทาง) และ token (LINE_REPORT_TOKEN หรือ LINE_MESSAGING_CHANNEL_ACCESS_TOKEN)";
+  }
+  if (!to) return "ขาด LINE_REPORT_TO (ปลายทาง) — token มีแล้ว";
+  return "ขาด token — ต้องตั้ง LINE_REPORT_TOKEN หรือ LINE_MESSAGING_CHANNEL_ACCESS_TOKEN (ปลายทาง LINE_REPORT_TO ตั้งแล้ว)";
+}
+
 /** พร้อมส่งการ์ดหรือยัง — ต้องมีทั้ง token และปลายทาง */
 export function isReportConfigured(): boolean {
-  return Boolean(reportToken() && env("LINE_REPORT_TO"));
+  return reportConfigProblem() === null;
 }
 
 /** ตรวจลายเซ็น webhook ของ LINE (HMAC-SHA256 + base64) */

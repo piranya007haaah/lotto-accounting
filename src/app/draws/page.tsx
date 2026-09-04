@@ -58,6 +58,7 @@ interface DayResponse {
   portfolios: { id: number; name: string; isActive: boolean }[];
   day: DayState;
   lineReady: boolean;
+  lineProblem: string | null;
 }
 
 interface SaveResponse {
@@ -357,8 +358,15 @@ export default function DrawsPage() {
         {data && !data.lineReady ? (
           <div className="dim space-y-1 text-[10.5px] leading-relaxed">
             <p>
-              ⚠️ ยังไม่ได้ตั้งปลายทาง LINE — บันทึกผลได้ตามปกติ แต่การ์ดจะไม่ถูกส่ง
-              (ตั้ง <code className="text-[10px]">LINE_REPORT_TO</code> ที่ Vercel แล้ว Redeploy)
+              ⚠️ ยังส่งการ์ดเข้า LINE ไม่ได้ — บันทึกผลได้ตามปกติ
+              <br />
+              <b>{data.lineProblem ?? "ยังไม่ได้ตั้งปลายทาง"}</b>
+            </p>
+            {/* ⚠️ ตัวแปรของ Vercel แยกตาม environment — ใส่ไว้ที่ Preview อย่างเดียว
+                Production จะไม่เห็น แล้วหน้าจอจะขึ้นว่า "ยังไม่ได้ตั้ง" ทั้งที่ใส่ไปแล้ว */}
+            <p>
+              ตั้งที่ Vercel → Settings → Environment Variables โดยต้องติ๊ก{" "}
+              <b>Production</b> ด้วย แล้ว Redeploy (ใส่ไว้แต่ Preview = Production ไม่เห็น)
             </p>
             {/* ปลายทางที่ง่ายที่สุดคือแชทส่วนตัวกับ OA — id ของตัวเองอยู่ตรงนี้แล้ว
                 ไม่ต้องไปงมที่ไหน · จะส่งเข้ากลุ่มค่อยเชิญ OA เข้ากลุ่มแล้วพิมพ์ /id */}

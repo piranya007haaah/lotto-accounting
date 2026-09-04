@@ -17,7 +17,7 @@ import { requireAdmin, requireLotteryViewer } from "@/lib/auth";
 import { appUrl, env } from "@/lib/env";
 import { HttpError, ok, route } from "@/lib/http";
 import { readJsonBody } from "@/lib/ingest-auth";
-import { isReportConfigured, pushMessageResult } from "@/lib/line";
+import { isReportConfigured, reportConfigProblem, pushMessageResult } from "@/lib/line";
 import { readSequencesForLotteries } from "@/lib/lottery/dataset-read";
 import {
   computeDay,
@@ -155,6 +155,8 @@ export const GET = route(async (request) => {
     portfolios: rows.map((p) => ({ id: p.id, name: p.name, isActive: p.is_active })),
     day: summarise(report),
     lineReady: isReportConfigured(),
+    // บอกให้ชัดว่าขาดตัวไหน ไม่ใช่ "ยังไม่ได้ตั้ง A / B" ที่อ่านแล้วไม่รู้ว่าตัวไหน
+    lineProblem: reportConfigProblem(),
   });
 });
 
@@ -206,7 +208,7 @@ export const POST = route(async (request) => {
     }
     const to = env("LINE_REPORT_TO");
     if (!isReportConfigured() || !to) {
-      throw new HttpError(400, "ยังไม่ได้ตั้ง LINE_REPORT_TO / LINE_REPORT_TOKEN", "line_not_ready");
+      throw new HttpError(400, reportConfigProblem() ?? "ไม่มีปลายทาง LINE", "line_not_ready");
     }
     const messages = buildDrawCard({
       report,
@@ -338,7 +340,7 @@ export const POST = route(async (request) => {
   if (body.send !== false) {
     const to = env("LINE_REPORT_TO");
     if (!isReportConfigured() || !to) {
-      line = { sent: false, reason: "ยังไม่ได้ตั้ง LINE_REPORT_TO / LINE_REPORT_TOKEN" };
+      line = { sent: false, reason: reportConfigProblem() ?? "ไม่มีปลายทาง LINE" };
     } else {
       const messages = buildDrawCard({
         report,
