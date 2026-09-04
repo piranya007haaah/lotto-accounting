@@ -9,6 +9,7 @@
 import { requireAdmin } from "@/lib/auth";
 import { HttpError, ok, route } from "@/lib/http";
 import { readJsonBody, requireIngestSecret } from "@/lib/ingest-auth";
+import { readAllDatasetRows } from "@/lib/lottery/dataset-read";
 import { payloadSchema } from "@/lib/lottery/dataset-ingest";
 import { supabaseAdmin } from "@/lib/supabase";
 
@@ -67,17 +68,34 @@ export const POST = route(async (request) => {
 export const GET = route(async (request) => {
   await requireAdmin(request);
 
+  // ระบุหวย+ตำแหน่ง = ขอ "ผลจริงทั้งปี" ของกลุ่มเดียว (ไม่กี่ KB) ไว้ให้หน้าจอ
+  // คำนวณสูตรเองในเบราว์เซอร์ — ปรับ n_bet/ทุน/เรตจ่ายแล้วเห็นผลทันทีโดยไม่ยิงเซิร์ฟเวอร์ซ้ำ
+  const query = new URL(request.url).searchParams;
+  const lottery = (query.get("lottery") ?? "").trim();
+  const position = (query.get("position") ?? "").trim();
+  if (lottery && position) {
+    const { data, error } = await supabaseAdmin()
+      .from(TABLE)
+      .select("lottery, position, year, flag, sequence")
+      .eq("lottery", lottery)
+      .eq("position", position)
+      .order("year");
+    if (error) throw new HttpError(500, `อ่านผลหวยไม่สำเร็จ: ${error.message}`);
+    if ((data ?? []).length === 0) throw new HttpError(404, "ไม่มีข้อมูลของหวย/ตำแหน่งนี้", "not_found");
+    return ok({ entries: data });
+  }
+
   // เอาแค่คีย์ ไม่ดึง sequence (ทั้งตาราง ~0.8 MB — หนักเกินไปสำหรับตัวเลือก)
-  const { data, error } = await supabaseAdmin()
-    .from(TABLE)
-    .select("lottery, position, year, flag")
-    .order("lottery")
-    .order("position")
-    .order("year");
-  if (error) throw new HttpError(500, `อ่านรายชื่อหวยไม่สำเร็จ: ${error.message}`);
+  // ⚠️ ต้องไล่ทีละหน้า — Supabase ตัดที่ 1,000 แถวเสมอ (ดู lib/lottery/dataset-read.ts)
+  let data: { lottery: string; position: string; year: string; flag: string }[];
+  try {
+    data = await readAllDatasetRows({ withSequence: false });
+  } catch (caught) {
+    throw new HttpError(500, `อ่านรายชื่อหวยไม่สำเร็จ: ${(caught as Error).message}`);
+  }
 
   const groups = new Map<string, { lottery: string; position: string; flag: string; years: string[] }>();
-  for (const row of data ?? []) {
+  for (const row of data) {
     const key = `${row.lottery}|${row.position}`;
     const group = groups.get(key) ?? {
       lottery: row.lottery as string,

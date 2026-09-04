@@ -49,7 +49,8 @@ export const MODES: NavMode[] = [
     adminOnly: true,
     items: [
       { href: "/portfolio", label: "พอร์ต", icon: "M3 17l5-5 4 3 5-7M3 21h18M3 3v18" },
-      // ต่อไป: สูตร (/formulas) · สถิติ · สามตัว — ย้ายมาจาก Streamlit ทีละหน้า
+      { href: "/formulas", label: "สูตร", icon: "M4 5h16M9 5v6l-5 8h16l-5-8V5" },
+      // ต่อไป: สถิติ · สามตัว — ย้ายมาจาก Streamlit ทีละหน้า
     ],
   },
 ];
