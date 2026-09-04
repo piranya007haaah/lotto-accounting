@@ -729,6 +729,54 @@ function latestDrawInfo(
   return null;
 }
 
+/** ขาที่ผลหวยมาไม่ถึงวันเดียวกับขาอื่น */
+export interface LegLag {
+  /** "🇱🇦 หวยลาว VIP · สามบน" */
+  label: string;
+  /** งวดจริงล่าสุดที่มีของขานี้ — null = entry ไม่ได้เรียงตามวันที่ (แปลงเป็นวันที่ไม่ได้) */
+  date: Date | null;
+}
+
+/**
+ * ขาที่ผลหวย **มาไม่ถึงวันล่าสุดของพอร์ต** — เงียบที่สุดในบรรดาความผิดพลาดทั้งหมด
+ *
+ * งวดที่ยังไม่มีผลถูกข้ามไปเฉย ๆ (ต้นทุน 0 · กำไร 0 — ไม่ใช่แพ้) ⇒ ยอดรวมของเดือน
+ * **น้อยกว่าความจริง** โดยไม่มีอะไรฟ้อง · เคยกินเวลาไล่หากันทั้งวันเพราะยอดในเว็บกับ
+ * ที่เจ้าของคิดมือต่างกัน 8,710 บาท ซึ่งก็คือ 3 ขาที่ยังไม่ได้กรอกผลของวันนั้นพอดี
+ *
+ * ⚠️ เทียบกับ **ขาที่ใหม่สุดในพอร์ตเดียวกัน** ไม่ใช่ "วันนี้" — หวยแต่ละตัวออกคนละเวลา
+ * และหวยหุ้นไม่ออกเสาร์-อาทิตย์ ⇒ วัดกับวันนี้จะเตือนผิดทุกเช้า
+ */
+export function legsBehind(
+  legs: readonly PortfolioLegConfig[],
+  sequences: readonly DatasetSequence[],
+): { newest: Date | null; behind: LegLag[] } {
+  const lookup = indexSequences(sequences);
+  const rows: LegLag[] = [];
+  let newest: Date | null = null;
+
+  for (const leg of legs) {
+    if (!leg.lottery) continue;
+    const digits = Number(leg.digits ?? 2);
+    const info = latestDrawInfo(lookup, leg.lottery, leg.position ?? "", digits);
+    if (!info?.date) continue;
+    rows.push({
+      label: `${leg.flag ?? "🎰"} ${leg.lottery} · ${leg.position}`,
+      date: info.date,
+    });
+    if (newest === null || info.date.getTime() > newest.getTime()) newest = info.date;
+  }
+
+  if (newest === null) return { newest: null, behind: [] };
+  const cutoff = newest.getTime();
+  return { newest, behind: rows.filter((row) => (row.date?.getTime() ?? cutoff) < cutoff) };
+}
+
+/** วันที่แบบไทยของงวดล่าสุด — ใช้โชว์คู่กับ `legsBehind` */
+export function thaiDateOf(date: Date): string {
+  return thaiDate(date);
+}
+
 /** `page_utils.portfolio_as_of` — ขาที่ข้อมูล **เก่าสุด** (ตัวที่จำกัดความน่าเชื่อ) */
 export function portfolioAsOf(
   legs: readonly PortfolioLegConfig[],

@@ -42,7 +42,9 @@ import { formatBahtShort } from "@/lib/format";
 import type { LotteryPortfolio, PortfolioConfig } from "@/lib/lottery/portfolio-config";
 import {
   computeSnapshot,
+  legsBehind,
   requiredSequenceKeys,
+  thaiDateOf,
   type DatasetSequence,
 } from "@/lib/lottery/portfolio-engine";
 import { comparePositions, minutesOf, scheduleTimes } from "@/lib/lottery/day-result";
@@ -283,6 +285,15 @@ export default function PortfolioPage() {
     } catch (caught) {
       return { snapshot: null, error: caught instanceof Error ? caught.message : "คำนวณไม่สำเร็จ" };
     }
+  }, [draft, sequences]);
+
+  /**
+   * ขาที่ผลหวยยังมาไม่ถึงวันเดียวกับขาอื่น — งวดที่ยังไม่มีผลถูกข้ามไปเงียบ ๆ
+   * (ต้นทุน 0 กำไร 0 ไม่ใช่แพ้) ⇒ ยอดรวมน้อยกว่าความจริงโดยไม่มีอะไรฟ้อง
+   */
+  const lag = useMemo(() => {
+    if (!draft || draft.config.legs.length === 0) return { newest: null, behind: [] };
+    return legsBehind(draft.config.legs, [...sequences.values()]);
   }, [draft, sequences]);
 
   /* ───────────────── สร้าง / บันทึก / ลบ ───────────────── */
@@ -570,6 +581,17 @@ export default function PortfolioPage() {
         </div>
       ) : null}
 
+      {lag.behind.length > 0 && lag.newest ? (
+        <Alert tone="warn">
+          <b>ผลหวยยังไม่ครบ</b> — ขาอื่นมีผลถึง {thaiDateOf(lag.newest)} แล้ว แต่{" "}
+          {lag.behind.length} ขานี้ยังไม่ถึง:
+          <br />
+          {lag.behind.map((row) => `${row.label}${row.date ? ` (ถึง ${thaiDateOf(row.date)})` : ""}`).join(" · ")}
+          <br />
+          งวดที่ยังไม่มีผล<b>ไม่ถูกนับเลย</b> (ไม่ใช่แพ้) ⇒ ยอดรวมยังน้อยกว่าความจริง —
+          กรอกที่หน้า 📝 กรอกผล แล้วตัวเลขจะครบเอง
+        </Alert>
+      ) : null}
       {seqError ? <Alert tone="warn">โหลดผลหวยบางส่วนไม่สำเร็จ: {seqError}</Alert> : null}
       {saveError ? <Alert tone="error">{saveError}</Alert> : null}
       {savedNote && !dirty ? <Alert tone="success">{savedNote}</Alert> : null}
