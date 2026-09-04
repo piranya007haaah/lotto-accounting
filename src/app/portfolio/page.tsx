@@ -46,6 +46,7 @@ import {
   type DatasetSequence,
 } from "@/lib/lottery/portfolio-engine";
 import { comparePositions, minutesOf, scheduleTimes } from "@/lib/lottery/day-result";
+import { applyMonthlyWithdrawal } from "@/lib/lottery/withdraw-view";
 import type { PortfolioSnapshot } from "@/lib/types";
 
 /** 1 แถวของตาราง `lottery_portfolios` ที่ API ส่งมา (คีย์ snake_case เหมือนฝั่ง Python) */
@@ -272,7 +273,13 @@ export default function PortfolioPage() {
     }
 
     try {
-      return { snapshot: computeSnapshot({ portfolio, sequences: [...sequences.values()] }), error: null };
+      const fresh = computeSnapshot({ portfolio, sequences: [...sequences.values()] });
+      // ⚠️ แปลง "ภาพ" หลัง engine คำนวณเสร็จเท่านั้น — ห้ามให้ engine รู้เรื่องการถอนเงิน
+      // ไม่งั้นตัวเลขจะไม่ตรงกับฝั่ง Python อีกต่อไป (กำไรไม่เกี่ยวกับทุนอยู่แล้ว)
+      return {
+        snapshot: draft.config.withdraw_monthly ? applyMonthlyWithdrawal(fresh) : fresh,
+        error: null,
+      };
     } catch (caught) {
       return { snapshot: null, error: caught instanceof Error ? caught.message : "คำนวณไม่สำเร็จ" };
     }

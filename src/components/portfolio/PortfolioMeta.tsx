@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { formatBahtShort } from "@/lib/format";
 import type { PortfolioConfig } from "@/lib/lottery/portfolio-config";
 import { NumberField, TextField } from "./fields";
 
@@ -39,6 +40,7 @@ export function PortfolioMeta({
 }) {
   const [confirming, setConfirming] = useState(false);
   const active = Boolean(config.is_active);
+  const withdraws = Boolean(config.withdraw_monthly);
 
   // สลับไปพอร์ตอื่นแล้วต้องเริ่มนับหนึ่งใหม่ — ปุ่มลบที่ง้างค้างไว้จากพอร์ตก่อนหน้า
   // ต้องไม่ไปโผล่บนพอร์ตใหม่ (แตะพลาดทีเดียว = ลบผิดตัว กู้ไม่ได้)
@@ -72,6 +74,21 @@ export function PortfolioMeta({
           ⭐ ใช้จริง
           <span className="dim block text-[10.5px] font-normal">
             พอร์ตที่รายงาน LINE และหน้านี้หยิบขึ้นมาก่อน
+          </span>
+        </span>
+      </label>
+
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={withdraws}
+          onChange={(event) => onChangeConfig({ ...config, withdraw_monthly: event.target.checked })}
+        />
+        <span className="text-[12.5px] leading-tight font-semibold">
+          💸 ถอนกำไรออกทุกเดือน
+          <span className="dim block text-[10.5px] font-normal">
+            ต้นเดือนกลับมาเริ่มที่ {formatBahtShort(capital)} บ. เสมอ ไม่ทบทุน —
+            เปลี่ยนแค่เส้นทุน/เงินสำรอง <b>กำไรเท่าเดิมทุกตัว</b>
           </span>
         </span>
       </label>

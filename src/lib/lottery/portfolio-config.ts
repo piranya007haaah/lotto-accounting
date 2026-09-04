@@ -66,6 +66,14 @@ export const portfolioConfigSchema = z
     /** `.nullish()` ไม่ใช่ `.optional()` — ฝั่ง Python เขียน `"schedule": null` ได้
      *  (พอร์ตที่ไม่เคยตั้งเวลา) แล้ว `.optional()` จะปฏิเสธทั้งพอร์ตเพราะ null ≠ undefined */
     schedule: scheduleSchema.nullish(),
+    /**
+     * true = เจ้าของถอนกำไรออกทุกสิ้นเดือน ⇒ ต้นเดือนถัดไปเหลือทุนตั้งต้นเท่าเดิม
+     *
+     * ⚠️ มีผลกับ **การแสดงผลอย่างเดียว** (เส้นทุน · ทุนต้นเดือน · เงินสำรองที่ควรมี)
+     * เงินแทงเป็นบาทคงที่ไม่ได้ผูกกับทุน ⇒ กำไรทุกตัวเลขเท่าเดิม ไม่ว่าจะถอนหรือไม่
+     * · ฝั่ง Python ไม่รู้จักคีย์นี้ แต่ `.passthrough()` เก็บไว้ให้ ⇒ ไม่หายตอน sync
+     */
+    withdraw_monthly: nullable(z.boolean().optional()),
   })
   .passthrough();
 
