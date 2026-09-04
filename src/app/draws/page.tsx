@@ -59,6 +59,7 @@ interface DayResponse {
   day: DayState;
   lineReady: boolean;
   lineProblem: string | null;
+  idCommandProblem: string | null;
 }
 
 interface SaveResponse {
@@ -384,6 +385,22 @@ export default function DrawsPage() {
               </p>
             ) : null}
             <p>ส่งเข้ากลุ่ม: เชิญ OA เข้ากลุ่มนั้น แล้วพิมพ์ <code className="text-[10px]">/id</code> ในกลุ่ม</p>
+          </div>
+        ) : null}
+        {/* ⚠️ webhook ที่ยังไม่ได้ตั้งค่า **เงียบสนิท** — พิมพ์ /id ในกลุ่มแล้วไม่มีอะไรขึ้น
+            และไม่มีทางรู้ว่าพลาดตรงไหน ⇒ บอกไว้ตรงนี้ว่าขาด env ตัวไหนบ้าง
+            · โชว์ตอนที่ส่งการ์ดได้แล้ว (ปลายทางเป็นแชทส่วนตัว) แต่ยังหา groupId ไม่ได้ */}
+        {isAdmin && data?.lineReady && data.idCommandProblem ? (
+          <div className="dim mt-1.5 space-y-1 text-[10.5px] leading-relaxed">
+            <p>
+              จะหา <b>id ของกลุ่ม</b> ต้องพิมพ์ <code className="text-[10px]">/id</code> ในกลุ่ม —
+              ตอนนี้ยังใช้ไม่ได้: <b>{data.idCommandProblem}</b>
+            </p>
+            <p>
+              ตั้งครบแล้ว Redeploy · แล้วที่ LINE Developers Console → Messaging API →
+              Webhook URL = <code className="text-[10px]">{`${typeof window === "undefined" ? "" : window.location.origin}/api/line/webhook`}</code> →
+              Verify → เปิด Use webhook
+            </p>
           </div>
         ) : null}
       </section>

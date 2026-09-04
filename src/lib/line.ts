@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { appUrl, env } from "./env";
+import { adminLineUserIds, appUrl, env } from "./env";
 import { formatBahtShort, formatSigned } from "./format";
 import type { SummaryBucket } from "./types";
 
@@ -43,6 +43,21 @@ export function reportConfigProblem(): string | null {
 /** พร้อมส่งการ์ดหรือยัง — ต้องมีทั้ง token และปลายทาง */
 export function isReportConfigured(): boolean {
   return reportConfigProblem() === null;
+}
+
+/**
+ * คำสั่ง `/id` ในกลุ่มยังใช้ไม่ได้เพราะอะไร — คืน `null` เมื่อพร้อม
+ *
+ * ⚠️ webhook ที่ยังไม่ได้ตั้งค่า **เงียบสนิท**: route ตอบ 200 แล้วจบ (ตั้งใจ — LINE จะได้
+ * ไม่ retry รัว ๆ) ⇒ คนตั้งค่าพิมพ์ /id แล้วไม่มีอะไรขึ้น หาไม่เจอว่าพลาดตรงไหน
+ */
+export function webhookConfigProblem(): string | null {
+  const missing: string[] = [];
+  if (!env("LINE_MESSAGING_CHANNEL_SECRET")) missing.push("LINE_MESSAGING_CHANNEL_SECRET");
+  if (!env("LINE_MESSAGING_CHANNEL_ACCESS_TOKEN")) missing.push("LINE_MESSAGING_CHANNEL_ACCESS_TOKEN");
+  if (adminLineUserIds().length === 0) missing.push("LINE_ADMIN_USER_IDS");
+  if (missing.length === 0) return null;
+  return `ยังขาด ${missing.join(" · ")}`;
 }
 
 /** ตรวจลายเซ็น webhook ของ LINE (HMAC-SHA256 + base64) */

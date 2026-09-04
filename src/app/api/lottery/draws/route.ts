@@ -17,7 +17,7 @@ import { requireAdmin, requireLotteryViewer } from "@/lib/auth";
 import { appUrl, env } from "@/lib/env";
 import { HttpError, ok, route } from "@/lib/http";
 import { readJsonBody } from "@/lib/ingest-auth";
-import { isReportConfigured, reportConfigProblem, pushMessageResult } from "@/lib/line";
+import { isReportConfigured, reportConfigProblem, webhookConfigProblem, pushMessageResult } from "@/lib/line";
 import { readSequencesForLotteries } from "@/lib/lottery/dataset-read";
 import {
   computeDay,
@@ -157,6 +157,8 @@ export const GET = route(async (request) => {
     lineReady: isReportConfigured(),
     // บอกให้ชัดว่าขาดตัวไหน ไม่ใช่ "ยังไม่ได้ตั้ง A / B" ที่อ่านแล้วไม่รู้ว่าตัวไหน
     lineProblem: reportConfigProblem(),
+    // คำสั่ง `/id` ในกลุ่ม (ใช้หา groupId) พร้อมหรือยัง — คนละชุด env กับการส่งการ์ด
+    idCommandProblem: webhookConfigProblem(),
   });
 });
 
