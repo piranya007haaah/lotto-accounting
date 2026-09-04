@@ -11,6 +11,11 @@ const COLORS = ["#9dbff9", "#f19a9e", "#8fd6b1", "#f5c48b", "#c3abf7", "#8fd3e2"
 /** ตัวอย่างที่กดเลือกได้เร็ว ๆ — พิมพ์เองจากแป้นพิมพ์ก็ได้ ไม่จำกัดแค่นี้ */
 const QUICK_EMOJIS = ["🎰", "🍀", "💎", "🐉", "🧧", "🎲"];
 
+/** ลายขีดทแยงบนพื้นจาง — ใช้บอกว่า "ไม่ใส่" ทั้งช่องสีและช่องอิโมจิ */
+const NO_FILL =
+  "linear-gradient(to top left, transparent calc(50% - 0.75px), var(--dim) calc(50% - 0.75px)," +
+  " var(--dim) calc(50% + 0.75px), transparent calc(50% + 0.75px)), var(--field-bg)";
+
 /**
  * เก็บอิโมจิไว้ตัวเดียว โดยเอาตัวหลังสุดที่พิมพ์
  * — พิมพ์ทับของเดิมได้เลยโดยไม่ต้องลบก่อน
@@ -61,6 +66,91 @@ function EmojiInput({
   );
 }
 
+/** วงกลมเลือกสี — ตัวแรกคือ "ไม่ใส่สี" จะได้ลบสีที่เคยตั้งไว้ออกได้ */
+function ColorSwatches({
+  value,
+  onChange,
+}: {
+  value: string | null;
+  onChange: (next: string | null) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2.5">
+      <button
+        type="button"
+        onClick={() => onChange(null)}
+        aria-label="ไม่ใส่สี"
+        aria-pressed={value === null}
+        className="size-7 rounded-full"
+        style={{
+          background: NO_FILL,
+          border: "1px solid var(--field-line)",
+          outline: value === null ? "2px solid var(--text)" : "none",
+          outlineOffset: 2,
+        }}
+      />
+      {COLORS.map((color) => (
+        <button
+          key={color}
+          type="button"
+          onClick={() => onChange(color)}
+          aria-label={`เลือกสี ${color}`}
+          aria-pressed={value === color}
+          className="size-7 rounded-full"
+          style={{
+            background: color,
+            outline: value === color ? "2px solid var(--text)" : "none",
+            outlineOffset: 2,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** อิโมจิที่กดเลือกได้เร็ว ๆ — ตัวแรกคือ "ไม่ใส่อิโมจิ" ไว้ลบของเดิมออก */
+function EmojiChoices({ value, onChange }: { value: string; onChange: (next: string) => void }) {
+  const none = !value;
+  return (
+    <div className="mt-2.5 flex flex-wrap gap-2">
+      <button
+        type="button"
+        onClick={() => onChange("")}
+        aria-label="ไม่ใส่อิโมจิ"
+        aria-pressed={none}
+        className="emoji-tile size-[38px]"
+        style={{
+          background: NO_FILL,
+          border: "1px solid var(--field-line)",
+          outline: none ? "2px solid var(--ink-btn)" : "none",
+          outlineOffset: 1,
+        }}
+      />
+      {QUICK_EMOJIS.map((item) => {
+        const active = value === item;
+        return (
+          <button
+            key={item}
+            type="button"
+            onClick={() => onChange(active ? "" : item)}
+            aria-label={`เลือกอิโมจิ ${item}`}
+            aria-pressed={active}
+            className="emoji-tile size-[38px] text-[18px]"
+            style={{
+              background: active ? "var(--accent-tint)" : "var(--field-bg)",
+              border: active ? "1px solid transparent" : "1px solid var(--field-line)",
+              outline: active ? "2px solid var(--ink-btn)" : "none",
+              outlineOffset: 1,
+            }}
+          >
+            {item}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /**
  * แผ่นตั้งสีกับอิโมจิของเว็บที่มีอยู่แล้ว
  * เดิมแตะช่องหน้าชื่อเว็บได้แค่เปลี่ยนอิโมจิ ส่วนสีตั้งได้ตอนสร้างครั้งแรกครั้งเดียว
@@ -74,14 +164,14 @@ function SiteStyleSheet({
   site: SiteRow | null;
   busy: boolean;
   onClose: () => void;
-  onSave: (patch: { emoji: string | null; color: string }) => void;
+  onSave: (patch: { emoji: string | null; color: string | null }) => void;
 }) {
   const [emoji, setEmoji] = useState("");
-  const [color, setColor] = useState(COLORS[0]);
+  const [color, setColor] = useState<string | null>(null);
 
   useEffect(() => {
     setEmoji(site?.emoji ?? "");
-    setColor(site?.color ?? COLORS[0]);
+    setColor(site?.color ?? null);
   }, [site]);
 
   useEffect(() => {
@@ -129,48 +219,12 @@ function SiteStyleSheet({
             <EmojiInput value={emoji} onChange={setEmoji} color={color} ariaLabel="อิโมจิประจำเว็บ" size={40} />
             <p className="dim text-[11.5px]">แตะช่องนี้แล้วกดปุ่มอิโมจิบนแป้นพิมพ์ เลือกตัวไหนก็ได้</p>
           </div>
-          <div className="mt-2.5 flex flex-wrap gap-2">
-            {QUICK_EMOJIS.map((value) => {
-              const active = emoji === value;
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setEmoji(active ? "" : value)}
-                  aria-label={`เลือกอิโมจิ ${value}`}
-                  aria-pressed={active}
-                  className="emoji-tile size-[38px] text-[18px]"
-                  style={{
-                    background: active ? "var(--accent-tint)" : "var(--field-bg)",
-                    border: active ? "1px solid transparent" : "1px solid var(--field-line)",
-                  }}
-                >
-                  {value}
-                </button>
-              );
-            })}
-          </div>
+          <EmojiChoices value={emoji} onChange={setEmoji} />
         </div>
 
         <div>
           <span className="field-label">สีประจำเว็บ</span>
-          <div className="flex flex-wrap gap-2.5">
-            {COLORS.map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setColor(value)}
-                aria-label={`เลือกสี ${value}`}
-                aria-pressed={color === value}
-                className="size-7 rounded-full"
-                style={{
-                  background: value,
-                  outline: color === value ? "2px solid var(--text)" : "none",
-                  outlineOffset: 2,
-                }}
-              />
-            ))}
-          </div>
+          <ColorSwatches value={color} onChange={setColor} />
         </div>
 
         <div className="flex gap-2">
@@ -199,7 +253,7 @@ export default function SitesPage() {
   const [busy, setBusy] = useState(false);
 
   const [name, setName] = useState("");
-  const [color, setColor] = useState(COLORS[0]);
+  const [color, setColor] = useState<string | null>(COLORS[0]);
   const [emoji, setEmoji] = useState("");
   const [domain, setDomain] = useState("");
   const [styling, setStyling] = useState<SiteRow | null>(null);
@@ -253,7 +307,7 @@ export default function SitesPage() {
   }
 
   /** เปลี่ยนทันทีบนจอ แล้วค่อยยิงไปเก็บ — พลาดเมื่อไหร่ค่อยย้อนกลับ */
-  async function saveStyle(site: SiteRow, patch: { emoji: string | null; color: string }) {
+  async function saveStyle(site: SiteRow, patch: { emoji: string | null; color: string | null }) {
     setStyling(null);
     if ((site.emoji ?? null) === patch.emoji && (site.color ?? null) === patch.color) return;
     replaceSite({ ...site, ...patch });
@@ -339,23 +393,7 @@ export default function SitesPage() {
 
         <div>
           <span className="field-label">สีประจำเว็บ</span>
-          <div className="flex flex-wrap gap-2.5">
-            {COLORS.map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setColor(value)}
-                aria-label={`เลือกสี ${value}`}
-                aria-pressed={color === value}
-                className="size-7 rounded-full"
-                style={{
-                  background: value,
-                  outline: color === value ? "2px solid var(--text)" : "none",
-                  outlineOffset: 2,
-                }}
-              />
-            ))}
-          </div>
+          <ColorSwatches value={color} onChange={setColor} />
         </div>
 
         <div>
@@ -370,29 +408,7 @@ export default function SitesPage() {
             />
             <p className="dim text-[11.5px]">แตะช่องนี้แล้วกดปุ่มอิโมจิบนแป้นพิมพ์ เลือกตัวไหนก็ได้</p>
           </div>
-          <div className="mt-2.5 flex flex-wrap gap-2">
-            {QUICK_EMOJIS.map((value) => {
-              const active = emoji === value;
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setEmoji(active ? "" : value)}
-                  aria-label={`เลือกอิโมจิ ${value}`}
-                  aria-pressed={active}
-                  className="emoji-tile size-[38px] text-[18px]"
-                  style={{
-                    background: active ? "var(--accent-tint)" : "var(--field-bg)",
-                    border: active ? "1px solid transparent" : "1px solid var(--field-line)",
-                    outline: active ? "2px solid var(--ink-btn)" : "none",
-                    outlineOffset: 1,
-                  }}
-                >
-                  {value}
-                </button>
-              );
-            })}
-          </div>
+          <EmojiChoices value={emoji} onChange={setEmoji} />
         </div>
 
         <div>
