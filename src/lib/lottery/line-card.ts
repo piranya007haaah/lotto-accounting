@@ -19,7 +19,7 @@
  */
 
 import type { LineMessage } from "@/lib/line";
-import type { PortfolioSnapshot } from "@/lib/types";
+import type { PortfolioLeg, PortfolioMonth, PortfolioSnapshot } from "@/lib/types";
 import type { DayReport, MonthTable } from "./day-result";
 
 const INK = "#1f2937";
@@ -337,9 +337,32 @@ function monthBubble(table: MonthTable, maxDays: number): LineMessage | null {
 
 /* ─────────────────────── ใบที่ 4-5: ภาพรวมพอร์ต / รายขา ─────────────────────── */
 
-function portfolioBubble(snapshot: PortfolioSnapshot, monthLabel: string): LineMessage {
+/** label ของ `snapshot.monthly` เป็นชื่อเดือนอังกฤษย่อ (มาจากฝั่ง Python) */
+const EN_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * เดือนของวันที่ในการ์ด — จับจาก **label** ไม่ใช่ตำแหน่งในอาร์เรย์
+ * (อาร์เรย์ไม่จำเป็นต้องเริ่มที่ ม.ค. ถ้าพอร์ตเริ่มกลางปี)
+ */
+function monthOf(snapshot: PortfolioSnapshot, date: Date): PortfolioMonth | null {
+  const want = EN_MONTHS[date.getUTCMonth()];
+  return snapshot.monthly.find((m) => m.label === want) ?? null;
+}
+
+/**
+ * กำไรของขา **เฉพาะเดือนนั้น** = ปลายช่วง − ต้นช่วง ของเส้นกำไรสะสม
+ *
+ * ⚠️ ทำได้เพราะ `leg.curve` กับ `monthly[].idxStart/idxEnd` เป็น **วันปฏิทินจาก 1 ม.ค.**
+ * ชุดเดียวกัน (กติกาเดียวกับ `LegReport`) — ห้ามนับเป็น "งวดที่" เพราะวันหยุดก็กิน index
+ */
+function legProfitIn(leg: PortfolioLeg, month: PortfolioMonth | null): number {
+  if (!month || leg.curve.length < 2) return leg.profit;
+  const at = (i: number) => leg.curve[Math.min(Math.max(i, 0), leg.curve.length - 1)] ?? 0;
+  return at(month.idxEnd) - at(month.idxStart);
+}
+
+function portfolioBubble(snapshot: PortfolioSnapshot, monthLabel: string, month: PortfolioMonth | null): LineMessage {
   const kpi = snapshot.kpi;
-  const month = snapshot.monthly.length > 0 ? snapshot.monthly[snapshot.monthly.length - 1] : null;
   const rows: LineMessage[] = [];
   const add = (title: string, sub: string, value: string, color = INK) => {
     if (rows.length > 0) rows.push(separator("sm"));
@@ -349,8 +372,12 @@ function portfolioBubble(snapshot: PortfolioSnapshot, monthLabel: string): LineM
     ], value, color));
   };
 
-  if (month) add("กำไรเดือนล่าสุด", `เดือน ${month.label}`, signed(month.profit), tone(month.profit));
-  add("กำไรปีนี้", `${kpi.roiPct >= 0 ? "+" : "−"}${Math.abs(kpi.roiPct).toFixed(1)}% ของทุน ${baht(kpi.capital)} บ.`,
+  // เดือนนี้มาก่อนเสมอ — เจ้าของถอนกำไรทุกเดือน ตัวเลขที่ใช้ตัดสินใจคือของเดือนนี้
+  if (month) {
+    add("กำไรเดือนนี้", `${monthLabel} · ร่วงหนักสุดในเดือน ${baht(month.maxDd)}`,
+      signed(month.profit), tone(month.profit));
+  }
+  add("กำไรทั้งปี", `${kpi.roiPct >= 0 ? "+" : "−"}${Math.abs(kpi.roiPct).toFixed(1)}% ของทุน ${baht(kpi.capital)} บ.`,
     signed(kpi.profit), tone(kpi.profit));
   add("ทุนสำรองที่ควรมี", "ต้องมีเงินทนเท่านี้ถึงจะไม่ต้องเลิกกลางทาง", baht(kpi.reserveNeeded));
   add("แพ้ติดกันสูงสุด", `ลบช่วงนั้น ${signed(kpi.maxLossStreakAmount)}`, `${kpi.maxLossStreak} งวด`);
@@ -358,7 +385,7 @@ function portfolioBubble(snapshot: PortfolioSnapshot, monthLabel: string): LineM
   return bubble({
     kicker: `พอร์ต ${snapshot.name} · ${snapshot.nLegs} ขา`,
     title: "ภาพรวมทั้งพอร์ต",
-    when: `${monthLabel} · ข้อมูลถึง ${snapshot.asOf}`,
+    when: `ข้อมูลถึง ${snapshot.asOf}`,
     body: rows,
   });
 }
@@ -368,23 +395,32 @@ function legName(name: string): string {
   return name.replace(/\s*\(เทส\s*\d+\)\s*$/, "");
 }
 
-function legsBubble(snapshot: PortfolioSnapshot, buttons: LineMessage[]): LineMessage {
-  const legs = [...snapshot.legs].sort((a, b) => b.profit - a.profit);
+function legsBubble(
+  snapshot: PortfolioSnapshot,
+  monthLabel: string,
+  month: PortfolioMonth | null,
+  buttons: LineMessage[],
+): LineMessage {
+  // ทุกตัวเลขในใบนี้เป็น **ของเดือนนั้น** — เรียง/สเกลแถบ/ยอดรวม ต้องมาจากชุดเดียวกัน
+  // ไม่งั้นแถบยาวสุดจะไม่ใช่ขาที่ทำเงินมากสุดของเดือน
+  const legs = snapshot.legs
+    .map((leg) => ({ leg, profit: legProfitIn(leg, month) }))
+    .sort((a, b) => b.profit - a.profit);
   const widest = Math.max(1, ...legs.map((l) => Math.abs(l.profit)));
 
   const rows: LineMessage[] = [];
-  legs.forEach((leg, i) => {
+  legs.forEach(({ leg, profit }, i) => {
     if (i > 0) rows.push(separator("xs"));
-    const share = Math.max(1, Math.round((Math.abs(leg.profit) / widest) * 50));
+    const share = Math.max(1, Math.round((Math.abs(profit) / widest) * 50));
     // แถบยิงจากกลางออกไป — ขวา = บวก · ซ้าย = ลบ (อ่านออกโดยไม่ต้องแยกสี)
-    const fill = { type: "box", layout: "vertical", flex: share, backgroundColor: leg.profit >= 0 ? UP : DOWN, contents: [{ type: "filler" }] };
+    const fill = { type: "box", layout: "vertical", flex: share, backgroundColor: profit >= 0 ? UP : DOWN, contents: [{ type: "filler" }] };
     const rest = { type: "filler", flex: Math.max(1, 50 - share) };
     const half = { type: "filler", flex: 50 };
     const bar: LineMessage = {
       type: "box",
       layout: "horizontal",
       height: "4px",
-      contents: leg.profit >= 0 ? [half, fill, rest] : [rest, fill, half],
+      contents: profit >= 0 ? [half, fill, rest] : [rest, fill, half],
     };
     rows.push({
       type: "box",
@@ -395,7 +431,7 @@ function legsBubble(snapshot: PortfolioSnapshot, buttons: LineMessage[]): LineMe
           layout: "horizontal",
           contents: [
             text(legName(leg.name), { size: "xxs", weight: "bold", color: INK, flex: 5 }),
-            text(signed(leg.profit), { size: "xxs", weight: "bold", align: "end", color: tone(leg.profit), flex: 3 }),
+            text(signed(profit), { size: "xxs", weight: "bold", align: "end", color: tone(profit), flex: 3 }),
           ],
         },
         bar,
@@ -404,13 +440,16 @@ function legsBubble(snapshot: PortfolioSnapshot, buttons: LineMessage[]): LineMe
   });
 
   const win = legs.filter((l) => l.profit >= 0).length;
+  // ยอดรวมของเดือนมาจาก `monthly[].profit` (เส้นทุนของทั้งพอร์ต) ไม่ใช่บวกรายขาเอง
+  // — ที่มาเดียวกับกราฟบนเว็บ ⇒ เลขตรงกันเสมอ
+  const total = month ? month.profit : snapshot.kpi.profit;
   rows.push(
-    tally("รวมทุกขา", signed(snapshot.kpi.profit), tone(snapshot.kpi.profit),
-      "แถบไปทางขวา = บวก · ไปทางซ้าย = ลบ · เรียงจากทำเงินมากสุดลงมา"),
+    tally("รวมทุกขา", signed(total), tone(total),
+      `ทั้งปี ${signed(snapshot.kpi.profit)} · แถบไปทางขวา = บวก · ไปทางซ้าย = ลบ · เรียงจากทำเงินมากสุดลงมา`),
   );
 
   return bubble({
-    kicker: `ปี 25${snapshot.testYears[0] ?? ""} · ทั้งปี`,
+    kicker: month ? monthLabel : `ปี 25${snapshot.testYears[0] ?? ""} · ทั้งปี`,
     title: "ขาไหนบวก ขาไหนลบ",
     when: `บวก ${win} ขา · ลบ ${legs.length - win} ขา`,
     body: rows,
@@ -485,8 +524,9 @@ export function buildDrawCard(input: CardInput): LineMessage[] {
   const day = dayBubble(report);
   if (day) bubbles.push(day);
   if (snapshot) {
-    bubbles.push(portfolioBubble(snapshot, monthLabel));
-    if (snapshot.legs.length > 0) bubbles.push(legsBubble(snapshot, buttons));
+    const monthRow = monthOf(snapshot, report.date);
+    bubbles.push(portfolioBubble(snapshot, monthLabel, monthRow));
+    if (snapshot.legs.length > 0) bubbles.push(legsBubble(snapshot, monthLabel, monthRow, buttons));
   }
   if (bubbles.length > 0 && !bubbles.some((b) => b.footer)) {
     bubbles[bubbles.length - 1].footer = {
