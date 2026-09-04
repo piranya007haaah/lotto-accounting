@@ -568,7 +568,20 @@ export function buildDrawCard(input: CardInput): LineMessage[] {
   if (first) bubbles.push(first);
   const day = dayBubble(report);
   if (day) bubbles.push(day);
-  if (snapshot) {
+  /*
+   * ภาพรวมพอร์ต + รายขา โผล่เฉพาะ **หวยตัวสุดท้ายของวัน** เท่านั้น
+   *
+   * ระหว่างวันคำถามคือ "งวดนี้เป็นไง · วันนี้ถึงตอนนี้เท่าไหร่" ภาพรวมทั้งพอร์ตยัง
+   * ไม่เปลี่ยนพอให้ดูทุกรอบ · และใบรายขา (9 ขา) เป็นใบที่สูงที่สุด — carousel ของ LINE
+   * บังคับให้ทุกใบสูงเท่ากัน ⇒ มันลากใบสั้น ๆ ให้โล่งตามไปด้วยทุกครั้ง
+   * (กติกาเดียวกับฝั่ง Python: เวลาช้าสุดของพอร์ต = ส่งรายงานรวมทั้งพอร์ต)
+   *
+   * `allDone` เผื่อกรอกข้ามลำดับ — กรอกครบทุกหวยของวันแล้วก็ควรได้สรุปเหมือนกัน
+   */
+  const last = report.lotteries[report.lotteries.length - 1];
+  const isLastOfDay = Boolean(last) && last.lottery === lottery;
+  const allDone = report.totalCount > 0 && report.doneCount >= report.totalCount;
+  if (snapshot && (isLastOfDay || allDone)) {
     const monthRow = monthOf(snapshot, report.date);
     bubbles.push(portfolioBubble(snapshot, monthLabel, monthRow));
     if (snapshot.legs.length > 0) bubbles.push(legsBubble(snapshot, monthLabel, monthRow, buttons));
