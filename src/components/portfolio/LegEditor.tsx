@@ -15,7 +15,7 @@ import { formatBahtShort } from "@/lib/format";
 import type { PortfolioLegConfig } from "@/lib/lottery/portfolio-config";
 import { NumberField } from "./fields";
 import { ManualNumbers } from "./ManualNumbers";
-import { isMonthly, legCost, legDigits, legModeText } from "./leg-utils";
+import { isMonthly, legCost, legDigits, legModeText, payoutWarning } from "./leg-utils";
 
 export function LegEditor({
   leg,
@@ -31,6 +31,7 @@ export function LegEditor({
 }) {
   const digits = legDigits(leg);
   const usesFormula = leg.mode !== "manual";
+  const rateWarning = payoutWarning(leg);
   // ลบขา = 2 จังหวะเหมือนลบพอร์ต — เลขที่พิมพ์มาทั้งชุดหายในคลิกเดียวเจ็บเกินไป
   const [confirming, setConfirming] = useState(false);
   // ⚠️ ลบขากลางลิสต์แล้ว index ของขาที่เหลือจะเลื่อนขึ้นมาแทน — ถ้าบังเอิญได้ key เดิม
@@ -67,6 +68,16 @@ export function LegEditor({
           onChange={(value) => onChange({ ...leg, payout_rate: value })}
         />
       </div>
+
+      {/* เรตผิดชั้นไม่ทำให้อะไรพัง มันแค่คูณกำไรผิดสิบเท่าเงียบ ๆ ⇒ ต้องเห็นตรงนี้ */}
+      {rateWarning ? (
+        <p
+          className="text-[10.5px] leading-relaxed font-semibold"
+          style={{ color: "var(--color-money-in)" }}
+        >
+          ⚠️ {rateWarning}
+        </p>
+      ) : null}
 
       {usesFormula ? (
         // ขาที่ใช้สูตรเลือกเลขให้ — แก้เลขตรงนี้ไม่ได้ เพราะสูตรจะคำนวณทับทุกครั้งที่รัน

@@ -178,6 +178,25 @@ export function setMonthlyNumbers(
   return { ...leg, manual_months: kept, manual_nums: union, n_bet: widest };
 }
 
+/**
+ * เรตจ่ายที่ตั้งไว้ "ผิดชั้น" หรือเปล่า — คืนข้อความเตือน หรือ null ถ้าดูปกติ
+ *
+ * เรตของเลข 2 หลักอยู่แถว ๆ 90-100 · 3 หลักแถว ๆ 900-1000 ⇒ ห่างกันสิบเท่า
+ * ตั้งสลับชั้นกันแล้ว **ไม่มี error อะไรเลย** มีแต่กำไรที่พองหรือแฟบไปสิบเท่า
+ * ⇒ ต้องเตือนบนจอ ไม่ใช่รอให้คนสังเกตเอาเองว่าตัวเลขดูดีเกินจริง
+ */
+export function payoutWarning(leg: PortfolioLegConfig): string | null {
+  const digits = legDigits(leg);
+  const rate = leg.payout_rate;
+  if (digits === 2 && rate >= 200) {
+    return `เรตจ่าย ${rate} เป็นเรตของเลข 3 หลัก — ขานี้เป็น 2 หลัก ปกติอยู่แถว 90-100`;
+  }
+  if (digits === 3 && rate < 200) {
+    return `เรตจ่าย ${rate} เป็นเรตของเลข 2 หลัก — ขานี้เป็น 3 หลัก ปกติอยู่แถว 900-1000`;
+  }
+  return null;
+}
+
 /** ป้ายที่โชว์ของขา — รูปแบบเดียวกับที่ฝั่ง Python ตั้งไว้ */
 export function legLabel(flag: string, lottery: string, position: string): string {
   return `${flag} ${lottery} · ${position}`;
@@ -223,15 +242,27 @@ export interface DatasetGroup {
  * ถึงจะรู้ `n_bet` ⇒ ตั้งค่าผิดแล้วพอร์ตจะคำนวณไม่ออกโดยไม่รู้ว่าพลาดตรงไหน
  * ขากำหนดเลขเองเห็นผลทันทีจากเลขที่พิมพ์ · ขาโหมดสูตรยังตั้งได้ที่แอปเดิม
  *
- * เรตจ่าย/เงินแทงลอกจากขาสุดท้ายที่มีอยู่ (พอร์ตหนึ่งมักแทงเท่ากันทุกขา) — ไม่มีขาเลย
+ * เรตจ่าย/เงินแทงลอกจากขาที่มีอยู่ (พอร์ตหนึ่งมักแทงเท่ากันทุกขา) — ไม่มีขาเลย
  * ก็ใช้ค่ามาตรฐานของจำนวนหลักนั้น (2 ตัวจ่าย 100 · 3 ตัวจ่าย 1000)
+ *
+ * ⚠️⚠️ **ต้องลอกจากขาที่หลักเท่ากันเท่านั้น** — เรตจ่ายของ 2 หลัก (~100) กับ 3 หลัก
+ * (~1000) ต่างกันสิบเท่า · เคยลอกจาก "ขาสุดท้ายในพอร์ต" เฉย ๆ แล้วขา 2 หลักที่เพิ่ม
+ * ต่อจากขาสามบนได้เรต 1000 ติดมา ⇒ ถูกทีเดียวได้เงินสิบเท่าของจริง กำไรทั้งพอร์ต
+ * พองขึ้นเป็นล้านโดยไม่มี error อะไรเลย (เจอจริง ก.ย. 2569 ตอนเพิ่มขาหุ้นฮั่งเส็ง)
  */
 export function newManualLeg(
   group: DatasetGroup,
   testYear: string,
-  like?: PortfolioLegConfig,
+  existing?: readonly PortfolioLegConfig[] | PortfolioLegConfig,
 ): PortfolioLegConfig {
   const digits = group.digits === 3 ? 3 : 2;
+  const pool = Array.isArray(existing)
+    ? (existing as readonly PortfolioLegConfig[])
+    : existing
+      ? [existing as PortfolioLegConfig]
+      : [];
+  // ขาหลังสุดที่หลักเท่ากัน — หลักไม่เท่ากันคือคนละเรตคนละเงินแทง ห้ามลอกข้ามกัน
+  const like = [...pool].reverse().find((leg) => legDigits(leg) === digits);
   return {
     group_label: legLabel(group.flag || "🎰", group.lottery, group.position),
     lottery: group.lottery,

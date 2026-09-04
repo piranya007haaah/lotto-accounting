@@ -544,7 +544,7 @@ export default function PortfolioPage() {
               loading={groups === null && groupsError === null}
               error={groupsError}
               onAdd={(group, testYear) => {
-                setLegs([...legs, newManualLeg(group, testYear, legs[legs.length - 1])]);
+                setLegs([...legs, newManualLeg(group, testYear, legs)]);
                 setPicking(false);
               }}
               onCancel={() => setPicking(false)}
