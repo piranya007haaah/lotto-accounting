@@ -62,6 +62,17 @@ function LegRow({
   onToggle: () => void;
 }) {
   const months = Object.keys(leg.monthSets);
+  /**
+   * อัตราถูกที่ "เท่าทุน" ของขานี้ = `n_bet / เรตจ่าย` — แทง n เลข ถูกครั้งหนึ่งได้ `เรต`
+   * เท่า ⇒ ต่ำกว่านี้คือขาดทุน สูงกว่านี้คือขอบของชุดเลข
+   *
+   * มีไว้เพราะ "ถูก 65%" อ่านแล้วไม่รู้ว่าดีหรือแย่ถ้าไม่รู้ว่าแทงกี่เลข · ที่เรตเท่าทุน
+   * (2 ตัวจ่าย 100 · 3 ตัวจ่าย 1000) การสุ่มล้วนจะได้พอดีเส้นนี้ทุกครั้ง
+   * ⚠️ ขาที่ตั้งเลขแยกรายเดือนไม่โชว์ — `nBet` ของมันคือเดือนที่แทงเยอะสุด
+   * (worst case ของต้นทุน) ไม่ใช่จำนวนเลขที่แทงจริงทุกงวด เส้นเท่าทุนจะสูงเกินจริง
+   */
+  const breakEven =
+    months.length === 0 && leg.payoutRate > 0 ? (leg.nBet / leg.payoutRate) * 100 : null;
   return (
     // ทั้งแถวกดได้ — บนมือถือปุ่มเล็ก ๆ ท้ายแถวกดพลาดตลอด
     <button type="button" className="row w-full py-2.5 text-left" onClick={onToggle}>
@@ -82,7 +93,9 @@ function LegRow({
       </div>
       <p className="dim mt-1 text-[10.5px]">
         แทง {leg.nBet} เลข × {formatBahtShort(leg.betPerNumber)} บ. · เรต {leg.payoutRate} · ถูก{" "}
-        {leg.wins}/{leg.draws} งวด ({leg.winRate.toFixed(1)}%) · แพ้ติดกัน {leg.lossStreak} งวด
+        {leg.wins}/{leg.draws} งวด ({leg.winRate.toFixed(1)}%)
+        {breakEven !== null ? ` · เท่าทุนที่ ${breakEven.toFixed(1)}%` : ""} · แพ้ติดกัน{" "}
+        {leg.lossStreak} งวด
         {months.length > 0 ? ` · ตั้งเลขแยก ${months.length} เดือน` : ""}
         {open ? "" : " · แตะดูรายงานของขานี้"}
       </p>
