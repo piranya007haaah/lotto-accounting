@@ -74,6 +74,11 @@ export function LegReport({
   const turnover = monthly ? null : leg.nBet * leg.betPerNumber * leg.draws;
   const roiPct = turnover && turnover > 0 ? (leg.profit / turnover) * 100 : null;
 
+  // เงินที่ได้กลับมาจากงวดที่ถูก · ต้นทุนถอยกลับจาก "ได้ − กำไร" ⇒ ตรงกับ engine เสมอ
+  // แม้แต่ขารายเดือนที่แทงไม่เท่ากันทุกงวด (เอา n_bet คูณตรง ๆ ไม่ได้)
+  const prize = leg.wins * leg.betPerNumber * leg.payoutRate;
+  const spent = prize - leg.profit;
+
   return (
     <div className="space-y-2.5 pb-3">
       <div className="grid grid-cols-3 gap-1.5">
@@ -109,6 +114,55 @@ export function LegReport({
           value={formatBahtShort(leg.worstMonthDd)}
           sub="ร่วงจากยอดสูงสุดในเดือนนั้น"
         />
+      </div>
+
+      {/* ───── คิดมาจากไหน ─────
+          เลขกำไรของขาเป็นแค่ 2 ก้อนลบกัน แต่บนจอเห็นแต่ผลลัพธ์ ⇒ คนคิดมือแล้วไม่ตรง
+          ก็ไม่รู้ว่าพลาดตรงไหน · จุดที่พลาดกันบ่อยสุดคือ **งวดที่ถูกก็เสียต้นทุนงวดนั้น**
+          (เงินแทงไม่ได้คืน) กับ **ต้นทุนคิดจากเลขทุกตัวที่แทง ไม่ใช่ตัวที่ถูก**
+
+          ⚠️ ต้นทุนคำนวณย้อนจาก `ได้ − กำไร` ไม่ใช่ `งวด × n_bet × เงินแทง` เพราะขา
+          ตั้งเลขรายเดือนแทงไม่เท่ากันทุกงวด ⇒ สูตรตรง ๆ จะเกินจริง · แบบนี้ตรงเสมอ */}
+      <div className="rounded-xl px-2.5 py-2" style={{ background: "var(--subtle)" }}>
+        <p className="muted text-[10.5px] font-semibold">กำไรนี้คิดมาจาก</p>
+        <div className="mt-1 space-y-0.5 text-[11px]">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="dim min-w-0 flex-1">
+              ได้จากที่ถูก {leg.wins} งวด × {formatBahtShort(leg.betPerNumber)} × เรต {leg.payoutRate}
+            </span>
+            <span className="tnum flex-none font-semibold" style={{ color: "var(--color-money-out)" }}>
+              +{prize.toLocaleString("th-TH")}
+            </span>
+          </div>
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="dim min-w-0 flex-1">
+              ต้นทุนที่ลงไป{" "}
+              {monthly
+                ? `${leg.draws} งวด (แทงไม่เท่ากันทุกเดือน)`
+                : `${leg.draws} งวด × ${leg.nBet} เลข × ${formatBahtShort(leg.betPerNumber)}`}
+            </span>
+            <span className="tnum flex-none font-semibold" style={{ color: "var(--color-money-in)" }}>
+              −{spent.toLocaleString("th-TH")}
+            </span>
+          </div>
+          <div
+            className="flex items-baseline justify-between gap-2 pt-1"
+            style={{ borderTop: "1px solid var(--divider)" }}
+          >
+            <span className="flex-1 font-semibold">เหลือ</span>
+            <span
+              className="tnum flex-none font-bold"
+              style={{ color: leg.profit >= 0 ? "var(--color-money-out)" : "var(--color-money-in)" }}
+            >
+              {formatSigned(leg.profit)}
+            </span>
+          </div>
+        </div>
+        <p className="dim mt-1.5 text-[10px] leading-relaxed">
+          ⚠️ <b>งวดที่ถูกก็เสียต้นทุนของงวดนั้นด้วย</b> — เงินแทงไม่ได้คืนมา ·
+          ต้นทุนคิดจาก<b>เลขทุกตัวที่แทง</b> ไม่ใช่เฉพาะตัวที่ถูก ·
+          วันหยุด/วันที่ยังไม่มีผลไม่คิดต้นทุน จึงนับเป็น {leg.draws} งวด
+        </p>
       </div>
 
       {leg.curve.length > 1 ? (
