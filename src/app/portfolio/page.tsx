@@ -19,13 +19,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/LiffProvider";
-import { LegCard } from "@/components/portfolio/LegCard";
-import { PortfolioEditor } from "@/components/portfolio/PortfolioEditor";
+import { LegEditor } from "@/components/portfolio/LegEditor";
 import { SnapshotView } from "@/components/portfolio/SnapshotView";
-import type { DatasetGroup } from "@/components/portfolio/AddLeg";
 import { digitsOfPosition, legCost, stableJson } from "@/components/portfolio/leg-utils";
-import { seqKey } from "@/components/portfolio/rank-preview";
-import { Alert, Chip, EmptyState, PageHeader, SectionTitle, Spinner } from "@/components/ui";
+import { Alert, Chip, EmptyState, PageHeader, Spinner } from "@/components/ui";
 import { formatBahtShort } from "@/lib/format";
 import type { LotteryPortfolio, PortfolioConfig } from "@/lib/lottery/portfolio-config";
 import {
@@ -79,6 +76,11 @@ function toPortfolio(row: PortfolioRow): LotteryPortfolio {
   return { id: row.id, name: row.name, source: row.source, capital: row.capital, config: row.config };
 }
 
+/** คีย์ของผลหวย 1 ปี-กลุ่ม (เดิมอยู่ใน rank-preview ที่ตัดทิ้งไปพร้อมแผงเลือกสูตร) */
+function seqKey(lottery: string, position: string, year: string): string {
+  return `${lottery}|${position}|${year}`;
+}
+
 export default function PortfolioPage() {
   const { api, canViewLottery, isAdmin } = useAuth();
 
@@ -92,13 +94,14 @@ export default function PortfolioPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedNote, setSavedNote] = useState<string | null>(null);
 
-  const [groups, setGroups] = useState<DatasetGroup[]>([]);
   const [sequences, setSequences] = useState<Map<string, DatasetSequence>>(new Map());
   const [seqError, setSeqError] = useState<string | null>(null);
   const pending = useRef(new Set<string>());
 
   const [legacy, setLegacy] = useState<SnapshotResponse | null>(null);
   const [showNumbers, setShowNumbers] = useState(false);
+  /** หน้าเดียวทำ 2 เรื่อง (ดูผล/แก้ตั้งค่า) — กองรวมกันแล้วหาของไม่เจอ จึงแยกเป็นแท็บ */
+  const [tab, setTab] = useState<"result" | "edit">("result");
 
   /* ───────────────── โหลดรายการพอร์ต (ตัวตั้งค่า) ───────────────── */
   const loadPortfolios = useCallback(async () => {
@@ -194,26 +197,6 @@ export default function PortfolioPage() {
       loadGroupSequences(leg.lottery, leg.position);
     }
   }, [draft, loadGroupSequences]);
-
-  // รายชื่อหวยทั้งหมด — ไว้ให้แผง "เพิ่มขา" เลือก (ผู้ดูแลเท่านั้นที่ได้ใช้)
-  useEffect(() => {
-    if (!canViewLottery || !isAdmin) return;
-    void (async () => {
-      try {
-        const data = await api<{ groups: DatasetGroup[] }>("/api/lottery/datasets");
-        setGroups(data.groups);
-      } catch {
-        /* เพิ่มขาใหม่ไม่ได้ก็ยังแก้ขาเดิมได้ — แผงเพิ่มขาบอกเองว่าโหลดไม่ได้ */
-      }
-    })();
-  }, [api, canViewLottery, isAdmin]);
-
-  /** map แบบสตริงล้วน ไว้ส่งให้ตัวจัดอันดับ n_bet */
-  const sequenceText = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const [key, value] of sequences) map.set(key, value.sequence);
-    return map;
-  }, [sequences]);
 
   /* ───────────────── snapshot เก่าจากแอป Streamlit (ตัวสำรอง) ───────────────── */
   useEffect(() => {
@@ -341,39 +324,39 @@ export default function PortfolioPage() {
         </div>
       ) : null}
 
-      {/* ───── แก้ไข (ผู้ดูแลเท่านั้น) ───── */}
+      {/* ───── 2 แท็บ: ดูผล / แก้ตั้งค่า — หน้าเดียวทำสองเรื่องแล้วหาของไม่เจอ ───── */}
       {draft && isAdmin ? (
-        <PortfolioEditor
-          draft={draft}
-          onChange={setDraft}
-          groups={groups}
-          sequences={sequenceText}
-          onNeedSequences={loadGroupSequences}
-        />
+        <div className="flex gap-1.5">
+          <Chip active={tab === "result"} onClick={() => setTab("result")}>
+            📊 ผลย้อนหลัง
+          </Chip>
+          <Chip active={tab === "edit"} onClick={() => setTab("edit")}>
+            ✏️ แก้ตั้งค่า
+          </Chip>
+        </div>
       ) : null}
 
-      {/* ───── อ่านอย่างเดียว (คนที่ไม่ใช่ผู้ดูแล) ───── */}
-      {draft && !isAdmin ? (
-        <section className="card px-3.5 py-3">
-          <SectionTitle>ขาทั้งหมดในพอร์ต ({draft.config.legs.length})</SectionTitle>
+      {/* ───── แท็บแก้ไข — มีแค่ ชุดเลข · เรตจ่าย · เงินแทง ───── */}
+      {draft && isAdmin && tab === "edit" ? (
+        <div className="space-y-2.5">
           {draft.config.legs.map((leg, index) => (
-            <LegCard
+            <LegEditor
               key={`${leg.lottery}|${leg.position}|${index}`}
               leg={leg}
               index={index}
-              capital={draft.capital}
-              sequences={sequenceText}
-              open={false}
-              canEdit={false}
-              onToggle={() => {}}
-              onChange={() => {}}
-              onDelete={() => {}}
+              onChange={(next) => {
+                const legs = [...draft.config.legs];
+                legs[index] = next;
+                setDraft({ ...draft, config: { ...draft.config, legs } as PortfolioConfig });
+              }}
             />
           ))}
-          <p className="dim mt-2 text-[10.5px] leading-relaxed">
-            ต้นทุนรวมทุกขา <b>{formatBahtShort(totalCost)}</b> บ./งวด · แก้พอร์ตได้เฉพาะผู้ดูแล
+          <p className="dim px-1 text-[10.5px] leading-relaxed">
+            ต้นทุนรวมทุกขา <b>{formatBahtShort(totalCost)}</b> บ./งวด
+            <br />
+            เพิ่ม/ลบขา · เปลี่ยนหวย · เปลี่ยนสูตร ยังต้องทำที่แอปเดิม (Streamlit)
           </p>
-        </section>
+        </div>
       ) : null}
 
       {seqError ? <Alert tone="warn">โหลดผลหวยบางส่วนไม่สำเร็จ: {seqError}</Alert> : null}
@@ -381,7 +364,7 @@ export default function PortfolioPage() {
       {savedNote && !dirty ? <Alert tone="success">{savedNote}</Alert> : null}
 
       {/* ───── ผลย้อนหลัง ───── */}
-      {computed.snapshot ? (
+      {tab === "edit" && isAdmin ? null : computed.snapshot ? (
         <>
           <Alert tone={dirty ? "warn" : "info"}>
             {dirty
