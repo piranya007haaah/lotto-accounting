@@ -26,6 +26,8 @@ export interface DatasetRow {
   flag: string;
   year: string;
   sequence: string;
+  /** 1 งวด = กี่ตัวอักษร (2 = สองบน/สองล่าง · 3 = สามบน) — แถวเก่าที่ยังไม่มีค่า = 2 */
+  digits?: number;
 }
 
 export interface RankRow {

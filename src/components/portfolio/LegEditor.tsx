@@ -1,15 +1,16 @@
 "use client";
 
 /**
- * แผงแก้ขา — **ตั้งใจให้มีแค่ 3 อย่าง**: ชุดเลขที่แทง · เรตจ่าย · เงินแทงต่อตัว
+ * แผงแก้ขา — ชุดเลขที่แทง · เรตจ่าย · เงินแทงต่อตัว (+ ปุ่มลบขา)
  *
- * ทำไมเหลือเท่านี้: ของเดิมมีครบทุกปุ่ม (เพิ่ม/ลบขา · เปลี่ยนสูตร · เลือกอันดับ · ชื่อพอร์ต ·
- * ทุน) แล้วหน้าจอแน่นจนหาสิ่งที่อยากแก้จริง ๆ ไม่เจอ — สามอย่างนี้คือของที่แก้บ่อยทุกงวด
- * ที่เหลือแก้ปีละครั้งและยังทำได้ที่แอปเดิม ⇒ ตัดออกจนกว่าจะมีคนคิดถึงมันจริง ๆ
+ * ยังไม่มีในนี้โดยตั้งใจ: เปลี่ยนหวย/ตำแหน่ง/ปี · เปลี่ยนสูตร/อันดับ — ของเดิมมีครบทุกปุ่ม
+ * แล้วหน้าจอแน่นจนหาสิ่งที่อยากแก้จริง ๆ ไม่เจอ · เปลี่ยนหวย/ปี = **คนละขากันแล้ว**
+ * (เลข ต้นทุน ผลย้อนหลัง คนละชุดหมด) ⇒ ลบขาแล้วเพิ่มใหม่ ไม่ใช่แก้ทับ
  *
  * ⚠️ แก้ที่นี่ = แก้ "สำเนาที่กำลังแก้" เท่านั้น ยังไม่บันทึกจนกว่าจะกดปุ่มบันทึกของทั้งหน้า
  */
 
+import { useEffect, useState } from "react";
 import { formatBahtShort } from "@/lib/format";
 import type { PortfolioLegConfig } from "@/lib/lottery/portfolio-config";
 import { NumberField } from "./fields";
@@ -20,13 +21,22 @@ export function LegEditor({
   leg,
   index,
   onChange,
+  onRemove,
 }: {
   leg: PortfolioLegConfig;
   index: number;
   onChange: (next: PortfolioLegConfig) => void;
+  /** ไม่ส่งมา = ลบขาไม่ได้ (เช่นคนที่ไม่ใช่ผู้ดูแล) */
+  onRemove?: () => void;
 }) {
   const digits = legDigits(leg);
   const usesFormula = leg.mode !== "manual";
+  // ลบขา = 2 จังหวะเหมือนลบพอร์ต — เลขที่พิมพ์มาทั้งชุดหายในคลิกเดียวเจ็บเกินไป
+  const [confirming, setConfirming] = useState(false);
+  // ⚠️ ลบขากลางลิสต์แล้ว index ของขาที่เหลือจะเลื่อนขึ้นมาแทน — ถ้าบังเอิญได้ key เดิม
+  // (พอร์ตที่มีหวย/ตำแหน่งเดียวกัน 2 ขา) React จะใช้คอมโพเนนต์ตัวเดิมต่อ แล้วปุ่ม
+  // "ลบขา" ที่ง้างไว้จะค้างอยู่บนขาใหม่ ⇒ แตะพลาดทีเดียวขาถัดไปหายอีกขา
+  useEffect(() => setConfirming(false), [leg]);
 
   return (
     <section className="card space-y-2.5 px-3.5 py-3">
@@ -72,6 +82,37 @@ export function LegEditor({
         {formatBahtShort(leg.bet_per_number)} บ.
         {isMonthly(leg) ? " · คิดจากเดือนที่แทงเยอะสุด" : ""})
       </p>
+
+      {onRemove ? (
+        confirming ? (
+          <div className="flex items-center gap-2">
+            <span className="flex-1 text-[11.5px] leading-tight font-semibold">ลบขานี้ออกจากพอร์ต?</span>
+            <button
+              type="button"
+              className="btn btn-ghost flex-none py-1.5 text-[12px]"
+              onClick={() => setConfirming(false)}
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="button"
+              className="btn flex-none py-1.5 text-[12px] font-semibold"
+              style={{ background: "var(--color-money-in)", color: "#fff" }}
+              onClick={onRemove}
+            >
+              ลบขา
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="btn btn-ghost py-1.5 text-[12px]"
+            onClick={() => setConfirming(true)}
+          >
+            🗑️ ลบขานี้
+          </button>
+        )
+      ) : null}
     </section>
   );
 }

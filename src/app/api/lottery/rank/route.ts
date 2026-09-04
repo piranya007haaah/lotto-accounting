@@ -43,10 +43,14 @@ export const GET = route(async (request) => {
   const payoutRate = intParam(query.get("payout"), 100, 1, 10000);
 
   // ปีหลัง test ไม่ต้องดึงเลย — ห้ามใช้เป็น train อยู่แล้ว (lookahead) และเปลืองแบนด์วิดท์
+  // ⚠️⚠️ `digits: 2` ไม่ใช่ของประดับ — ตารางเดียวกันนี้เก็บสามบนไว้ด้วย (3 ตัวอักษร/งวด)
+  // สูตรในหน้านี้เป็นสูตร 2 ตัวล้วน อ่านสามบนเข้ามาแล้วมันจะหั่นทีละ 2 ตัวอักษร
+  // ⇒ ได้ "เลข" ที่ไม่ใช่ผลหวยอะไรเลย และตารางอันดับจะมีแถวปลอมโดยไม่มี error ให้เห็น
   let entries: DatasetRow[];
   try {
-    entries = await readAllDatasetRows({ upToYear: testYear });
+    entries = await readAllDatasetRows({ upToYear: testYear, digits: 2 });
   } catch (caught) {
+    if (caught instanceof HttpError) throw caught;
     throw new HttpError(500, `อ่านผลหวยไม่สำเร็จ: ${(caught as Error).message}`);
   }
 

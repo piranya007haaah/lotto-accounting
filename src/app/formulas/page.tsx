@@ -125,7 +125,8 @@ export default function FormulasPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const data = await api<GroupsResponse>("/api/lottery/datasets");
+        // `digits=2` — สูตรในหน้านี้เป็นสูตร 2 ตัวล้วน · ตารางผลหวยเก็บสามบนไว้ด้วย
+        const data = await api<GroupsResponse>("/api/lottery/datasets?digits=2");
         if (cancelled) return;
         setYears(data.years);
         setTestYear((current) => current || data.years[data.years.length - 1] || "");

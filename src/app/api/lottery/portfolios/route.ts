@@ -191,3 +191,37 @@ export const PUT = route(async (request) => {
 
   return ok({ portfolio: data as unknown as PortfolioRow });
 });
+
+export const DELETE = route(async (request) => {
+  await requireAdmin(request);
+
+  const raw = new URL(request.url).searchParams.get("id") ?? "";
+  const id = Number.parseInt(raw, 10);
+  if (!Number.isInteger(id) || id < 1) {
+    throw new HttpError(400, "ต้องบอกเลขพอร์ตที่จะลบ (?id=)", "bad_payload");
+  }
+
+  const supabase = supabaseAdmin();
+
+  // ลบแล้วต้องรู้ว่าลบอะไรไป — `.select()` คืนแถวที่หายไปจริง ๆ ไม่ใช่เดาว่าสำเร็จ
+  const { data, error } = await supabase.from(TABLE).delete().eq("id", id).select("id, name");
+  if (isMissingTableError(error)) throw missingMigration("ลบพอร์ต");
+  if (error) throw new HttpError(500, `ลบพอร์ตไม่สำเร็จ: ${error.message}`);
+
+  const deleted = (data ?? []) as { id: number; name: string }[];
+  if (deleted.length === 0) throw new HttpError(404, `ไม่มีพอร์ตเลข ${id}`, "not_found");
+
+  // ⚠️ ต้องลบ snapshot เก่าของพอร์ตนี้ด้วย — ไม่งั้น `GET /api/portfolio/snapshot`
+  // แบบไม่ระบุ id จะหยิบแถวแรกที่เจอ ซึ่งอาจเป็นพอร์ตที่เพิ่งลบไป แล้วหน้าจอจะโชว์
+  // ตัวเลขของพอร์ตที่ไม่มีอยู่แล้วโดยไม่มีใครรู้ (ล้มตรงนี้ = แค่เตือน ไม่ปลุกให้ลบไม่สำเร็จ)
+  const { error: snapshotError } = await supabase
+    .from("portfolio_snapshots")
+    .delete()
+    .eq("portfolio_id", id);
+
+  return ok({
+    deleted: deleted[0],
+    snapshotRemoved: !snapshotError,
+    snapshotError: snapshotError?.message ?? null,
+  });
+});

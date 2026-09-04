@@ -57,3 +57,34 @@ export function NumberField({
     </label>
   );
 }
+
+/** ช่องกรอกข้อความสั้น ๆ (ชื่อพอร์ต) — แยกจาก NumberField เพราะไม่ต้องกรองอักขระ */
+export function TextField({
+  label,
+  value,
+  onChange,
+  maxLength = 200,
+  placeholder,
+  help,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  maxLength?: number;
+  placeholder?: string;
+  help?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="field-label">{label}</span>
+      <input
+        className="field"
+        value={value}
+        maxLength={maxLength}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      {help ? <span className="dim mt-1 block text-[10.5px] leading-tight">{help}</span> : null}
+    </label>
+  );
+}

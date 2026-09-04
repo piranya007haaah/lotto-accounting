@@ -88,27 +88,43 @@ export const GET = route(async (request) => {
 
   // เอาแค่คีย์ ไม่ดึง sequence (ทั้งตาราง ~0.8 MB — หนักเกินไปสำหรับตัวเลือก)
   // ⚠️ ต้องไล่ทีละหน้า — Supabase ตัดที่ 1,000 แถวเสมอ (ดู lib/lottery/dataset-read.ts)
-  let data: { lottery: string; position: string; year: string; flag: string }[];
+  //
+  // `?digits=2` = เอาเฉพาะขา 2 ตัว (หน้าเลือกสูตรใช้ — สูตรที่นั่นเป็นสูตร 2 ตัวล้วน)
+  // ไม่ใส่ = ได้ทั้ง 2 และ 3 ตัว พร้อมคอลัมน์ `digits` ติดไปด้วย (หน้าพอร์ตใช้ตอนเพิ่มขา
+  // เพราะพอร์ตมีขาสามบนได้) — **เดาจากชื่อตำแหน่งไม่ได้ ต้องอ่านค่าจริงจากตาราง**
+  const digitsParam = query.get("digits");
+  const digits = digitsParam === "2" ? 2 : digitsParam === "3" ? 3 : undefined;
+
+  let data: { lottery: string; position: string; year: string; flag: string; digits?: number }[];
   try {
-    data = await readAllDatasetRows({ withSequence: false });
+    data = await readAllDatasetRows({ withSequence: false, digits });
   } catch (caught) {
+    if (caught instanceof HttpError) throw caught;
     throw new HttpError(500, `อ่านรายชื่อหวยไม่สำเร็จ: ${(caught as Error).message}`);
   }
 
-  const groups = new Map<string, { lottery: string; position: string; flag: string; years: string[] }>();
+  const groups = new Map<
+    string,
+    { lottery: string; position: string; flag: string; digits: number; years: string[] }
+  >();
   for (const row of data) {
     const key = `${row.lottery}|${row.position}`;
     const group = groups.get(key) ?? {
       lottery: row.lottery as string,
       position: row.position as string,
       flag: (row.flag as string) ?? "🎰",
+      digits: Number(row.digits ?? 2),
       years: [],
     };
     group.years.push(row.year as string);
     groups.set(key, group);
   }
 
-  const all = [...groups.values()];
+  const all = [...groups.values()].map((group) => ({
+    ...group,
+    // ปีใหม่สุดอยู่ท้าย — ตัวเลือก "ปีที่ทดสอบ" หยิบตัวท้ายเป็นค่าเริ่มต้นได้เลย
+    years: [...new Set(group.years)].sort(),
+  }));
   return ok({
     groups: all,
     years: [...new Set(all.flatMap((g) => g.years))].sort(),

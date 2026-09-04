@@ -10,7 +10,7 @@
  * ต้องคิดแบบนี้เสมอ และหน้าจอต้องพูดออกมาให้ชัด ไม่ใช่ปล่อยให้เดา
  */
 
-import type { PortfolioLegConfig } from "@/lib/lottery/portfolio-config";
+import type { PortfolioConfig, PortfolioLegConfig } from "@/lib/lottery/portfolio-config";
 
 export const MONTH_SHORT = [
   "ม.ค.",
@@ -203,4 +203,68 @@ export function stableJson(value: unknown): string {
     for (const key of Object.keys(source).sort()) sorted[key] = source[key];
     return sorted;
   });
+}
+
+/* ─────────────────────────── สร้างของใหม่ (ขา / พอร์ต) ─────────────────────────── */
+
+/** กลุ่มผลหวยที่เลือกได้ตอนเพิ่มขา — รูปเดียวกับที่ `/api/lottery/datasets` ส่งมา */
+export interface DatasetGroup {
+  lottery: string;
+  position: string;
+  flag: string;
+  digits: number;
+  years: string[];
+}
+
+/**
+ * ขาใหม่ = โหมด **กำหนดเลขเอง** เสมอ
+ *
+ * ทำไมไม่ให้เลือกสูตรตั้งแต่แรก: ขาโหมดสูตรต้องมีปีเทรน + อันดับ + ต้องรัน `runAllSizes`
+ * ถึงจะรู้ `n_bet` ⇒ ตั้งค่าผิดแล้วพอร์ตจะคำนวณไม่ออกโดยไม่รู้ว่าพลาดตรงไหน
+ * ขากำหนดเลขเองเห็นผลทันทีจากเลขที่พิมพ์ · ขาโหมดสูตรยังตั้งได้ที่แอปเดิม
+ *
+ * เรตจ่าย/เงินแทงลอกจากขาสุดท้ายที่มีอยู่ (พอร์ตหนึ่งมักแทงเท่ากันทุกขา) — ไม่มีขาเลย
+ * ก็ใช้ค่ามาตรฐานของจำนวนหลักนั้น (2 ตัวจ่าย 100 · 3 ตัวจ่าย 1000)
+ */
+export function newManualLeg(
+  group: DatasetGroup,
+  testYear: string,
+  like?: PortfolioLegConfig,
+): PortfolioLegConfig {
+  const digits = group.digits === 3 ? 3 : 2;
+  return {
+    group_label: legLabel(group.flag || "🎰", group.lottery, group.position),
+    lottery: group.lottery,
+    position: group.position,
+    flag: group.flag || "🎰",
+    digits,
+    // ขากำหนดเลขเองไม่ต้องเทรน — ปีเทรนมีไว้ให้สูตรนับความถี่เท่านั้น
+    train_years: [],
+    test_year: testYear,
+    mode: "manual",
+    formula_name: null,
+    rank: 1,
+    n_bet: 0,
+    manual_nums: [],
+    bet_per_number: like?.bet_per_number ?? 100,
+    payout_rate: like?.payout_rate ?? (digits === 3 ? 1000 : 100),
+  };
+}
+
+/** พอร์ตเปล่าที่ยังไม่ได้บันทึก — `id` เป็น null จนกว่าฝั่ง API จะตั้งเลขให้ */
+export function newPortfolioDraft(name: string): {
+  id: null;
+  name: string;
+  source: string | null;
+  capital: number;
+  config: PortfolioConfig;
+} {
+  return {
+    id: null,
+    name,
+    source: "สร้างในแอปบัญชี",
+    capital: 0,
+    // ยังไม่ติ๊ก "ใช้จริง" — พอร์ตใหม่ที่ยังไม่มีขาไม่ควรไปแทนที่พอร์ตที่รายงานอยู่
+    config: { legs: [], is_active: false },
+  };
 }
