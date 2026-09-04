@@ -96,6 +96,31 @@ export function pushMessage(to: string, messages: LineMessage[]) {
  * ⚠️ ห้ามใช้ `pushMessage` แทน แล้วเดาว่า "ไม่ throw = ส่งสำเร็จ" — มันไม่ throw อยู่แล้ว
  * จะกลายเป็นขึ้นว่าส่งแล้วทั้งที่ LINE ปฏิเสธไปตั้งแต่ต้น
  */
+/**
+ * แปลรหัสที่ LINE ตอบกลับเป็น "ต้องไปแก้อะไร" — ตัวเลขดิบอย่างเดียวหาทางแก้ไม่เจอ
+ *
+ * ⚠️ 400 ที่เจอบ่อยสุดไม่ใช่ payload พัง แต่เป็น **id ปลายทางไม่ใช่ของ channel นี้**:
+ * LINE ผูก userId ไว้กับ *provider* ⇒ userId ที่ได้จาก LINE Login ของแอปหนึ่ง
+ * เอาไป push ด้วย token ของ OA ที่อยู่คนละ provider ไม่ได้ (เจอจริง ก.ย. 2569)
+ */
+function lineErrorHint(status: number, to: string): string | null {
+  if (status === 400) {
+    const kind = to.startsWith("U") ? "userId" : to.startsWith("C") ? "groupId" : "id";
+    return (
+      `${kind} ปลายทางไม่ใช่ของ channel ที่ token นี้สังกัด — LINE ผูก id ไว้กับ provider ` +
+      "⇒ ถ้า token มาจาก OA คนละตัวกับที่ออก id นี้ จะส่งไม่ได้ · " +
+      "ทางที่ชัวร์: ใช้ LINE_REPORT_TO กับ LINE_REPORT_TOKEN ที่มาจาก OA เดียวกัน " +
+      "(ก๊อป line_to + line_channel_access_token จาก Streamlit Secrets มาทั้งคู่)"
+    );
+  }
+  if (status === 401) return "token ไม่ถูกต้องหรือหมดอายุ — ออกใหม่จาก LINE Developers Console";
+  if (status === 403) {
+    return "token ใช้ได้แต่ OA ตัวนี้ไม่มีสิทธิ์ส่งหาปลายทางนี้ — ถ้าเป็นกลุ่ม ต้องเชิญ OA เข้ากลุ่มก่อน";
+  }
+  if (status === 429) return "เกินโควตาข้อความของเดือนนี้ (แผนฟรีของ LINE OA)";
+  return null;
+}
+
 export async function pushMessageResult(
   to: string,
   messages: LineMessage[],
@@ -112,7 +137,11 @@ export async function pushMessageResult(
     });
     if (response.ok) return { ok: true, error: null };
     const detail = await response.text().catch(() => "");
-    return { ok: false, error: `LINE ตอบ ${response.status}: ${detail.slice(0, 300)}` };
+    const hint = lineErrorHint(response.status, to);
+    return {
+      ok: false,
+      error: `LINE ตอบ ${response.status}${hint ? ` — ${hint}` : ""} · ${detail.slice(0, 200)}`,
+    };
   } catch (caught) {
     return { ok: false, error: `ส่งไม่สำเร็จ: ${(caught as Error).message}` };
   }

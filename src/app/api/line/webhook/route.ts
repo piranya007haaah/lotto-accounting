@@ -136,6 +136,23 @@ async function handleEvent(event: LineEvent): Promise<void> {
   if ((event.message.text ?? "").trim().toLowerCase() === "/id") {
     const admins = adminLineUserIds();
     const where = sourceId(event.source);
+    const inGroup = Boolean(event.source?.groupId || event.source?.roomId);
+    /* แชท 1:1 = บอก userId ของคนถามได้เสมอ ไม่ต้องเป็นผู้ดูแล — บอก "id ของตัวคุณเอง"
+     * ให้คนที่กำลังคุยกับเราอยู่คนเดียว ไม่ได้เปิดเผยอะไรให้ใคร
+     * ⚠️ ที่สำคัญกว่านั้น: มันคือทางออกจากงูกินหาง — จะพิมพ์ /id ในกลุ่มได้ต้องอยู่ใน
+     * `LINE_ADMIN_USER_IDS` ก่อน แต่ userId ผูกกับ provider ⇒ ของ OA ตัวใหม่ยังไม่มีใครรู้
+     * ⇒ ทักส่วนตัวถาม id ตัวเองก่อน แล้วค่อยเอาไปใส่ ถึงจะถาม id ของกลุ่มได้ */
+    if (!inGroup && lineUserId && where) {
+      await replyMessage(replyToken, [
+        textMessage(
+          `userId ของคุณ (สำหรับ OA ตัวนี้) คือ\n${where.id}\n\n` +
+            "• ใส่ LINE_REPORT_TO = id นี้ → การ์ดจะเข้าแชทนี้\n" +
+            "• ใส่ LINE_ADMIN_USER_IDS = id นี้ → พิมพ์ /id ในกลุ่มเพื่อขอ id ของกลุ่มได้\n" +
+            "ตั้งที่ Vercel → Settings → Environment Variables (ติ๊ก Production) แล้ว Redeploy",
+        ),
+      ]);
+      return;
+    }
     if (admins.length > 0 && lineUserId && admins.includes(lineUserId) && where) {
       await replyMessage(replyToken, [
         textMessage(
