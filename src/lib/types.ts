@@ -255,6 +255,10 @@ export interface PortfolioMonth {
 export interface PortfolioLeg {
   index: number;
   name: string;
+  /** ชื่อหวย/ตำแหน่งแยกออกมา — ไว้เรียงตามเวลาออกผลโดยไม่ต้องแกะจาก `name`
+   *  ⚠️ ไม่มีใน snapshot เก่าที่ Python ส่งมา (จึงเป็น optional) */
+  lottery?: string;
+  position?: string;
   formula: string;
   digits: number;
   nBet: number;

@@ -608,6 +608,7 @@ export default function PortfolioPage() {
             snapshot={computed.snapshot}
             showNumbers={showNumbers}
             onToggleNumbers={() => setShowNumbers((value) => !value)}
+            times={draft ? scheduleTimes(draft) : undefined}
           />
         </>
       ) : (

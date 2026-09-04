@@ -826,8 +826,15 @@ function legWinRate(detail: LegDetail): { wins: number; draws: number } {
   return { wins, draws };
 }
 
-function buildLegs(result: PortfolioRunResult, monthly: readonly MonthlyRow[]): PortfolioLeg[] {
+function buildLegs(
+  result: PortfolioRunResult & { configs?: readonly LegRunConfig[] },
+  monthly: readonly MonthlyRow[],
+  legsCfg: readonly PortfolioLegConfig[],
+): PortfolioLeg[] {
   return result.details.map((d, i) => {
+    // ⚠️ `details[i]` ไม่ตรงกับ `legs[i]` เสมอไป (ขาที่รันไม่ได้ถูกข้าม) — ต้องผ่าน
+    // `configs[i].legIndex` เท่านั้น ห้ามแกะชื่อหวยจาก `d.name`
+    const cfg = legsCfg[result.configs?.[i]?.legIndex ?? -1];
     const curve = d.profitCurve.map((v) => pyRound(v, 0));
     const risk = computeRiskMetrics(d.profitCurve);
     const spans = monthly.map((m) => drawdownInSpan(d.profitCurve, m.idxStart, m.idxEnd));
@@ -840,6 +847,8 @@ function buildLegs(result: PortfolioRunResult, monthly: readonly MonthlyRow[]): 
     return {
       index: i + 1,
       name: d.name,
+      lottery: cfg?.lottery,
+      position: cfg?.position,
       formula: d.formula,
       digits: d.digits,
       nBet: d.nBet,
@@ -906,7 +915,7 @@ export function computeSnapshot(input: ComputeInput): PortfolioSnapshot {
     worstMonth = monthlyRows[best].label;
   }
 
-  const legs = buildLegs(result, monthlyRows);
+  const legs = buildLegs(result, monthlyRows, legsCfg);
   const wins = legs.reduce((sum, leg) => sum + leg.wins, 0);
   const draws = legs.reduce((sum, leg) => sum + leg.draws, 0);
   const maxDd = Math.trunc(result.maxPortfolioLoss);

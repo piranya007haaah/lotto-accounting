@@ -52,10 +52,13 @@ export function EquityChart({
   values,
   capital,
   monthDivs,
+  months,
 }: {
   values: number[];
   capital: number;
   monthDivs: [string, number][];
+  /** ส่งมาแล้ววาด **เส้นทุนต้นเดือน** (เส้นประ) + กำไรปิดเดือน — แบบเดียวกับแอปเดิม */
+  months?: PortfolioMonth[];
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<Hover | null>(null);
@@ -129,6 +132,39 @@ export function EquityChart({
             </text>
           </g>
         ))}
+
+        {/* ───── เส้นทุนต้นเดือน (เส้นประ) + กำไรปิดเดือน ─────
+            อ่านได้ทันทีว่า "เดือนนี้เริ่มที่เท่าไหร่ แล้วจบตรงไหน" โดยไม่ต้องเทียบกับ
+            ทุนตั้งต้นของทั้งปี — กติกาเดียวกับ `ui.add_month_overlay` ของแอปเดิม
+            ⚠️ สีเขียว/แดงแยกไม่ออกด้วยตาบอดสี ⇒ ป้ายกำไรมี +/− นำหน้าเสมอ */}
+        {(months ?? []).map((m) => {
+          const x1 = geom.x(Math.min(m.idxStart, geom.n - 1));
+          const x2 = geom.x(Math.min(m.idxEnd, geom.n - 1));
+          if (x2 - x1 < 6) return null;
+          return (
+            <g key={`cap-${m.label}-${m.idxStart}`}>
+              <line
+                x1={x1}
+                x2={x2}
+                y1={geom.y(m.capitalStart)}
+                y2={geom.y(m.capitalStart)}
+                stroke="var(--dim)"
+                strokeWidth="1"
+                strokeDasharray="3 3"
+                vectorEffect="non-scaling-stroke"
+              />
+              <text
+                x={x2 - 2}
+                y={geom.y(m.capitalStart) - 4}
+                fontSize="9"
+                textAnchor="end"
+                fill={m.profit >= 0 ? "var(--color-money-out)" : "var(--color-money-in)"}
+              >
+                {formatSigned(m.profit)}
+              </text>
+            </g>
+          );
+        })}
 
         {/* เส้นอ้างอิง = ทุนตั้งต้น */}
         <line

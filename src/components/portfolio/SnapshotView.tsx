@@ -11,10 +11,11 @@
  *    **เครื่องหมาย +/−** และ **ทิศทางของแถบ** เสมอ สีเป็นแค่ของแถม
  */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { EquityChart, MonthlyBars, ProfitBar } from "@/components/PortfolioCharts";
-import { SectionTitle } from "@/components/ui";
+import { Modal, SectionTitle } from "@/components/ui";
 import { formatBahtShort, formatSigned } from "@/lib/format";
+import { comparePositions, minutesOf } from "@/lib/lottery/day-result";
 import type { PortfolioLeg, PortfolioSnapshot } from "@/lib/types";
 import { LegReport } from "./LegReport";
 
@@ -53,12 +54,10 @@ function Kpi({
 function LegRow({
   leg,
   max,
-  open,
   onToggle,
 }: {
   leg: PortfolioLeg;
   max: number;
-  open: boolean;
   onToggle: () => void;
 }) {
   const months = Object.keys(leg.monthSets);
@@ -78,7 +77,7 @@ function LegRow({
     <button type="button" className="row w-full py-2.5 text-left" onClick={onToggle}>
       <div className="flex items-center justify-between gap-2">
         <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">
-          <span className="dim mr-1 text-[11px]">{open ? "▾" : "▸"}</span>
+          <span className="dim mr-1 text-[11px]">▸</span>
           {leg.name}
         </span>
         <span
@@ -97,7 +96,7 @@ function LegRow({
         {breakEven !== null ? ` · เท่าทุนที่ ${breakEven.toFixed(1)}%` : ""} · แพ้ติดกัน{" "}
         {leg.lossStreak} งวด
         {months.length > 0 ? ` · ตั้งเลขแยก ${months.length} เดือน` : ""}
-        {open ? "" : " · แตะดูรายงานของขานี้"}
+        {" · แตะดูรายงานของขานี้"}
       </p>
     </button>
   );
@@ -107,16 +106,47 @@ export function SnapshotView({
   snapshot,
   showNumbers,
   onToggleNumbers,
+  times,
 }: {
   snapshot: PortfolioSnapshot;
   showNumbers: boolean;
   onToggleNumbers: () => void;
+  /** {ชื่อหวย: "HH:MM"} — ส่งมาแล้วเรียงขาตามเวลาที่หวยออกจริง แทนการเรียงตามกำไร */
+  times?: Record<string, string>;
 }) {
   const kpi = snapshot.kpi;
-  /** ขาที่กางรายงานอยู่ (`index` ของขา) — ทีละขาเดียว ไม่งั้นหน้าจอยาวจนหาที่กดต่อไม่เจอ */
+  /** ขาที่เปิดรายงานอยู่ (`index` ของขา) — ป๊อปอัปทีละขาเดียว */
   const [openLeg, setOpenLeg] = useState<number | null>(null);
-  const legsByProfit = [...snapshot.legs].sort((a, b) => b.profit - a.profit);
-  const maxLegProfit = Math.max(1, ...legsByProfit.map((leg) => Math.abs(leg.profit)));
+
+  /**
+   * ลำดับเดียวกับฟอร์มกรอกผลและการ์ด LINE: เวลาที่หวยออก → หวย → สามบน/สองบน/สองล่าง
+   * ไม่ได้ส่ง `times` มา (เช่น snapshot เก่าจาก Python) = เรียงตามกำไรเหมือนเดิม
+   */
+  const ordered = useMemo(() => {
+    const legs = [...snapshot.legs];
+    if (!times) return legs.sort((a, b) => b.profit - a.profit);
+    const seen: string[] = [];
+    for (const leg of legs) {
+      if (leg.lottery && !seen.includes(leg.lottery)) seen.push(leg.lottery);
+    }
+    return legs.sort((a, b) => {
+      const la = a.lottery ?? "";
+      const lb = b.lottery ?? "";
+      if (la !== lb) {
+        return (
+          minutesOf(times[la] ?? null) - minutesOf(times[lb] ?? null) ||
+          seen.indexOf(la) - seen.indexOf(lb)
+        );
+      }
+      return comparePositions(
+        { digits: a.digits, position: a.position ?? "" },
+        { digits: b.digits, position: b.position ?? "" },
+      );
+    });
+  }, [snapshot.legs, times]);
+
+  const maxLegProfit = Math.max(1, ...ordered.map((leg) => Math.abs(leg.profit)));
+  const open = ordered.find((leg) => leg.index === openLeg) ?? null;
 
   return (
     <>
@@ -159,6 +189,7 @@ export function SnapshotView({
           values={snapshot.equity.values}
           capital={snapshot.equity.capital}
           monthDivs={snapshot.equity.monthDivs}
+          months={snapshot.monthly}
         />
       </section>
 
@@ -179,17 +210,10 @@ export function SnapshotView({
         >
           แยกตามขา
         </SectionTitle>
-        {legsByProfit.map((leg) => (
+        {ordered.map((leg) => (
           <div key={`${leg.index}-${leg.name}`}>
-            <LegRow
-              leg={leg}
-              max={maxLegProfit}
-              open={openLeg === leg.index}
-              onToggle={() => setOpenLeg((current) => (current === leg.index ? null : leg.index))}
-            />
-            {openLeg === leg.index ? (
-              <LegReport leg={leg} months={snapshot.monthly} monthDivs={snapshot.equity.monthDivs} />
-            ) : showNumbers ? (
+            <LegRow leg={leg} max={maxLegProfit} onToggle={() => setOpenLeg(leg.index)} />
+            {showNumbers ? (
               <p className="tnum dim px-0.5 pb-2 text-[10.5px] leading-relaxed break-all">
                 {leg.numbers.join(" ")}
               </p>
@@ -197,6 +221,18 @@ export function SnapshotView({
           </div>
         ))}
       </section>
+
+      {/* รายงานรายขาเป็น **ป๊อปอัป** ไม่ใช่กางในหน้า — รายงานยาวกว่าหนึ่งจอ กางแล้ว
+          รายการขาที่เหลือถูกดันหายไป ต้องเลื่อนหาที่กดต่อ (แบบเดียวกับ st.dialog ของแอปเดิม) */}
+      {open ? (
+        <Modal
+          title={open.name}
+          subtitle={`แทง ${open.nBet} เลข × ${formatBahtShort(open.betPerNumber)} บ. · เรต ${open.payoutRate}`}
+          onClose={() => setOpenLeg(null)}
+        >
+          <LegReport leg={open} months={snapshot.monthly} monthDivs={snapshot.equity.monthDivs} />
+        </Modal>
+      ) : null}
     </>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatBahtShort, formatSigned } from "@/lib/format";
 import { bankMark } from "@/lib/thai-banks";
 
@@ -300,5 +300,74 @@ export function AvatarCircle({
     >
       {(name ?? "?").trim().slice(0, 1).toUpperCase()}
     </span>
+  );
+}
+
+/**
+ * กล่องป๊อปอัปเต็มจอ — แบบเดียวกับ `st.dialog` ของแอปเดิม
+ *
+ * ทำไมไม่กางในหน้า: รายงานของขายาวกว่าหนึ่งจอ กางแล้วรายการขาที่เหลือถูกดันหายไป
+ * ต้องเลื่อนหาที่กดต่อ · ป๊อปอัปปิดแล้วกลับมาอยู่ที่เดิมเป๊ะ
+ *
+ * ⚠️ ล็อกการเลื่อนของหน้าข้างหลังไว้ตอนเปิด ไม่งั้นบนมือถือจะเลื่อนหน้าหลังทะลุ
+ * ไปเรื่อย ๆ แล้วปิดป๊อปอัปมาเจอคนละที่กับตอนกด
+ */
+export function Modal({
+  title,
+  subtitle,
+  onClose,
+  children,
+}: {
+  title: React.ReactNode;
+  subtitle?: React.ReactNode;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+      style={{ background: "rgba(15,23,42,0.45)" }}
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        className="card flex max-h-[88vh] w-full max-w-[640px] flex-col overflow-hidden rounded-b-none sm:rounded-2xl"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
+        <div
+          className="flex items-start gap-2 px-3.5 py-3"
+          style={{ borderBottom: "1px solid var(--divider)" }}
+        >
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[14px] font-bold">{title}</p>
+            {subtitle ? <p className="dim mt-0.5 text-[10.5px] leading-tight">{subtitle}</p> : null}
+          </div>
+          <button
+            type="button"
+            className="dim flex-none px-1.5 text-[18px] leading-none"
+            onClick={onClose}
+            aria-label="ปิด"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-3.5 py-3">{children}</div>
+      </div>
+    </div>
   );
 }
