@@ -123,6 +123,18 @@ function tally(label: string, value: string, color: string, foot?: string): Line
   };
 }
 
+/**
+ * ตัวดันเนื้อหาที่เหลือลงล่าง — วางก่อนกล่องสรุปท้ายใบ
+ *
+ * ⚠️ carousel ของ LINE **บังคับให้ทุกใบสูงเท่าใบที่สูงที่สุด** (แก้ไม่ได้) ⇒ ใบที่มี
+ * เนื้อหาน้อย เช่นหวยที่มีตำแหน่งเดียว จะเหลือที่ว่างครึ่งใบ · filler ทำให้ที่ว่าง
+ * ไปกองตรงกลาง แล้วยอดรวมไปเกาะขอบล่าง = ดูเหมือนตั้งใจ ไม่ใช่เนื้อหาขาด
+ * · ใบที่สูงอยู่แล้ว filler จะกว้าง 0 ไม่มีผลอะไร
+ */
+function filler(): LineMessage {
+  return { type: "filler" };
+}
+
 function bubble(options: {
   kicker: string;
   title: string;
@@ -162,7 +174,14 @@ const STATUS_MARK: Record<string, string> = {
   pending: "—",
 };
 
-function drawBubble(report: DayReport, lottery: string, seq: number, corrected = false): LineMessage | null {
+function drawBubble(
+  report: DayReport,
+  lottery: string,
+  seq: number,
+  month: MonthTable | null,
+  monthLabel: string,
+  corrected = false,
+): LineMessage | null {
   const group = report.lotteries.find((l) => l.lottery === lottery);
   if (!group) return null;
 
@@ -189,6 +208,31 @@ function drawBubble(report: DayReport, lottery: string, seq: number, corrected =
     rows.push(statRow(label, value, leg.status === "hit" || leg.status === "miss" ? tone(leg.pnl) : DIM));
   });
 
+  // สถิติเดือนนี้ของหวยตัวนี้ — มาจาก monthTable ตัวเดียวกับตารางรายวันท้ายชุด
+  // ⇒ เลขตรงกันเสมอ และช่วยให้ใบที่มีตำแหน่งเดียวไม่โล่ง
+  if (month && month.columns.length > 0) {
+    const hits = month.columns.reduce((sum, c) => sum + c.hits, 0);
+    const draws = hits + month.columns.reduce((sum, c) => sum + c.misses, 0);
+    if (draws > 0) {
+      rows.push(separator("sm"));
+      rows.push(
+        statRow(
+          [
+            text(`เดือนนี้ · ${monthLabel}`, { size: "xs", weight: "bold", color: INK }),
+            text(`ถูก ${hits} จาก ${draws} งวด (${((hits / draws) * 100).toFixed(1)}%)`, {
+              size: "xxs",
+              color: DIM,
+              wrap: true,
+            }),
+          ],
+          signed(month.pnl),
+          tone(month.pnl),
+        ),
+      );
+    }
+  }
+
+  rows.push(filler());
   rows.push(
     tally("รวมหวยนี้", signed(group.pnl), tone(group.pnl),
       `ลงเงินไป ${baht(group.cost)} บ. · ${group.legs.length} ตำแหน่ง`),
@@ -227,6 +271,7 @@ function dayBubble(report: DayReport): LineMessage | null {
   });
 
   const roi = report.cost > 0 ? (report.pnl / report.cost) * 100 : 0;
+  rows.push(filler());
   rows.push(
     tally("รวมวันนี้", signed(report.pnl), tone(report.pnl),
       `ลงเงินวันนี้ ${baht(report.cost)} บ. · ${roi >= 0 ? "+" : "−"}${Math.abs(roi).toFixed(1)}% ของเงินที่ลง`),
@@ -519,7 +564,7 @@ export function buildDrawCard(input: CardInput): LineMessage[] {
   ];
 
   const bubbles: LineMessage[] = [];
-  const first = drawBubble(report, lottery, Math.max(1, seq), input.corrected ?? false);
+  const first = drawBubble(report, lottery, Math.max(1, seq), month, monthLabel, input.corrected ?? false);
   if (first) bubbles.push(first);
   const day = dayBubble(report);
   if (day) bubbles.push(day);
