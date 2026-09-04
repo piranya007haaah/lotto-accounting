@@ -211,7 +211,17 @@ export function EquityChart({
  *    ⇒ **ทิศทางของบาร์** (ขวา = กำไร · ซ้าย = ขาดทุน) + เครื่องหมาย +/− บนตัวเลข
  *    เป็นตัวบอกความหมายจริง สีเป็นแค่ของแถม
  */
-export function MonthlyBars({ months }: { months: PortfolioMonth[] }) {
+export function MonthlyBars({
+  months,
+  startLabel = "ทุนต้นเดือน",
+  startSigned = false,
+}: {
+  months: PortfolioMonth[];
+  /** ป้ายของค่าตั้งต้นแต่ละเดือน — ของขาไม่ใช่ "ทุน" แต่เป็นกำไรสะสม */
+  startLabel?: string;
+  /** true = โชว์เครื่องหมาย +/− (กำไรสะสมติดลบได้ ต่างจากทุนพอร์ต) */
+  startSigned?: boolean;
+}) {
   const max = Math.max(1, ...months.map((m) => Math.abs(m.profit)));
 
   return (
@@ -243,7 +253,9 @@ export function MonthlyBars({ months }: { months: PortfolioMonth[] }) {
               />
             </div>
             <p className="dim mt-1 text-[10.5px]">
-              ทุนต้นเดือน {formatBahtShort(month.capitalStart)} · ร่วงในเดือนสูงสุด{" "}
+              {startLabel}{" "}
+              {startSigned ? formatSigned(month.capitalStart) : formatBahtShort(month.capitalStart)} ·
+              ร่วงในเดือนสูงสุด{" "}
               <span className="tnum">{formatBahtShort(month.maxDd)}</span>
             </p>
           </div>
