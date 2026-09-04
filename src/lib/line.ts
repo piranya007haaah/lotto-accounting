@@ -9,6 +9,24 @@ export function isMessagingConfigured(): boolean {
   return Boolean(env("LINE_MESSAGING_CHANNEL_SECRET") && env("LINE_MESSAGING_CHANNEL_ACCESS_TOKEN"));
 }
 
+/**
+ * token ที่ใช้ส่ง **การ์ดผลหวย** — `LINE_REPORT_TOKEN` ก่อน ไม่ตั้งค่อยใช้ของแอป
+ *
+ * ⚠️ ทำไมต้องแยก: กลุ่มที่รายงานเข้าอยู่ทุกวันนี้เป็นของ OA "Racer" (แอป Streamlit เป็นคนส่ง)
+ * ส่วนแอปนี้มี Messaging channel ของตัวเอง — **คนละ OA กัน** ⇒ เอา token ของแอปนี้ไป
+ * push เข้ากลุ่มนั้นจะได้ 403 เพราะ OA ตัวนี้ไม่ได้อยู่ในกลุ่ม
+ * ⇒ วาง token ของ Racer ไว้ที่ `LINE_REPORT_TOKEN` แล้วจบ ไม่ต้องไปแตะ channel ของแอป
+ * (ถ้าเชิญ OA ของแอปนี้เข้ากลุ่มแทน ก็ไม่ต้องตั้งตัวนี้เลย)
+ */
+export function reportToken(): string | undefined {
+  return env("LINE_REPORT_TOKEN") ?? env("LINE_MESSAGING_CHANNEL_ACCESS_TOKEN");
+}
+
+/** พร้อมส่งการ์ดหรือยัง — ต้องมีทั้ง token และปลายทาง */
+export function isReportConfigured(): boolean {
+  return Boolean(reportToken() && env("LINE_REPORT_TO"));
+}
+
 /** ตรวจลายเซ็น webhook ของ LINE (HMAC-SHA256 + base64) */
 export function verifyLineSignature(rawBody: string, signature: string | null): boolean {
   const secret = env("LINE_MESSAGING_CHANNEL_SECRET");
@@ -63,9 +81,11 @@ export function pushMessage(to: string, messages: LineMessage[]) {
 export async function pushMessageResult(
   to: string,
   messages: LineMessage[],
+  /** ไม่ส่งมา = ใช้ `reportToken()` (LINE_REPORT_TOKEN → token ของแอป) */
+  token?: string,
 ): Promise<{ ok: boolean; error: string | null }> {
-  const accessToken = env("LINE_MESSAGING_CHANNEL_ACCESS_TOKEN");
-  if (!accessToken) return { ok: false, error: "ยังไม่ได้ตั้ง LINE_MESSAGING_CHANNEL_ACCESS_TOKEN" };
+  const accessToken = token ?? reportToken();
+  if (!accessToken) return { ok: false, error: "ยังไม่ได้ตั้ง LINE_REPORT_TOKEN / LINE_MESSAGING_CHANNEL_ACCESS_TOKEN" };
   try {
     const response = await fetch(`${LINE_API}/message/push`, {
       method: "POST",

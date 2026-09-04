@@ -199,8 +199,15 @@ snapshot มาวาดอย่างเดียว) · ของสองอ
   · ค่าเดิมไม่ตรงกับที่กรอก = **409 บล็อกทั้งก้อน** ไม่ใช่เขียนบางตำแหน่ง
 - ผลที่กรอกแล้วล็อกไว้ · กด "✏️ แก้ไขผล" = ส่ง `overwrite: true` แล้วการ์ดใบใหม่ขึ้นหัวว่า
   **แก้ไขผล** (ส่งเข้า LINE แล้วถอนคืนไม่ได้ ต้องประกาศให้ชัดว่าใบไหนของจริง)
-- ปลายทาง LINE = env `LINE_REPORT_TO` (groupId/userId) + `LINE_MESSAGING_CHANNEL_ACCESS_TOKEN`
+- ปลายทาง LINE = env `LINE_REPORT_TO` (groupId/userId) + `LINE_REPORT_TOKEN`
   · **ไม่ตั้ง = บันทึกผลได้ตามปกติ แค่ไม่ส่งการ์ด** และหน้าจอบอกเหตุผลตรง ๆ
+  · ⚠️⚠️ **token ต้องเป็นของ OA ที่อยู่ในกลุ่มนั้น** — กลุ่มที่รายงานเข้าอยู่ทุกวันนี้เป็นของ
+  OA "Racer" (แอป Streamlit เป็นคนส่ง) ซึ่ง **คนละ channel** กับ Messaging channel ของแอปนี้
+  ⇒ เอา token ของแอปนี้ไป push เข้ากลุ่มนั้นจะได้ **403** · ก๊อป `line_channel_access_token`
+  จาก Streamlit Secrets มาใส่ `LINE_REPORT_TOKEN` (ไม่ตั้ง = fallback ไปใช้ของแอป)
+  · หา `LINE_REPORT_TO` ได้ 2 ทาง: ก๊อป `line_to` จาก Streamlit Secrets **หรือ** พิมพ์
+  `/id` ในกลุ่มนั้น — webhook ตอบ id กลับมาให้ (เฉพาะ userId ที่อยู่ใน `LINE_ADMIN_USER_IDS`
+  · ไม่ได้ตั้ง env นั้น = ปิดคำสั่ง)
   · ⚠️ ใช้ `pushMessageResult()` ไม่ใช่ `pushMessage()` — ตัวหลัง**กลืน error แล้ว log เฉย ๆ**
   ถ้าเผลอใช้ หน้าจอจะขึ้นว่า "ส่งแล้ว" ทั้งที่ LINE ปฏิเสธไปตั้งแต่ต้น
 

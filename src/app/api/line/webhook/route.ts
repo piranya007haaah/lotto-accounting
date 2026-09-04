@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { APP_TIMEZONE, appUrl } from "@/lib/env";
+import { adminLineUserIds, APP_TIMEZONE, appUrl } from "@/lib/env";
 import { route } from "@/lib/http";
 import {
   HELP_TEXT,
@@ -21,8 +21,19 @@ export const dynamic = "force-dynamic";
 interface LineEvent {
   type: string;
   replyToken?: string;
-  source?: { userId?: string };
+  source?: { type?: string; userId?: string; groupId?: string; roomId?: string };
   message?: { type: string; text?: string };
+}
+
+/**
+ * ปลายทางของข้อความนี้ — ค่าเดียวกับที่ต้องใส่ใน `LINE_REPORT_TO`
+ * (กลุ่มใช้ `groupId` · ห้องใช้ `roomId` · แชท 1:1 ใช้ `userId`)
+ */
+function sourceId(source: LineEvent["source"]): { id: string; kind: string } | null {
+  if (source?.groupId) return { id: source.groupId, kind: "กลุ่ม" };
+  if (source?.roomId) return { id: source.roomId, kind: "ห้องแชท" };
+  if (source?.userId) return { id: source.userId, kind: "แชท 1:1" };
+  return null;
 }
 
 /** แปลงข้อความที่พิมพ์มาเป็น query สำหรับ resolveRange */
@@ -116,6 +127,27 @@ async function handleEvent(event: LineEvent): Promise<void> {
   if (event.message?.type !== "text") return;
 
   const lineUserId = event.source?.userId;
+
+  /* ── `/id` — บอกว่าห้องนี้มี id อะไร เอาไปใส่ `LINE_REPORT_TO` ได้เลย ──
+   * ต้องตอบ **ก่อน** เช็คสมาชิก เพราะพิมพ์ในกลุ่มซึ่งคนพิมพ์อาจยังไม่เคยล็อกอินแอปนี้
+   * ⚠️ จำกัดเฉพาะผู้ดูแล (`LINE_ADMIN_USER_IDS`) — id ของกลุ่มเอาไปทำอะไรไม่ได้ถ้าไม่มี
+   *    token อยู่แล้ว แต่ไม่มีเหตุผลให้ใครก็ได้ในกลุ่มดึงออกไป · ไม่ได้ตั้ง env = ปิดคำสั่งนี้
+   */
+  if ((event.message.text ?? "").trim().toLowerCase() === "/id") {
+    const admins = adminLineUserIds();
+    const where = sourceId(event.source);
+    if (admins.length > 0 && lineUserId && admins.includes(lineUserId) && where) {
+      await replyMessage(replyToken, [
+        textMessage(
+          `${where.kind}นี้คือ\n${where.id}\n\n` +
+            "เอาไปใส่ LINE_REPORT_TO ที่ Vercel → Settings → Environment Variables\n" +
+            "แล้ว Redeploy หนึ่งครั้ง (env ใหม่ไม่มีผลจนกว่าจะ deploy ใหม่)",
+        ),
+      ]);
+    }
+    return;
+  }
+
   if (!lineUserId) return;
 
   const command = commandToParams(event.message.text ?? "");

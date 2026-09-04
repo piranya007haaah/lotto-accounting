@@ -17,7 +17,7 @@ import { requireAdmin, requireLotteryViewer } from "@/lib/auth";
 import { appUrl, env } from "@/lib/env";
 import { HttpError, ok, route } from "@/lib/http";
 import { readJsonBody } from "@/lib/ingest-auth";
-import { isMessagingConfigured, pushMessageResult } from "@/lib/line";
+import { isReportConfigured, pushMessageResult } from "@/lib/line";
 import { readSequencesForLotteries } from "@/lib/lottery/dataset-read";
 import {
   computeDay,
@@ -154,7 +154,7 @@ export const GET = route(async (request) => {
   return ok({
     portfolios: rows.map((p) => ({ id: p.id, name: p.name, isActive: p.is_active })),
     day: summarise(report),
-    lineReady: isMessagingConfigured() && Boolean(env("LINE_REPORT_TO")),
+    lineReady: isReportConfigured(),
   });
 });
 
@@ -292,8 +292,8 @@ export const POST = route(async (request) => {
   let line: { sent: boolean; reason: string | null } = { sent: false, reason: "ไม่ได้สั่งให้ส่ง" };
   if (body.send !== false) {
     const to = env("LINE_REPORT_TO");
-    if (!isMessagingConfigured() || !to) {
-      line = { sent: false, reason: "ยังไม่ได้ตั้ง LINE_REPORT_TO / LINE_MESSAGING_CHANNEL_ACCESS_TOKEN" };
+    if (!isReportConfigured() || !to) {
+      line = { sent: false, reason: "ยังไม่ได้ตั้ง LINE_REPORT_TO / LINE_REPORT_TOKEN" };
     } else {
       const messages = buildDrawCard({
         report,
