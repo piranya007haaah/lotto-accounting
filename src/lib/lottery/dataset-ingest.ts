@@ -12,9 +12,11 @@ export const entrySchema = z.object({
   position: z.string().min(1).max(40),
   year: z.string().min(1).max(4),
   flag: z.string().max(16).default("🎰"),
-  // ผลทั้งปี — 2 ตัวอักษร/วัน (สูงสุด 366 วัน = 732 ตัวอักษร เผื่อไว้เท่าตัว)
+  // ผลทั้งปี — 2 ตัวอักษร/วัน (สูงสุด 366 วัน = 732 ตัวอักษร · 3 ตัวก็ยังไม่เกิน 1,098)
   sequence: z.string().max(2000).default(""),
   isDateSorted: z.boolean().default(false),
+  /** 1 งวด = กี่ตัวอักษร — ไม่ส่งมา = 2 (ของเดิมก่อนมีขา 3 ตัว) */
+  digits: z.union([z.literal(2), z.literal(3)]).default(2),
 });
 
 export const payloadSchema = z.object({

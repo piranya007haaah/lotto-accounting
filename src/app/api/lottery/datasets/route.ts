@@ -40,6 +40,7 @@ export const POST = route(async (request) => {
     flag: entry.flag,
     sequence: entry.sequence,
     is_date_sorted: entry.isDateSorted,
+    digits: entry.digits,
     updated_at: new Date().toISOString(),
   }));
 
@@ -76,7 +77,7 @@ export const GET = route(async (request) => {
   if (lottery && position) {
     const { data, error } = await supabaseAdmin()
       .from(TABLE)
-      .select("lottery, position, year, flag, sequence")
+      .select("lottery, position, year, flag, sequence, digits, is_date_sorted")
       .eq("lottery", lottery)
       .eq("position", position)
       .order("year");

@@ -98,6 +98,44 @@ snapshot มาวาดอย่างเดียว) · ของสองอ
 - ⚠️ **`%` ของ JS ให้ค่าติดลบได้** (ต่างจาก Python) — สูตรที่เดินเลขถอยหลังต้อง
   `((x % 100) + 100) % 100` ไม่งั้นได้เลขติดลบเงียบ ๆ
 
+## engine พอร์ตฝั่ง TypeScript (`src/lib/lottery/portfolio-engine.ts`)
+
+`computeSnapshot({portfolio, sequences})` คำนวณพอร์ตทั้งก้อน**เองที่นี่** → คืน `PortfolioSnapshot`
+รูปเดียวกับที่ Python เคย POST มา (พอร์ตมาจาก `replay_portfolio` / `run_portfolio` /
+`build_snapshot` ของ lottery-app) ⇒ กราฟและหน้าจอเดิมวาดต่อได้ทันที
+· โหลดผลหวยที่ต้องใช้ด้วย `requiredSequenceKeys()` ก่อนเสมอ
+
+- ⚠️⚠️ **ต้องตรงกับ Python เป๊ะ** — `npx tsx scripts/portfolio-check.ts` เทียบกับเฉลยจริง
+  **1,920 จุด (12 พอร์ต · 49 ขา)** ต้องผ่านหมด · เฉลยสร้างที่ฝั่งโน้น:
+  `python3 scripts/export_portfolio_fixture.py --out <ที่นี่>/src/lib/lottery/__fixtures__/portfolio-golden.json`
+- เฉลยมี **พอร์ตสมมุติ (id 9001-9004)** ปนอยู่ด้วย เพราะพอร์ตจริงทั้ง 8 ใช้แค่โหมด
+  `manual`/`rank` ⇒ ถ้าเอาแต่ของจริง ทางเดิน `fixed_n` / `auto` / `train_months` /
+  `test_months` / ขาที่รันไม่ได้ / PF=∞ จะไม่ถูกตรวจเลย — **อย่าลบทิ้ง**
+- ⚠️⚠️ index ของ sequence = **วันปฏิทินจาก 1 ม.ค.** — กรองเดือนด้วย `maskMonths`
+  (ปิดวันอื่นเป็น `--`) **ห้ามตัดสตริงให้สั้นลง** · `legBetAt(detail, step)` เท่านั้นที่ให้
+  "เลขของเดือนนั้น" · งวดที่ n=0 (เดือนที่ไม่ได้ตั้งเลข) **ไม่นับเป็นงวดที่แพ้**
+- ⚠️ วันที่ทุกจุดใช้ `Date.UTC` ล้วน (`new Date(y,m,d)` เป็นเวลาท้องถิ่น → DST ทำให้วันขยับ
+  1 วัน ชุดเลขรายเดือนเลื่อนทั้งเส้น) · `Math.trunc` = `int()` · `pyRound` = `round()` คนละที่กัน
+- ⚠️ `asOf` ("ข้อมูลถึง") คิดจาก **ปีที่โหลดมาให้เท่านั้น** ส่วน Python มองทุกปีใน DB —
+  ตรงกันตราบใดที่ปี test คือปีล่าสุดของหวยนั้น (ตัว export เตือนเองถ้าไม่ใช่)
+
+## ตั้งค่าพอร์ตอยู่ที่นี่แล้ว (`lottery_portfolios` · `/api/lottery/portfolios`)
+
+ตาราง `lottery_portfolios` (migration `0011`) = **ตัวตั้งค่าพอร์ต** (legs/ทุน/เงินแทง)
+คนละเรื่องกับ `portfolio_snapshots` (migration `0008`) ที่เป็น *ผลที่คำนวณแล้ว* จาก Python
+
+- นำเข้าครั้งแรกจากฝั่งโน้น: `python3 scripts/sync_to_supabase.py --portfolios`
+  ⚠️⚠️ **หลังนำเข้าแล้วตารางนี้เป็นเจ้าของข้อมูล** — POST ดีฟอลต์ "มีแล้วข้าม"
+  ต้องพิมพ์ `--replace` เองถึงจะทับ ไม่งั้น sync รอบหน้าจะลบสิ่งที่เพิ่งแก้ในเว็บทิ้งเงียบ ๆ
+- `GET` รับ **2 ทาง**: `requireLotteryViewer` (คนที่ล็อกอิน) หรือ `X-Snapshot-Secret`
+  (สคริปต์ฝั่ง Python อ่านพอร์ตกลับไปทำรายงาน LINE) · secret ผิด = 401 ทันที
+  **ไม่ตกไปเป็น viewer** · `PUT` = `requireAdmin` (แก้พอร์ตได้เฉพาะเจ้าของ)
+- ⚠️ **zod `.optional()` ไม่รับ `null`** ที่ `json.dumps(None)` ของ Python สร้าง —
+  เคยทำพอร์ตจริงตกไป 4 จาก 8 ตัวเพราะ `train_months: null` · `portfolio-config.ts` มี
+  helper `nullable()` ครอบไว้แล้ว **คีย์ใหม่ที่เป็น None ได้ต้องครอบด้วยทุกครั้ง**
+- ผลหวย **3 ตัว** อยู่ตาราง `lottery_datasets` เดียวกัน แยกด้วยคอลัมน์ `digits`
+  (2 = สองบน/สองล่าง · 3 = สามบน) — sync ส่งมาให้แล้ว
+
 ## ใครเห็นโหมดหวยได้บ้าง (`can_view_lottery`)
 
 โหมด 🎲 หวย (พอร์ต + สูตร) โชว์ **เงินจริงของเจ้าของ** จึงไม่ได้เปิดให้ทุกคนที่ล็อกอินได้
