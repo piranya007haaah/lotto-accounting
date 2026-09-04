@@ -53,6 +53,33 @@ export function pushMessage(to: string, messages: LineMessage[]) {
   return callLineApi("/message/push", { to, messages: messages.slice(0, 5) });
 }
 
+/**
+ * push ที่ **บอกผลกลับมา** — ต่างจาก `pushMessage` ที่กลืน error แล้ว log เฉย ๆ
+ *
+ * ใช้ตอนที่หน้าจอต้องรายงานให้คนกรอกรู้ว่าการ์ดเข้า LINE จริงไหม
+ * ⚠️ ห้ามใช้ `pushMessage` แทน แล้วเดาว่า "ไม่ throw = ส่งสำเร็จ" — มันไม่ throw อยู่แล้ว
+ * จะกลายเป็นขึ้นว่าส่งแล้วทั้งที่ LINE ปฏิเสธไปตั้งแต่ต้น
+ */
+export async function pushMessageResult(
+  to: string,
+  messages: LineMessage[],
+): Promise<{ ok: boolean; error: string | null }> {
+  const accessToken = env("LINE_MESSAGING_CHANNEL_ACCESS_TOKEN");
+  if (!accessToken) return { ok: false, error: "ยังไม่ได้ตั้ง LINE_MESSAGING_CHANNEL_ACCESS_TOKEN" };
+  try {
+    const response = await fetch(`${LINE_API}/message/push`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ to, messages: messages.slice(0, 5) }),
+    });
+    if (response.ok) return { ok: true, error: null };
+    const detail = await response.text().catch(() => "");
+    return { ok: false, error: `LINE ตอบ ${response.status}: ${detail.slice(0, 300)}` };
+  } catch (caught) {
+    return { ok: false, error: `ส่งไม่สำเร็จ: ${(caught as Error).message}` };
+  }
+}
+
 function row(label: string, value: string, color = "#111827", bold = false): LineMessage {
   return {
     type: "box",

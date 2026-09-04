@@ -11,6 +11,7 @@ import { HttpError, ok, route } from "@/lib/http";
 import { readJsonBody, requireIngestSecret } from "@/lib/ingest-auth";
 import { readAllDatasetRows } from "@/lib/lottery/dataset-read";
 import { payloadSchema } from "@/lib/lottery/dataset-ingest";
+import { mergeSequences } from "@/lib/lottery/sequence-merge";
 import { supabaseAdmin } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -33,16 +34,45 @@ export const POST = route(async (request) => {
   }
 
   const supabase = supabaseAdmin();
-  const rows = parsed.data.entries.map((entry) => ({
-    lottery: entry.lottery,
-    position: entry.position,
-    year: entry.year,
-    flag: entry.flag,
-    sequence: entry.sequence,
-    is_date_sorted: entry.isDateSorted,
-    digits: entry.digits,
-    updated_at: new Date().toISOString(),
-  }));
+
+  // ⚠️⚠️ **เติมเฉพาะช่องว่าง** ไม่ใช่ทับทั้งปี — หน้ากรอกผลของแอปนี้เขียนตารางเดียวกัน
+  // และมักกรอกงวดล่าสุดก่อนที่ฝั่งโน้นจะ scrape ทัน ⇒ ทับทั้งก้อน = ผลวันนี้หายเงียบ ๆ
+  // (`overwrite: true` จากฝั่งโน้นเท่านั้นถึงจะทับได้ — ไว้ backfill/แก้ข้อมูลผิด)
+  let existing: Awaited<ReturnType<typeof readAllDatasetRows>> = [];
+  if (!parsed.data.overwrite) {
+    try {
+      existing = await readAllDatasetRows();
+    } catch (caught) {
+      if (caught instanceof HttpError) throw caught;
+      throw new HttpError(500, `อ่านผลหวยเดิมไม่สำเร็จ: ${(caught as Error).message}`);
+    }
+  }
+  const byKey = new Map(existing.map((row) => [`${row.lottery}|${row.position}|${row.year}`, row]));
+
+  let filled = 0;
+  let conflicts = 0;
+  const rows = parsed.data.entries.map((entry) => {
+    let sequence = entry.sequence;
+    if (!parsed.data.overwrite) {
+      const found = byKey.get(`${entry.lottery}|${entry.position}|${entry.year}`);
+      if (found) {
+        const merged = mergeSequences(found.sequence ?? "", entry.sequence, entry.digits);
+        sequence = merged.sequence;
+        filled += merged.filled;
+        conflicts += merged.conflicts;
+      }
+    }
+    return {
+      lottery: entry.lottery,
+      position: entry.position,
+      year: entry.year,
+      flag: entry.flag,
+      sequence,
+      is_date_sorted: entry.isDateSorted,
+      digits: entry.digits,
+      updated_at: new Date().toISOString(),
+    };
+  });
 
   for (let i = 0; i < rows.length; i += CHUNK) {
     const { error } = await supabase
@@ -63,7 +93,15 @@ export const POST = route(async (request) => {
     if (error) throw new HttpError(500, `บันทึกเรตจ่ายไม่สำเร็จ: ${error.message}`);
   }
 
-  return ok({ saved: rows.length, payouts: parsed.data.payouts.length });
+  // บอกกลับไปให้เห็นว่าเติมไปกี่ช่อง และมีช่องไหนที่สองฝั่งไม่ตรงกันบ้าง
+  // (ค่าเดิมถูกเก็บไว้ — ไม่ใช่เงียบแล้วเลือกข้างเอง)
+  return ok({
+    saved: rows.length,
+    payouts: parsed.data.payouts.length,
+    filled,
+    conflicts,
+    overwrite: parsed.data.overwrite,
+  });
 });
 
 export const GET = route(async (request) => {

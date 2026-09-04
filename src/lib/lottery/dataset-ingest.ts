@@ -21,6 +21,15 @@ export const entrySchema = z.object({
 
 export const payloadSchema = z.object({
   entries: z.array(entrySchema).max(3000),
+  /**
+   * true = **ทับของเดิมทั้งก้อน** — ปกติฝั่งนี้ "เติมเฉพาะช่องว่าง" เท่านั้น
+   *
+   * ⚠️⚠️ ตารางนี้มีคนเขียน 2 ทาง: สคริปต์ sync ฝั่ง Streamlit กับหน้ากรอกผลของแอปนี้
+   * ถ้า upsert ทับทั้งปีเหมือนเดิม ผลที่เพิ่งกรอกในเว็บจะหายทุกครั้งที่มีคนรัน sync
+   * (ฝั่งโน้นยังไม่ได้ scrape งวดนั้น sequence ที่ส่งมาจึงยังเป็นช่องว่าง)
+   * ⇒ เปิดได้เฉพาะตอนตั้งใจ backfill/แก้ข้อมูลผิดเท่านั้น
+   */
+  overwrite: z.boolean().default(false),
   payouts: z
     .array(z.object({ lottery: z.string().min(1).max(200), payout: z.number().int().min(1) }))
     .max(1000)

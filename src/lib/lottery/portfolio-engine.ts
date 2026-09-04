@@ -362,6 +362,9 @@ export function legBetAt(detail: LegDetail, step: number): BetSet {
 }
 
 export interface LegRunConfig {
+  /** ขานี้มาจาก `config.legs[legIndex]` — ไว้ผูก detail กลับเข้า leg โดยไม่ต้องแกะชื่อ
+   *  (ขาที่รันไม่ได้ถูกข้ามไป ⇒ `details[i]` ไม่ตรงกับ `legs[i]` เสมอไป) */
+  legIndex?: number;
   datasetName: string;
   formulaName: string;
   nBet: number;
@@ -498,7 +501,7 @@ export function replayPortfolio(
   const configs: LegRunConfig[] = [];
   const warnings: string[] = [];
 
-  for (const leg of legs) {
+  for (const [legIndex, leg] of legs.entries()) {
     const digits = Number(leg.digits ?? 2);
     const label = `${leg.flag ?? ""} ${leg.lottery ?? ""} · ${leg.position ?? ""}`;
 
@@ -600,6 +603,7 @@ export function replayPortfolio(
     // ของ lottery-app — แก้รูปแบบ = พังหลายที่พร้อมกัน
     const name = `${leg.flag ?? ""} ${leg.lottery ?? ""} · ${leg.position ?? ""} (เทส ${leg.test_year})`;
     configs.push({
+      legIndex,
       datasetName: name,
       formulaName: (leg.formula_name || mode) + (monthSets ? " · รายเดือน" : ""),
       nBet,

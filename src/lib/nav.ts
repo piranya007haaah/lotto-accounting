@@ -51,6 +51,7 @@ export const MODES: NavMode[] = [
     emoji: "🎲",
     lotteryOnly: true,
     items: [
+      { href: "/draws", label: "กรอกผล", icon: "M12 20h9M4 20h4l10-10a2.8 2.8 0 0 0-4-4L4 16v4" },
       { href: "/portfolio", label: "พอร์ต", icon: "M3 17l5-5 4 3 5-7M3 21h18M3 3v18" },
       { href: "/formulas", label: "สูตร", icon: "M4 5h16M9 5v6l-5 8h16l-5-8V5" },
       // ต่อไป: สถิติ · สามตัว — ย้ายมาจาก Streamlit ทีละหน้า

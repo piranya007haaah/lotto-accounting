@@ -74,3 +74,34 @@ export async function readAllDatasetRows(options?: {
   }
   return rows;
 }
+
+/**
+ * อ่าน sequence เฉพาะหวยที่พอร์ตต้องใช้ — ไม่ต้องลากทั้งตาราง (~0.8 MB)
+ *
+ * กรองด้วยชื่อหวยเท่านั้นแล้วมาคัดปี/ตำแหน่งต่อฝั่งนี้ เพราะ PostgREST ทำ
+ * `where (lottery,position,year) in (...)` ตรง ๆ ไม่ได้ · พอร์ตหนึ่งมีไม่กี่หวย
+ * จำนวนแถวจึงอยู่หลักสิบ ไม่ชนเพดาน 1,000 แถว
+ */
+export async function readSequencesForLotteries(lotteries: readonly string[]): Promise<
+  { lottery: string; position: string; year: string; flag: string; digits: number; sequence: string; is_date_sorted: boolean }[]
+> {
+  const names = [...new Set(lotteries)].filter(Boolean);
+  if (names.length === 0) return [];
+  const { data, error } = await supabaseAdmin()
+    .from(TABLE)
+    .select("lottery, position, year, flag, digits, sequence, is_date_sorted")
+    .in("lottery", names)
+    .order("year");
+  if (digitsColumnMissing(error)) {
+    throw new HttpError(
+      503,
+      `ฐานข้อมูลยังไม่ได้รัน ${DIGITS_MIGRATION} (ยังไม่มีคอลัมน์ digits)`,
+      "missing_migration",
+    );
+  }
+  if (error) throw error;
+  return (data ?? []) as unknown as {
+    lottery: string; position: string; year: string; flag: string;
+    digits: number; sequence: string; is_date_sorted: boolean;
+  }[];
+}

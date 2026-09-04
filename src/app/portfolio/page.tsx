@@ -26,6 +26,7 @@ import { ApiError, useAuth } from "@/components/LiffProvider";
 import { LegEditor } from "@/components/portfolio/LegEditor";
 import { LegPicker } from "@/components/portfolio/LegPicker";
 import { PortfolioMeta } from "@/components/portfolio/PortfolioMeta";
+import { ScheduleEditor } from "@/components/portfolio/ScheduleEditor";
 import { SnapshotView } from "@/components/portfolio/SnapshotView";
 import {
   digitsOfPosition,
@@ -485,6 +486,13 @@ export default function PortfolioPage() {
             onChangeCapital={(capital) => setDraft({ ...draft, capital })}
             onChangeConfig={(config) => setDraft({ ...draft, config })}
             onDelete={() => void removePortfolio()}
+          />
+
+          {/* เวลาออกผล = ลำดับของฟอร์มกรอกผลและการ์ด LINE ⇒ อยู่ถัดจากชื่อ/ทุนเลย */}
+          <ScheduleEditor
+            legs={legs}
+            config={draft.config}
+            onChange={(config) => setDraft({ ...draft, config })}
           />
 
           {legs.map((leg, index) => (
