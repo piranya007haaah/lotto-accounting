@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Anuphan, Archivo_Black, Prompt } from "next/font/google";
 import { LiffProvider } from "@/components/LiffProvider";
+import { ModeSwitch } from "@/components/ModeSwitch";
 import { Nav } from "@/components/Nav";
 import "./globals.css";
 
@@ -39,7 +40,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="th" className={`${anuphan.variable} ${prompt.variable} ${archivoBlack.variable}`}>
       <body className="min-h-dvh">
         <LiffProvider>
-          <main className="mx-auto w-full max-w-md px-4 pt-4 pb-28">{children}</main>
+          <main className="mx-auto w-full max-w-md px-4 pt-4 pb-28">
+            <ModeSwitch />
+            {children}
+          </main>
           <Nav />
         </LiffProvider>
       </body>
