@@ -68,6 +68,14 @@ interface EntriesResponse {
 
 const KEY = (lottery: string, position: string) => `${lottery}|${position}`;
 
+/** "2564-2569" / "2569" — ปีที่มีข้อมูล เอาไว้บอกว่าทำไม walk-forward ได้กี่ปี */
+function yearSpanLabel(years: readonly string[]): string {
+  if (years.length === 0) return "—";
+  const first = `25${years[0]}`;
+  const last = `25${years[years.length - 1]}`;
+  return first === last ? first : `${first}-${last}`;
+}
+
 /** ช่องกรอกตัวเลขของแถบตั้งค่า — เก็บเป็นข้อความระหว่างพิมพ์ ("" ระหว่างลบเลขไม่เด้งกลับ) */
 function NumberField({
   label,
@@ -366,6 +374,19 @@ export default function FormulasPage() {
       return null;
     }
   }, [bet, capital, choice?.size, formula, openEntries, payout, wfLocked]);
+
+  /**
+   * ปีที่ **หวยตัวนี้** มีข้อมูลจริง — walk-forward วัดผลได้ = จำนวนปี − 1 เสมอ
+   * (ปีแรกสุดไม่มีปีก่อนหน้าให้เทรน จึงเป็นได้แค่ปี train)
+   *
+   * ⚠️ ตัวเลขนี้ **ไม่ใช่** `years` ของหน้าหลัก ซึ่งเป็นปีที่มีของ *ทั้งตาราง* รวมกัน —
+   * หวยที่เพิ่งเปิด (ตระกูลแม่โขง/ลาวพลัส มีแค่ 68-69) จึงได้ walk-forward ปีเดียว
+   * ทั้งที่ตัวเลือกปีด้านบนมีให้เลือกถึง 6 ปี · เคยทำให้เข้าใจผิดว่ากราฟพัง
+   */
+  const wfYears = useMemo(
+    () => [...new Set(openEntries.map((entry) => entry.year))].sort(),
+    [openEntries],
+  );
 
   /** กลุ่มที่มีของจริงเท่านั้น + จำนวนในแต่ละกลุ่ม — ชิปที่กดแล้วว่างเปล่ามีแต่ทำให้งง */
   /**
@@ -861,6 +882,12 @@ export default function FormulasPage() {
                             ทุกปีเทรนด้วย<b>ปีก่อนหน้าทั้งหมด</b>แล้ววัดผลบนปีนั้น ต่อเส้นทุนข้ามปีเป็นเส้นเดียว
                             = ผลถ้าใช้สูตรนี้จริงมาตลอด · ใช้ทุกปีที่มี ไม่เกี่ยวกับปีที่เลือกด้านบน
                           </p>
+                          {/* บอกตรง ๆ ว่าทำไมได้กี่ปี — หวยที่เพิ่งเปิดมีข้อมูล 2 ปี ⇒ วัดได้ปีเดียว
+                              ซึ่งดูเหมือนกราฟพังทั้งที่ถูกแล้ว (ปีแรกไม่มีอดีตให้เทรน) */}
+                          <p className="dim mb-1.5 text-[10.5px] leading-relaxed">
+                            หวยตัวนี้มีผลย้อนหลัง <b>{wfYears.length} ปี</b> ({yearSpanLabel(wfYears)}) ⇒ วัดผลได้{" "}
+                            <b>{wf.folds.length} ปี</b> — ปี 25{wfYears[0]} ใช้เทรนอย่างเดียว ไม่มีปีก่อนหน้าให้เรียน
+                          </p>
 
                           <div className="mb-2 flex flex-wrap gap-1.5">
                             <Chip active={!wfLocked} onClick={() => setWfLocked(false)}>
@@ -963,6 +990,18 @@ export default function FormulasPage() {
                           <p className="dim mt-1 text-[10.5px] leading-relaxed">
                             เทรนด้วยปีก่อนหน้าเท่านั้น — ทั้งชุดเลขและ n_bet ไม่เคยเห็นปีที่กำลังวัดผล
                             {wf.warnings.length > 0 ? ` · ข้ามไป: ${wf.warnings.join(" · ")}` : ""}
+                          </p>
+                        </div>
+                      ) : wfYears.length > 0 ? (
+                        /* ⚠️ เมื่อก่อนหายไปเฉย ๆ — คนอ่านนึกว่าหน้าพัง ทั้งที่ข้อมูลไม่พอจริง ๆ
+                           (กติกาเดียวกับที่อื่นในแอป: บอกเหตุผล + วิธีแก้ ไม่ใช่เงียบ) */
+                        <div>
+                          <SectionTitle>Walk-Forward รายปี</SectionTitle>
+                          <p className="dim text-[10.5px] leading-relaxed">
+                            {wfYears.length < 2
+                              ? `ยังทำไม่ได้ — หวยตัวนี้มีผลย้อนหลังปีเดียว (25${wfYears[0]}) · walk-forward ต้องมีอย่างน้อย 2 ปี เพราะปีแรกใช้เทรนอย่างเดียว แล้ววัดผลบนปีถัดไป`
+                              : `ยังทำไม่ได้ — มีผลย้อนหลัง ${wfYears.length} ปี (${yearSpanLabel(wfYears)}) แต่คำนวณไม่ผ่านสักปี`}
+                            {wf && wf.warnings.length > 0 ? ` · ${wf.warnings.join(" · ")}` : ""}
                           </p>
                         </div>
                       ) : null}
