@@ -320,3 +320,101 @@ export function ProfitBar({ value, max }: { value: number; max: number }) {
     </div>
   );
 }
+
+
+/**
+ * เส้นทุนหลายเส้นซ้อนกัน — เทียบ Top 10 ของหน้าสูตร (`overlay_fig` ของแอปเดิม)
+ *
+ * เส้นที่เลือกอยู่หนาและทึบ ที่เหลือบางและจาง ⇒ เห็นว่าอันดับที่เลือก "อยู่ตรงไหน
+ * ของกลุ่ม" — ถ้าทุกเส้นไปทางเดียวกัน = สูตรทน ไม่ได้ขึ้นกับ n ที่เลือกเป๊ะ ๆ
+ *
+ * ⚠️ ไม่ใส่ legend สี — 10 เส้นแยกด้วยสีไม่ได้อยู่แล้ว (ยิ่งตาบอดสี) ⇒ ตัวที่บอก
+ * ความหมายคือ **ความหนา/ความทึบของเส้นที่เลือก** ส่วนอันดับอ่านจากชิปด้านบนแทน
+ */
+export function MultiEquityChart({
+  series,
+  capital,
+  selected,
+  monthDivs,
+}: {
+  series: { label: string; values: number[] }[];
+  capital: number;
+  /** index ของเส้นที่กำลังเลือก */
+  selected: number;
+  monthDivs: [string, number][];
+}) {
+  const geom = useMemo(() => {
+    const all = series.flatMap((item) => item.values);
+    if (all.length === 0) return null;
+    const n = Math.max(...series.map((item) => item.values.length));
+    const lo = Math.min(capital, ...all);
+    const hi = Math.max(capital, ...all);
+    const span = hi - lo || 1;
+    const x = (i: number) => PAD_L + (i / Math.max(1, n - 1)) * (W - PAD_L - PAD_R);
+    const y = (v: number) => PAD_T + (1 - (v - lo) / span) * (H - PAD_T - PAD_B);
+    const paths = series.map((item) =>
+      item.values.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(2)},${y(v).toFixed(2)}`).join(" "),
+    );
+    return { n, x, y, paths };
+  }, [series, capital]);
+
+  if (!geom || series.length === 0) return null;
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="block w-full" role="img" aria-label="เทียบเส้นทุนของ 10 อันดับ">
+      {monthDivs.map(([name, at]) => (
+        <g key={`${name}-${at}`}>
+          <line
+            x1={geom.x(at)}
+            x2={geom.x(at)}
+            y1={PAD_T}
+            y2={H - PAD_B}
+            stroke="var(--line)"
+            strokeWidth="1"
+            vectorEffect="non-scaling-stroke"
+          />
+          <text x={geom.x(at) + 3} y={H - 7} fontSize="10" fill="var(--dim)">
+            {name}
+          </text>
+        </g>
+      ))}
+
+      <line
+        x1={PAD_L}
+        x2={W - PAD_R}
+        y1={geom.y(capital)}
+        y2={geom.y(capital)}
+        stroke="var(--line-strong)"
+        strokeWidth="1"
+        strokeDasharray="4 3"
+        vectorEffect="non-scaling-stroke"
+      />
+
+      {/* วาดเส้นที่ไม่ได้เลือกก่อน แล้วค่อยทับด้วยเส้นที่เลือก — ไม่งั้นมันโดนบัง */}
+      {geom.paths.map((d, i) =>
+        i === selected ? null : (
+          <path
+            key={`bg-${series[i].label}`}
+            d={d}
+            fill="none"
+            stroke="var(--dim)"
+            strokeWidth="1"
+            opacity="0.45"
+            vectorEffect="non-scaling-stroke"
+          />
+        ),
+      )}
+      {geom.paths[selected] ? (
+        <path
+          d={geom.paths[selected]}
+          fill="none"
+          stroke="var(--accent)"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      ) : null}
+    </svg>
+  );
+}

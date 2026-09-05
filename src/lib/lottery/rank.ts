@@ -207,6 +207,45 @@ export interface RankChoice {
   trainProfit: number | null;
 }
 
+/** ชื่อเดือนย่ออังกฤษ — ตรงกับ `strftime("%b")` ที่ `db.chart_month_dividers` ใช้ */
+const EN_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * `db.chart_month_dividers` — ตำแหน่งบนแกน X ของกราฟที่เป็น "วันที่ 1 ของเดือน"
+ *
+ * ⚠️⚠️ กราฟ **รายหวย** ใช้ index ตาม **งวดจริง** (ข้ามวันหยุด) ไม่ใช่วันปฏิทิน —
+ * คนละระบบกับเส้นทุนของ *พอร์ต* ที่นับทุกวันปฏิทิน · สลับกันเมื่อไหร่เส้นแบ่งเดือน
+ * จะไปตกผิดที่ทั้งเส้นโดยกราฟยังดูสวยอยู่
+ *
+ * sequence ยังเป็น calendar-indexed เหมือนเดิม (1 ช่อง = 1 วันจาก 1 ม.ค.) —
+ * ที่แปลงคือ "วันปฏิทินที่ n" → "งวดจริงที่เท่าไหร่"
+ */
+export function drawMonthDividers(testStr: string, yearBe: string, digits = 2): [string, number][] {
+  const ce = 2500 + Number(yearBe) - 543;
+  if (!Number.isFinite(ce) || !testStr) return [];
+
+  const nCal = Math.floor(testStr.length / digits);
+  if (nCal === 0) return [];
+
+  // calToDraw[k] = จำนวนงวดจริงในวันที่ index 0..k-1
+  const calToDraw = new Array<number>(nCal + 1).fill(0);
+  let drawIdx = 0;
+  for (let day = 0; day < nCal; day += 1) {
+    const cell = testStr.slice(day * digits, (day + 1) * digits);
+    if (cell.length === digits && /^\d+$/.test(cell)) drawIdx += 1;
+    calToDraw[day + 1] = drawIdx;
+  }
+
+  const jan1 = Date.UTC(ce, 0, 1);
+  const out: [string, number][] = [];
+  for (let month = 2; month <= 12; month += 1) {
+    const calDay = Math.round((Date.UTC(ce, month - 1, 1) - jan1) / 86_400_000);
+    if (calDay >= nCal) break;
+    out.push([EN_MONTHS[month - 1], calToDraw[calDay]]);
+  }
+  return out;
+}
+
 export interface GroupAnalysis {
   trainYears: string[];
   numbers: string[];

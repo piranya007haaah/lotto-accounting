@@ -14,13 +14,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/LiffProvider";
-import { EquityChart, ProfitBar } from "@/components/PortfolioCharts";
+import { EquityChart, MultiEquityChart, ProfitBar } from "@/components/PortfolioCharts";
 import { Alert, Chip, EmptyState, Modal, PageHeader, SectionTitle, Spinner } from "@/components/ui";
 import { formatBahtShort, formatSigned } from "@/lib/format";
 import { computeRiskMetrics, randomBaseline } from "@/lib/lottery/engine";
 import { DEFAULT_FORMULA, FORMULA_NAMES } from "@/lib/lottery/formulas";
 import {
   analyzeGroup,
+  drawMonthDividers,
   trainYearsOf,
   type GroupAnalysis,
   type RankMode,
@@ -119,6 +120,8 @@ export default function FormulasPage() {
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<GroupAnalysis | null>(null);
   const [chosenRank, setChosenRank] = useState(1);
+  /** sequence ของปี test ที่กำลังเปิดดู — ใช้หาเส้นแบ่งเดือน (index = งวดจริง) */
+  const [testStr, setTestStr] = useState("");
   const [detailError, setDetailError] = useState<string | null>(null);
   const [showNumbers, setShowNumbers] = useState(false);
   /** ผลหวยดิบของกลุ่มที่เคยเปิด — กดสลับไปมาแล้วไม่ต้องโหลดซ้ำ */
@@ -222,6 +225,7 @@ export default function FormulasPage() {
           cache.current.set(key, entries);
         }
         const testStr = entries.find((entry) => entry.year === testYear)?.sequence ?? "";
+        setTestStr(testStr);
         // ⚠️ ต้องกรองด้วยกติกาเดียวกับ `trainYearsOf` ฝั่ง server เป๊ะ ๆ ไม่งั้นเลขในกล่อง
         // รายละเอียดจะไม่ตรงกับแถวในตารางที่เพิ่งกดเปิด — คนอ่านจับไม่ได้ว่าอันไหนจริง
         const usedTrainYears = trainYearsOf(
@@ -276,6 +280,37 @@ export default function FormulasPage() {
         : null,
     [bet, choice, payout],
   );
+
+  /** เส้นแบ่งเดือนของกราฟรายหวย — index ตาม **งวดจริง** (คนละระบบกับเส้นทุนพอร์ต) */
+  const monthDivs = useMemo(
+    // หน้านี้เป็นสูตร 2 ตัวล้วน (API ขอ `digits: 2` เสมอ) ⇒ 1 งวด = 2 ตัวอักษรแน่นอน
+    () => (testStr ? drawMonthDividers(testStr, testYear, 2) : []),
+    [testStr, testYear],
+  );
+
+  /** เส้นทุนของทั้ง 10 อันดับ + ตัวเลขความเสี่ยงของแต่ละอันดับ (ตาราง Top 10) */
+  const topRows = useMemo(() => {
+    if (!analysis) return [];
+    return analysis.choices.map((item) => {
+      const curve = analysis.equityOf(item.size);
+      return { choice: item, curve, risk: computeRiskMetrics(curve) };
+    });
+  }, [analysis]);
+
+  /** กำไรรายเดือนของช่วง test — ตัดเส้นทุนตามเส้นแบ่งเดือนที่คิดไว้แล้ว */
+  const monthly = useMemo(() => {
+    if (!equity || equity.length < 2) return [];
+    const bounds = [0, ...monthDivs.map(([, at]) => at), equity.length - 1];
+    const labels = ["Jan", ...monthDivs.map(([name]) => name)];
+    const out: { label: string; profit: number; start: number }[] = [];
+    for (let i = 0; i < labels.length; i += 1) {
+      const from = Math.min(bounds[i], equity.length - 1);
+      const to = Math.min(bounds[i + 1] ?? equity.length - 1, equity.length - 1);
+      if (to <= from) continue;
+      out.push({ label: labels[i], profit: equity[to] - equity[from], start: equity[from] });
+    }
+    return out;
+  }, [equity, monthDivs]);
 
   const maxProfit = Math.max(1, ...(rows ?? []).map((row) => Math.abs(row.profit)));
 
@@ -495,7 +530,7 @@ export default function FormulasPage() {
                       {equity ? (
                         <div>
                           <SectionTitle>เส้นทุน</SectionTitle>
-                          <EquityChart values={equity} capital={capital} monthDivs={[]} />
+                          <EquityChart values={equity} capital={capital} monthDivs={monthDivs} />
                         </div>
                       ) : null}
                       {baseline?.z != null ? (
@@ -508,6 +543,112 @@ export default function FormulasPage() {
                             : ""}
                         </p>
                       ) : null}
+                      {/* เทียบ Top 10 — เห็นว่าอันดับที่เลือก "อยู่ตรงไหนของกลุ่ม"
+                          ทุกเส้นไปทางเดียวกัน = สูตรทน ไม่ได้ขึ้นกับ n ที่เลือกเป๊ะ ๆ */}
+                      {topRows.length > 1 ? (
+                        <div>
+                          <SectionTitle>เทียบทั้ง {topRows.length} อันดับ</SectionTitle>
+                          <MultiEquityChart
+                            series={topRows.map((item) => ({ label: `#${item.choice.rank}`, values: item.curve }))}
+                            capital={capital}
+                            selected={topRows.findIndex((item) => item.choice.rank === (choice?.rank ?? 1))}
+                            monthDivs={monthDivs}
+                          />
+                          <p className="dim mt-1 text-[10.5px] leading-relaxed">
+                            เส้นหนา = อันดับที่เลือกอยู่ · เส้นจาง = อีก {topRows.length - 1} อันดับ ·
+                            ทุกเส้นไปทางเดียวกัน = สูตรทน ไม่ได้ขึ้นกับ n ที่เลือกเป๊ะ ๆ
+                          </p>
+                        </div>
+                      ) : null}
+
+                      {/* ⚠️ โหมด "ปีก่อนหน้า" ต้องโชว์ **อันดับใน test**: ≤10 = n ที่เลือกจากอดีตก็ติด
+                          Top 10 ของปีจริงด้วย (overfit น้อย) — เป็นตัวเลขที่ตัดสินว่าเชื่อได้แค่ไหน */}
+                      {topRows.length > 0 ? (
+                        <div>
+                          <SectionTitle>ทุกอันดับ</SectionTitle>
+                          <div className="overflow-x-auto">
+                            <table className="tnum w-full text-[11.5px]">
+                              <thead>
+                                <tr className="dim text-[10px]">
+                                  <th className="py-1 text-left font-semibold">อันดับ</th>
+                                  <th className="py-1 text-right font-semibold">n_bet</th>
+                                  <th className="py-1 text-right font-semibold">กำไร</th>
+                                  <th className="py-1 text-right font-semibold">ถูก</th>
+                                  <th className="py-1 text-right font-semibold">Max DD</th>
+                                  <th className="py-1 text-right font-semibold">แพ้ติด</th>
+                                  <th className="py-1 text-right font-semibold">
+                                    {mode === "train" ? "ใน test" : "Sharpe"}
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {topRows.map(({ choice: item, risk: rowRisk }) => {
+                                  const picked = item.rank === (choice?.rank ?? 1);
+                                  return (
+                                    <tr
+                                      key={item.rank}
+                                      style={{
+                                        borderTop: "1px solid var(--divider)",
+                                        background: picked ? "var(--accent-tint)" : undefined,
+                                        fontWeight: picked ? 700 : 400,
+                                      }}
+                                    >
+                                      <td className="py-1">#{item.rank}</td>
+                                      <td className="py-1 text-right">{item.size}</td>
+                                      <td
+                                        className="py-1 text-right"
+                                        style={{ color: item.profit >= 0 ? "var(--color-money-out)" : "var(--color-money-in)" }}
+                                      >
+                                        {formatSigned(item.profit)}
+                                      </td>
+                                      <td className="py-1 text-right">{item.winRate.toFixed(1)}%</td>
+                                      <td className="py-1 text-right">{formatBahtShort(item.maxDrawdown)}</td>
+                                      <td className="py-1 text-right">{rowRisk.maxLossStreak}</td>
+                                      <td className="py-1 text-right">
+                                        {mode === "train" ? `#${item.testRank}` : rowRisk.sharpe.toFixed(2)}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                          {mode === "train" ? (
+                            <p className="dim mt-1 text-[10.5px] leading-relaxed">
+                              <b>ใน test ≤ 10</b> = n ที่เลือกจากปีก่อนหน้าก็ติด Top 10 ของปีจริงด้วย →
+                              สูตรไม่ overfit เชื่อได้มากกว่า
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
+
+                      {/* เดือนไหนพัง เดือนไหนแบก — กำไรทั้งปีก้อนเดียวซ่อนเรื่องนี้ไว้หมด */}
+                      {monthly.length > 1 ? (
+                        <div>
+                          <SectionTitle>กำไรรายเดือน (ช่วง test)</SectionTitle>
+                          <div className="overflow-x-auto">
+                            <table className="tnum w-full text-[11.5px]">
+                              <tbody>
+                                {monthly.map((month) => (
+                                  <tr key={month.label} style={{ borderTop: "1px solid var(--divider)" }}>
+                                    <td className="py-1 font-semibold">{month.label}</td>
+                                    <td className="dim py-1 text-right text-[10.5px]">
+                                      ทุนต้นเดือน {formatBahtShort(month.start)}
+                                    </td>
+                                    <td
+                                      className="py-1 text-right font-bold"
+                                      style={{ color: month.profit >= 0 ? "var(--color-money-out)" : "var(--color-money-in)" }}
+                                    >
+                                      {formatSigned(month.profit)}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ) : null}
+
                       <button
                         type="button"
                         className="dim text-[11.5px] font-semibold"
