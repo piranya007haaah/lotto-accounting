@@ -29,6 +29,29 @@ import {
   type RankRow,
 } from "@/lib/lottery/rank";
 
+/**
+ * กลุ่มของหวยตามคำท้ายชื่อ — หวยตัวเดียวกันมักมีหลายรอบต่อวัน (ปกติ/VIP/พิเศษ)
+ * ซึ่งเป็นคนละงวดคนละสถิติ ⇒ อยากดูทีละแบบโดยไม่ต้องกวาดตาหาในลิสต์ยาว ๆ
+ *
+ * ⚠️ เช็ค "พิเศษ" ก่อน VIP — มีชื่อที่มีทั้งสองคำได้ (เช่น "ลาวพิเศษ VIP")
+ *    ถ้าเช็ค VIP ก่อน ตัวพิเศษจะถูกดูดไปอยู่กลุ่ม VIP หมด
+ */
+type Kind = "special" | "vip" | "normal" | "other";
+
+const KIND_LABEL: Record<Kind, string> = {
+  special: "พิเศษ",
+  vip: "VIP",
+  normal: "ปกติ",
+  other: "อื่น ๆ",
+};
+
+function kindOf(lottery: string): Kind {
+  if (lottery.includes("พิเศษ")) return "special";
+  if (/vip/i.test(lottery)) return "vip";
+  if (lottery.includes("ปกติ")) return "normal";
+  return "other";
+}
+
 interface GroupsResponse {
   groups: { lottery: string; position: string; flag: string; years: string[] }[];
   years: string[];
@@ -121,6 +144,8 @@ export default function FormulasPage() {
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<GroupAnalysis | null>(null);
   const [chosenRank, setChosenRank] = useState(1);
+  /** null = ทั้งหมด */
+  const [kind, setKind] = useState<Kind | null>(null);
   /** sequence ของปี test ที่กำลังเปิดดู — ใช้หาเส้นแบ่งเดือน (index = งวดจริง) */
   const [testStr, setTestStr] = useState("");
   /** ทุกปีของกลุ่มที่เปิดอยู่ — ใช้ทำ walk-forward (ทุกปีเทรนด้วยปีก่อนหน้า) */
@@ -342,7 +367,30 @@ export default function FormulasPage() {
     }
   }, [bet, capital, choice?.size, formula, openEntries, payout, wfLocked]);
 
-  const maxProfit = Math.max(1, ...(rows ?? []).map((row) => Math.abs(row.profit)));
+  /** กลุ่มที่มีของจริงเท่านั้น + จำนวนในแต่ละกลุ่ม — ชิปที่กดแล้วว่างเปล่ามีแต่ทำให้งง */
+  const kinds = useMemo(() => {
+    const count = new Map<Kind, number>();
+    for (const row of rows ?? []) {
+      const k = kindOf(row.lottery);
+      count.set(k, (count.get(k) ?? 0) + 1);
+    }
+    return (["special", "vip", "normal", "other"] as Kind[])
+      .filter((k) => (count.get(k) ?? 0) > 0)
+      .map((k) => ({ kind: k, count: count.get(k) ?? 0 }));
+  }, [rows]);
+
+  // ⚠️ ติด **อันดับในลิสต์เต็ม** มาด้วย — ถ้าไล่เลข 1..n ใหม่ตามที่กรอง อันดับจะปลอม
+  //    (หวยอันดับ 12 ของทั้งหมดจะกลายเป็น "#1" ทันทีที่กรองเหลือกลุ่มเดียว)
+  const shownRows = useMemo(
+    () =>
+      (rows ?? [])
+        .map((row, rank) => ({ row, rank: rank + 1 }))
+        .filter((item) => kind === null || kindOf(item.row.lottery) === kind),
+    [kind, rows],
+  );
+
+  // คิดจากแถวที่โชว์อยู่ ไม่งั้นกรองเหลือกลุ่มเล็กแล้วแถบทุกอันสั้นจู๋เท่ากันหมด
+  const maxProfit = Math.max(1, ...shownRows.map((item) => Math.abs(item.row.profit)));
 
   if (!canViewLottery) {
     return (
@@ -460,8 +508,44 @@ export default function FormulasPage() {
 
       {!loading && rows && rows.length > 0 ? (
         <section className="card px-3.5 py-3">
-          <SectionTitle>อันดับหวย</SectionTitle>
-          {rows.map((row, index) => {
+          <SectionTitle
+            action={
+              kind !== null ? (
+                <span className="dim text-[11px]">
+                  {shownRows.length} จาก {rows.length}
+                </span>
+              ) : null
+            }
+          >
+            อันดับหวย
+          </SectionTitle>
+
+          {/* กรองตามรอบของหวย — หวยตัวเดียวกันมีหลายรอบต่อวัน (ปกติ/VIP/พิเศษ)
+              ซึ่งเป็นคนละงวดคนละสถิติ · ชิปโผล่เฉพาะกลุ่มที่มีของจริง */}
+          {kinds.length > 1 ? (
+            <div className="mb-1.5 flex flex-wrap gap-1.5">
+              <Chip active={kind === null} onClick={() => setKind(null)}>
+                ทั้งหมด {rows.length}
+              </Chip>
+              {kinds.map((item) => (
+                <Chip
+                  key={item.kind}
+                  active={kind === item.kind}
+                  onClick={() => setKind(kind === item.kind ? null : item.kind)}
+                >
+                  {KIND_LABEL[item.kind]} {item.count}
+                </Chip>
+              ))}
+            </div>
+          ) : null}
+
+          {shownRows.length === 0 ? (
+            <p className="muted py-3 text-center text-[12px]">
+              ไม่มีหวยกลุ่มนี้ในผลที่กรองอยู่ — กด “ทั้งหมด” เพื่อดูทุกตัว
+            </p>
+          ) : null}
+
+          {shownRows.map(({ row, rank }) => {
             const key = KEY(row.lottery, row.position);
             return (
               <button
@@ -472,7 +556,7 @@ export default function FormulasPage() {
               >
                   <div className="flex items-center justify-between gap-2">
                     <span className="min-w-0 truncate text-[13px] font-semibold">
-                      <span className="dim tnum mr-1.5">{index + 1}.</span>
+                      <span className="dim tnum mr-1.5">{rank}.</span>
                       {row.flag} {row.lottery} · {row.position}
                     </span>
                     <span
