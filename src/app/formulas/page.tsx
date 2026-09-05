@@ -125,7 +125,7 @@ function Kpi({ label, value, sub, tone = "plain" }: {
 }
 
 export default function FormulasPage() {
-  const { api, canViewLottery } = useAuth();
+  const { api, canViewLottery, isAdmin } = useAuth();
 
   const [years, setYears] = useState<string[]>([]);
   const [formula, setFormula] = useState(DEFAULT_FORMULA);
@@ -152,6 +152,11 @@ export default function FormulasPage() {
   const [openEntries, setOpenEntries] = useState<EntriesResponse["entries"]>([]);
   /** true = ล็อก n_bet ตามอันดับที่เลือกด้านบน · false = ให้แต่ละปีเลือกเองจาก train */
   const [wfLocked, setWfLocked] = useState(false);
+  /** เส้นคั่นบนกราฟ walk-forward — รายปี (ดีฟอลต์) หรือรายเดือน */
+  const [wfSpan, setWfSpan] = useState<"year" | "month">("year");
+  const [sending, setSending] = useState(false);
+  const [sendNote, setSendNote] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [showNumbers, setShowNumbers] = useState(false);
   /** ผลหวยดิบของกลุ่มที่เคยเปิด — กดสลับไปมาแล้วไม่ต้องโหลดซ้ำ */
@@ -244,6 +249,8 @@ export default function FormulasPage() {
       const key = KEY(row.lottery, row.position);
       setOpenKey(key);
       setAnalysis(null);
+      setSendNote(null);
+      setSendError(null);
       setDetailError(null);
       setChosenRank(1);
       try {
@@ -368,6 +375,72 @@ export default function FormulasPage() {
   }, [bet, capital, choice?.size, formula, openEntries, payout, wfLocked]);
 
   /** กลุ่มที่มีของจริงเท่านั้น + จำนวนในแต่ละกลุ่ม — ชิปที่กดแล้วว่างเปล่ามีแต่ทำให้งง */
+  /**
+   * ช่วงที่เอาไปวาดทับกราฟ walk-forward — รูปเดียวกับ `PortfolioMonth` (ช่วง + ทุนต้นช่วง
+   * + กำไรปิดช่วง) ⇒ `EquityChart` วาดเส้นคั่น + เส้นประทุนต้นช่วง + ป้ายกำไรให้เลย
+   *
+   * ⚠️ สลับได้ทีละแบบ ใส่พร้อมกันไม่ได้ — 5 ปี × 12 เดือน = 60 กว่าเส้นทับกันจนอ่านไม่ออก
+   */
+  const wfSpans = useMemo(() => {
+    if (!wf) return [];
+    if (wfSpan === "month") {
+      return wf.monthly.map((month) => ({
+        label: month.label,
+        capitalStart: month.equityStart,
+        profit: month.profit,
+        maxDd: month.maxDd,
+        idxStart: month.idxStart,
+        idxEnd: month.idxEnd,
+      }));
+    }
+    return wf.folds.map((fold) => ({
+      label: `25${fold.year}`,
+      capitalStart: wf.equityCurve[fold.idxStart] ?? wf.capital,
+      profit: fold.profit,
+      maxDd: fold.maxDrawdown,
+      idxStart: fold.idxStart,
+      idxEnd: fold.idxEnd,
+    }));
+  }, [wf, wfSpan]);
+
+  /**
+   * ส่งรายงานของหวยตัวนี้เข้า LINE
+   *
+   * ⚠️ ส่งไปแค่ **ค่าที่ตั้ง** ให้ฝั่ง server คำนวณเองใหม่ ไม่ส่งตัวเลขสำเร็จรูปไป —
+   * การ์ดเข้ากลุ่มแล้วถอนคืนไม่ได้ ตัวเลขที่ออกไปต้องมาจาก engine ไม่ใช่จากเบราว์เซอร์
+   */
+  const sendReport = useCallback(async () => {
+    if (!openRow || !choice) return;
+    setSending(true);
+    setSendNote(null);
+    setSendError(null);
+    try {
+      const result = await api<{ messages: number; nBet: number; rank: number }>(
+        "/api/lottery/formula-report",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            lottery: openRow.lottery,
+            position: openRow.position,
+            formula,
+            testYear,
+            trainYears,
+            mode,
+            capital,
+            betPerNumber: bet,
+            payoutRate: payout,
+            rank: choice.rank,
+          }),
+        },
+      );
+      setSendNote(`ส่งเข้า LINE แล้ว — อันดับ #${result.rank} · แทง ${result.nBet} เลข`);
+    } catch (caught) {
+      setSendError(caught instanceof Error ? caught.message : "ส่งไม่สำเร็จ");
+    } finally {
+      setSending(false);
+    }
+  }, [api, bet, capital, choice, formula, mode, openRow, payout, testYear, trainYears]);
+
   const kinds = useMemo(() => {
     const count = new Map<Kind, number>();
     for (const row of rows ?? []) {
@@ -784,6 +857,17 @@ export default function FormulasPage() {
                             </Chip>
                           </div>
 
+                          {/* เส้นคั่นบนกราฟ — รายปีดูภาพรวม · รายเดือนดูว่าเดือนไหนพัง
+                              ⚠️ ใส่พร้อมกันทั้งสองไม่ได้ เส้น 60 กว่าเส้นทับกันจนอ่านไม่ออก */}
+                          <div className="mb-2 flex flex-wrap gap-1.5">
+                            <Chip active={wfSpan === "year"} onClick={() => setWfSpan("year")}>
+                              คั่นรายปี
+                            </Chip>
+                            <Chip active={wfSpan === "month"} onClick={() => setWfSpan("month")}>
+                              คั่นรายเดือน
+                            </Chip>
+                          </div>
+
                           <div className="grid grid-cols-2 gap-2">
                             <Kpi
                               label="กำไรรวมทุกปี"
@@ -806,17 +890,10 @@ export default function FormulasPage() {
                             <EquityChart
                               values={wf.equityCurve}
                               capital={wf.capital}
-                              monthDivs={wf.folds
-                                .filter((fold) => fold.idxStart > 0)
-                                .map((fold) => [`25${fold.year}`, fold.idxStart] as [string, number])}
-                              months={wf.folds.map((fold) => ({
-                                label: `25${fold.year}`,
-                                capitalStart: wf.equityCurve[fold.idxStart] ?? wf.capital,
-                                profit: fold.profit,
-                                maxDd: fold.maxDrawdown,
-                                idxStart: fold.idxStart,
-                                idxEnd: fold.idxEnd,
-                              }))}
+                              monthDivs={wfSpans
+                                .filter((span) => span.idxStart > 0)
+                                .map((span) => [span.label, span.idxStart] as [string, number])}
+                              months={wfSpans}
                             />
                           </div>
 
@@ -871,6 +948,27 @@ export default function FormulasPage() {
                         <p className="tnum dim text-[10.5px] leading-relaxed break-all">
                           {analysis.numbers.slice(0, choice.size).join(" ")}
                         </p>
+                      ) : null}
+
+                      {/* ส่งเข้า LINE — ไว้ล่างสุด เพราะควรอ่านตัวเลขให้ครบก่อนค่อยส่ง
+                          ⚠️ ส่งแล้วถอนคืนไม่ได้ ⇒ บอกปลายทางไว้ข้างปุ่ม ไม่ใช่ให้กดแล้วค่อยรู้ */}
+                      {isAdmin ? (
+                        <div style={{ borderTop: "1px solid var(--divider)", paddingTop: 10 }}>
+                          {sendNote ? <Alert tone="success">{sendNote}</Alert> : null}
+                          {sendError ? <Alert tone="error">{sendError}</Alert> : null}
+                          <button
+                            type="button"
+                            className="btn btn-ghost w-full py-2.5 text-[13px]"
+                            disabled={sending || !choice}
+                            onClick={() => void sendReport()}
+                          >
+                            {sending ? "กำลังส่ง..." : "📤 ส่งรายงานหวยตัวนี้เข้า LINE"}
+                          </button>
+                          <p className="dim mt-1 text-[10.5px] leading-relaxed">
+                            ส่งอันดับ #{choice?.rank ?? 1} ({choice?.size ?? 0} เลข) ที่เลือกอยู่ · การ์ด 2 ใบ:
+                            ผลปี 25{testYear} + ถ้าใช้สูตรนี้มาตลอด · <b>ส่งแล้วถอนคืนไม่ได้</b>
+                          </p>
+                        </div>
                       ) : null}
                     </div>
                   ) : null}
