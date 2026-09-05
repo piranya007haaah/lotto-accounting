@@ -33,12 +33,15 @@ export function LegMonthTable({
   sequences,
   replay,
   leg,
+  month,
 }: {
   portfolio: LotteryPortfolio;
   sequences: readonly DatasetSequence[];
   /** ส่งมาแล้วจะไม่ replay ซ้ำ (เปิดป๊อปอัปทีละขา แต่ replay ทั้งพอร์ตทุกครั้งจะหน่วง) */
   replay?: ReplayResult;
   leg: PortfolioLeg;
+  /** เดือนที่หน้าพอร์ตกำลังดูอยู่ (1-12) — เปิดป๊อปอัปมาแล้วตรงกับที่เลือกไว้ข้างนอก */
+  month?: number;
 }) {
   const testYear = String(portfolio.config.legs?.[0]?.test_year ?? "");
   const ce = testYear ? ceYearOf(testYear) : new Date().getUTCFullYear();
@@ -60,9 +63,13 @@ export function LegMonthTable({
     return out;
   }, [ce, leg.lottery, portfolio, replay, sequences]);
 
-  // ดีฟอลต์ = เดือนล่าสุดที่มีผล (คำถามคือ "เดือนนี้เป็นยังไง" ไม่ใช่ ม.ค.)
+  // ดีฟอลต์ = เดือนที่หน้าพอร์ตเลือกไว้ · ไม่ได้ส่งมา = เดือนล่าสุดที่มีผล
+  // (คำถามคือ "เดือนนี้เป็นยังไง" ไม่ใช่ ม.ค.)
   const [picked, setPicked] = useState<number | null>(null);
-  const current = months.find((m) => m.month === picked) ?? months[months.length - 1];
+  const current =
+    months.find((m) => m.month === picked) ??
+    months.find((m) => m.month === month) ??
+    months[months.length - 1];
   if (!current?.table) return null;
 
   const column = current.table.columns.find((c) => c.position === leg.position);

@@ -814,11 +814,22 @@ export function portfolioAsOf(
 
 /* ─────────────────────────── snapshot ─────────────────────────── */
 
-/** (ถูกกี่งวด, แทงกี่งวด) — ข้ามวันหยุด **และงวดที่ขาไม่ได้แทง** (n=0) */
-function legWinRate(detail: LegDetail): { wins: number; draws: number } {
+/**
+ * (ถูกกี่งวด, แทงกี่งวด) ในช่วงวัน `[from, to]` — ข้ามวันหยุด **และงวดที่ขาไม่ได้แทง** (n=0)
+ *
+ * ⚠️ `from`/`to` เป็น **วันปฏิทินนับจาก 1 ม.ค.** (index ของ `testList`) ไม่ใช่ "งวดที่"
+ * · เส้นทุนใช้ index ที่เลื่อนไป 1 (curve[i] = หลังจบวันที่ i−1) ⇒ คนเรียกต้องแปลงเอง
+ */
+export function legWinRateIn(
+  detail: LegDetail,
+  from: number,
+  to: number,
+): { wins: number; draws: number } {
   let wins = 0;
   let draws = 0;
-  for (let i = 0; i < detail.testList.length; i += 1) {
+  const first = Math.max(0, from);
+  const last = Math.min(to, detail.testList.length - 1);
+  for (let i = first; i <= last; i += 1) {
     const draw = detail.testList[i];
     if (isSkip(draw, detail.digits)) continue;
     const [nums, n] = legBetAt(detail, i);
@@ -827,6 +838,11 @@ function legWinRate(detail: LegDetail): { wins: number; draws: number } {
     if (nums.has(draw)) wins += 1;
   }
   return { wins, draws };
+}
+
+/** ทั้งเส้น — กติกาเดียวกับด้านบน (ที่เดียว ห้ามเขียนกติกาซ้ำ) */
+function legWinRate(detail: LegDetail): { wins: number; draws: number } {
+  return legWinRateIn(detail, 0, detail.testList.length - 1);
 }
 
 function buildLegs(

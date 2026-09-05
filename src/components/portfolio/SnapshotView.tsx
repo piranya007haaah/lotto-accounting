@@ -13,13 +13,14 @@
 
 import { useMemo, useState } from "react";
 import { EquityChart, MonthlyBars, ProfitBar } from "@/components/PortfolioCharts";
-import { Modal, SectionTitle } from "@/components/ui";
+import { Chip, Modal, SectionTitle } from "@/components/ui";
 import { formatBahtShort, formatSigned } from "@/lib/format";
 import { comparePositions, minutesOf } from "@/lib/lottery/day-result";
 import { prepareReplay } from "@/lib/lottery/day-result";
 import type { LotteryPortfolio } from "@/lib/lottery/portfolio-config";
 import type { DatasetSequence } from "@/lib/lottery/portfolio-engine";
 import type { PortfolioLeg, PortfolioSnapshot } from "@/lib/types";
+import { sliceSnapshot, snapshotWindows, worstDayIn } from "@/lib/lottery/snapshot-window";
 import { LegMonthTable } from "./LegMonthTable";
 import { LegReport } from "./LegReport";
 
@@ -123,16 +124,44 @@ export function SnapshotView({
   portfolio?: LotteryPortfolio;
   sequences?: readonly DatasetSequence[];
 }) {
-  const kpi = snapshot.kpi;
   /** ขาที่เปิดรายงานอยู่ (`index` ของขา) — ป๊อปอัปทีละขาเดียว */
   const [openLeg, setOpenLeg] = useState<number | null>(null);
+  /** ช่วงที่กำลังดู — `null` = ยังไม่ได้กดเลือก ⇒ ตกไปที่ **เดือนล่าสุด** ที่มีข้อมูล */
+  const [winKey, setWinKey] = useState<string | null>(null);
+
+  // replay ครั้งเดียวแล้วใช้ซ้ำ — ทั้งการตัดช่วงและป๊อปอัปรายขาต้องใช้ตัวเดียวกัน
+  const replay = useMemo(
+    () => (portfolio && sequences ? prepareReplay(portfolio, sequences) : undefined),
+    [portfolio, sequences],
+  );
+
+  const windows = useMemo(() => snapshotWindows(snapshot), [snapshot]);
+  /**
+   * ดีฟอลต์ = **เดือนล่าสุด** ไม่ใช่ทั้งปี — คำถามที่ถามทุกวันคือ "เดือนนี้เป็นยังไง"
+   * (ยอดทั้งปียังกดดูได้ที่ชิป "ทั้งปี") · เปลี่ยนพอร์ตแล้วชิปที่เลือกไว้ไม่มีในพอร์ตใหม่
+   * ก็ตกกลับมาที่เดือนล่าสุดเองโดยไม่ต้องล้าง state
+   */
+  const win = windows.find((item) => item.key === winKey) ?? windows[windows.length - 1];
+  const isMonth = win.month != null;
+
+  /** ⚠️ ตัวเลขทุกตัวข้างล่างมาจาก `view` — `snapshot` เต็มปีเหลือใช้แค่บาร์รายเดือน */
+  const view = useMemo(() => sliceSnapshot(snapshot, win, replay), [snapshot, win, replay]);
+  const kpi = view.kpi;
+  const worstDay = useMemo(
+    () => (isMonth ? worstDayIn(snapshot, win) : null),
+    [isMonth, snapshot, win],
+  );
+  const yearLabel = snapshot.testYears[snapshot.testYears.length - 1]
+    ? `25${snapshot.testYears[snapshot.testYears.length - 1]}`
+    : "";
+  const scope = isMonth ? `${win.label} ${yearLabel}`.trim() : "ทั้งปี";
 
   /**
    * ลำดับเดียวกับฟอร์มกรอกผลและการ์ด LINE: เวลาที่หวยออก → หวย → สามบน/สองบน/สองล่าง
    * ไม่ได้ส่ง `times` มา (เช่น snapshot เก่าจาก Python) = เรียงตามกำไรเหมือนเดิม
    */
   const ordered = useMemo(() => {
-    const legs = [...snapshot.legs];
+    const legs = [...view.legs];
     if (!times) return legs.sort((a, b) => b.profit - a.profit);
     const seen: string[] = [];
     for (const leg of legs) {
@@ -152,32 +181,53 @@ export function SnapshotView({
         { digits: b.digits, position: b.position ?? "" },
       );
     });
-  }, [snapshot.legs, times]);
+  }, [view.legs, times]);
 
   const maxLegProfit = Math.max(1, ...ordered.map((leg) => Math.abs(leg.profit)));
 
-  // replay ครั้งเดียวแล้วใช้ซ้ำทุกป๊อปอัป — replay ทั้งพอร์ตใหม่ทุกครั้งที่เปิดขาจะหน่วง
-  const replay = useMemo(
-    () => (portfolio && sequences ? prepareReplay(portfolio, sequences) : undefined),
-    [portfolio, sequences],
-  );
   const open = ordered.find((leg) => leg.index === openLeg) ?? null;
 
   return (
     <>
+      {/* ช่วงที่ดู — ดีฟอลต์เดือนล่าสุด ("เดือนนี้เป็นยังไง") กด "ทั้งปี" ได้ยอดรวมแบบเดิม
+          ⚠️ ตั้งใจให้ **ตัดบรรทัด** ไม่ใช่แถบเลื่อนแนวนอน — 10-13 ชิปในแถบเลื่อน
+             เดือนท้าย ๆ จะซ่อนอยู่นอกจอโดยไม่มีอะไรบอกว่าเลื่อนได้ */}
+      {windows.length > 1 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {windows.map((item) => (
+            <Chip
+              key={item.key}
+              active={item.key === win.key}
+              onClick={() => setWinKey(item.key)}
+            >
+              {item.key === "all" ? "🗓️ ทั้งปี" : item.label}
+            </Chip>
+          ))}
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-2 gap-2">
         <Kpi
-          label="กำไร/ขาดทุน"
+          label={isMonth ? `กำไร/ขาดทุน · ${win.label}` : "กำไร/ขาดทุน"}
           value={formatSigned(kpi.profit)}
-          sub={`${kpi.roiPct >= 0 ? "+" : ""}${kpi.roiPct.toFixed(1)}% ของทุน`}
+          sub={`${kpi.roiPct >= 0 ? "+" : ""}${kpi.roiPct.toFixed(1)}% ของทุน${isMonth ? "ต้นเดือน" : ""}`}
           tone={kpi.profit >= 0 ? "signed-positive" : "signed-negative"}
         />
-        <Kpi label="ทุนเริ่มต้น" value={formatBahtShort(kpi.capital)} sub={`${snapshot.nLegs} ขา`} />
+        <Kpi
+          label={isMonth ? "ทุนต้นเดือน" : "ทุนเริ่มต้น"}
+          value={formatBahtShort(kpi.capital)}
+          sub={`${view.nLegs} ขา`}
+          help={isMonth ? "ทุนที่วิ่งมาถึงต้นเดือนนี้ ไม่ใช่ทุนตั้งต้นของพอร์ต" : undefined}
+        />
         <Kpi
           label="ทุนสำรองที่ควรมี"
           value={formatBahtShort(kpi.reserveNeeded)}
           sub={`Max DD ${formatBahtShort(kpi.maxDrawdown)}`}
-          help="ต้องมีเงินทนเท่านี้ถึงจะไม่ต้องเลิกกลางทาง"
+          help={
+            isMonth
+              ? "ร่วงจากทุนต้นเดือนลึกสุดในเดือนนี้"
+              : "ต้องมีเงินทนเท่านี้ถึงจะไม่ต้องเลิกกลางทาง"
+          }
         />
         <Kpi
           label="แพ้ติดกันสูงสุด"
@@ -185,32 +235,50 @@ export function SnapshotView({
           sub={`ลบช่วงนั้น ${formatSigned(kpi.maxLossStreakAmount)}`}
           tone={kpi.maxLossStreak >= 10 ? "warn" : "plain"}
         />
-        <Kpi
-          label="เดือนที่ร่วงหนักสุด"
-          value={formatBahtShort(kpi.worstMonthDd)}
-          sub={kpi.worstMonthLabel ? `เดือน ${kpi.worstMonthLabel}` : undefined}
-          help="ร่วงจากยอดสูงสุดภายในเดือนนั้น — เดือนที่ปิดบวกก็มีช่วงติดลบได้"
-        />
+        {/* โหมดเดือน: "เดือนที่ร่วงหนักสุด" ไม่มีความหมาย (มีเดือนเดียว) ⇒ เอาช่องนี้
+            มาบอก **วันที่ร่วงหนักสุดวันเดียว** แทน ซึ่งเป็นเลขที่รู้สึกได้จริงตอนเล่น */}
+        {isMonth ? (
+          <Kpi
+            label="วันที่ร่วงหนักสุด"
+            value={worstDay ? formatSigned(worstDay.amount) : "—"}
+            sub={worstDay?.label || undefined}
+            tone={worstDay && worstDay.amount < 0 ? "signed-negative" : "plain"}
+            help="ยอดของวันเดียว ไม่ใช่การร่วงสะสม"
+          />
+        ) : (
+          <Kpi
+            label="เดือนที่ร่วงหนักสุด"
+            value={formatBahtShort(kpi.worstMonthDd)}
+            sub={kpi.worstMonthLabel ? `เดือน ${kpi.worstMonthLabel}` : undefined}
+            help="ร่วงจากยอดสูงสุดภายในเดือนนั้น — เดือนที่ปิดบวกก็มีช่วงติดลบได้"
+          />
+        )}
         <Kpi
           label="อัตราถูก"
-          value={`${kpi.winRate.toFixed(1)}%`}
-          sub={`${kpi.wins.toLocaleString("th-TH")}/${kpi.draws.toLocaleString("th-TH")} งวด`}
+          value={kpi.draws > 0 ? `${kpi.winRate.toFixed(1)}%` : "—"}
+          sub={
+            kpi.draws > 0
+              ? `${kpi.wins.toLocaleString("th-TH")}/${kpi.draws.toLocaleString("th-TH")} งวด`
+              : "ต้องคำนวณสดถึงจะนับรายเดือนได้"
+          }
         />
       </div>
 
       <section className="card px-3.5 py-3">
-        <SectionTitle>เส้นทุนรวม</SectionTitle>
+        <SectionTitle>เส้นทุนรวม · {scope}</SectionTitle>
         <EquityChart
-          values={snapshot.equity.values}
-          capital={snapshot.equity.capital}
-          monthDivs={snapshot.equity.monthDivs}
-          months={snapshot.monthly}
+          values={view.equity.values}
+          capital={view.equity.capital}
+          monthDivs={view.equity.monthDivs}
+          months={view.monthly}
         />
       </section>
 
+      {/* บาร์รายเดือนใช้ **ทั้งปีเสมอ** แม้กำลังเจาะเดือนเดียว — มันคือบริบทที่บอกว่า
+          เดือนที่กำลังดูดี/แย่กว่าเดือนอื่นแค่ไหน ตัดเหลือแท่งเดียวแล้วไม่เหลือความหมาย */}
       {snapshot.monthly.length > 0 ? (
         <section className="card px-3.5 py-3">
-          <SectionTitle>กำไรรายเดือน</SectionTitle>
+          <SectionTitle>กำไรรายเดือน (ทั้งปี)</SectionTitle>
           <MonthlyBars months={snapshot.monthly} />
         </section>
       ) : null}
@@ -223,7 +291,7 @@ export function SnapshotView({
             </button>
           }
         >
-          แยกตามขา
+          แยกตามขา · {scope}
         </SectionTitle>
         {ordered.map((leg) => (
           <div key={`${leg.index}-${leg.name}`}>
@@ -245,9 +313,15 @@ export function SnapshotView({
           subtitle={`แทง ${open.nBet} เลข × ${formatBahtShort(open.betPerNumber)} บ. · เรต ${open.payoutRate}`}
           onClose={() => setOpenLeg(null)}
         >
-          <LegReport leg={open} months={snapshot.monthly} monthDivs={snapshot.equity.monthDivs} />
+          <LegReport leg={open} months={view.monthly} monthDivs={view.equity.monthDivs} />
           {portfolio && sequences ? (
-            <LegMonthTable portfolio={portfolio} sequences={sequences} replay={replay} leg={open} />
+            <LegMonthTable
+              portfolio={portfolio}
+              sequences={sequences}
+              replay={replay}
+              leg={open}
+              month={win.month ?? undefined}
+            />
           ) : null}
         </Modal>
       ) : null}
