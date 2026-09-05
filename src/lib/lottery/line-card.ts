@@ -56,12 +56,17 @@ const STATUS_MARK: Record<string, string> = {
   pending: "—",
 };
 
+/**
+ * ใบที่ 1 — **ผลของงวดนี้เท่านั้น**
+ *
+ * ⚠️ ห้ามเอายอดรวมของเดือนมาใส่ใบนี้ (เคยใส่แล้วผู้ใช้บอกว่า "งง" ก.ย. 2569) —
+ * ใบนี้ตอบคำถามเดียวคือ "งวดที่เพิ่งออก ได้/เสียเท่าไหร่" เลขเดือนอยู่ในใบภาพรวม
+ * และในตารางรายวันท้ายชุดอยู่แล้ว วางปนกันเมื่อไหร่คนอ่านแยกไม่ออกว่าเลขไหนของวันไหน
+ */
 function drawBubble(
   report: DayReport,
   lottery: string,
   seq: number,
-  month: MonthTable | null,
-  monthLabel: string,
   corrected = false,
 ): LineMessage | null {
   const group = report.lotteries.find((l) => l.lottery === lottery);
@@ -89,30 +94,6 @@ function drawBubble(
     const value = leg.status === "hit" || leg.status === "miss" ? signed(leg.pnl) : "—";
     rows.push(statRow(label, value, leg.status === "hit" || leg.status === "miss" ? tone(leg.pnl) : DIM));
   });
-
-  // สถิติเดือนนี้ของหวยตัวนี้ — มาจาก monthTable ตัวเดียวกับตารางรายวันท้ายชุด
-  // ⇒ เลขตรงกันเสมอ และช่วยให้ใบที่มีตำแหน่งเดียวไม่โล่ง
-  if (month && month.columns.length > 0) {
-    const hits = month.columns.reduce((sum, c) => sum + c.hits, 0);
-    const draws = hits + month.columns.reduce((sum, c) => sum + c.misses, 0);
-    if (draws > 0) {
-      rows.push(separator("sm"));
-      rows.push(
-        statRow(
-          [
-            text(`เดือนนี้ · ${monthLabel}`, { size: "xs", weight: "bold", color: INK }),
-            text(`ถูก ${hits} จาก ${draws} งวด (${((hits / draws) * 100).toFixed(1)}%)`, {
-              size: "xxs",
-              color: DIM,
-              wrap: true,
-            }),
-          ],
-          signed(month.pnl),
-          tone(month.pnl),
-        ),
-      );
-    }
-  }
 
   rows.push(filler());
   rows.push(
@@ -431,7 +412,7 @@ export function buildDrawCard(input: CardInput): LineMessage[] {
   ];
 
   const bubbles: LineMessage[] = [];
-  const first = drawBubble(report, lottery, Math.max(1, seq), month, monthLabel, input.corrected ?? false);
+  const first = drawBubble(report, lottery, Math.max(1, seq), input.corrected ?? false);
   if (first) bubbles.push(first);
   const day = dayBubble(report);
   if (day) bubbles.push(day);
