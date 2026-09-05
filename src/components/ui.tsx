@@ -338,13 +338,13 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+      className="sheet-scrim fixed inset-0 z-50 flex items-end justify-center sm:items-center"
       style={{ background: "rgba(15,23,42,0.45)" }}
       onClick={onClose}
       role="presentation"
     >
       <div
-        className="card flex max-h-[88vh] w-full max-w-[640px] flex-col overflow-hidden rounded-b-none sm:rounded-2xl"
+        className="sheet-panel card flex max-h-[88vh] w-full max-w-[640px] flex-col overflow-hidden rounded-b-none sm:rounded-2xl"
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"

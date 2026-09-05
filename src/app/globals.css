@@ -432,3 +432,39 @@ code {
   padding: 0.0625rem 0.3125rem;
   border-radius: 0.3125rem;
 }
+
+/* ───── ป๊อปอัปแบบแผ่นเลื่อนขึ้นจากล่าง (Modal) ─────
+   บนมือถือแผ่นที่ "เลื่อนขึ้นมา" บอกเองว่ามันทับของเดิมอยู่ และปัดลงเพื่อปิดได้
+   ⚠️ เคารพ prefers-reduced-motion — ภาพเลื่อนทำให้บางคนเวียนหัว */
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes scrim-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.sheet-scrim {
+  animation: scrim-in 0.18s ease-out;
+}
+
+.sheet-panel {
+  animation: sheet-up 0.26s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-scrim,
+  .sheet-panel {
+    animation: none;
+  }
+}

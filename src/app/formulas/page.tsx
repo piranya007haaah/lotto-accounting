@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/LiffProvider";
 import { EquityChart, ProfitBar } from "@/components/PortfolioCharts";
-import { Alert, Chip, EmptyState, PageHeader, SectionTitle, Spinner } from "@/components/ui";
+import { Alert, Chip, EmptyState, Modal, PageHeader, SectionTitle, Spinner } from "@/components/ui";
 import { formatBahtShort, formatSigned } from "@/lib/format";
 import { computeRiskMetrics, randomBaseline } from "@/lib/lottery/engine";
 import { DEFAULT_FORMULA, FORMULA_NAMES } from "@/lib/lottery/formulas";
@@ -200,13 +200,15 @@ export default function FormulasPage() {
   }, [api, canViewLottery, formula, testYear, trainParam, mode, capital, bet, payout]);
 
   // เปลี่ยนค่าตั้งค่าใด ๆ = ตัวเลขในกล่องรายละเอียดเก่าใช้ไม่ได้แล้ว
+  /** แถวที่เปิดป๊อปอัปอยู่ — null = ปิด */
+  const openRow = useMemo(
+    () => (rows ?? []).find((row) => KEY(row.lottery, row.position) === openKey) ?? null,
+    [openKey, rows],
+  );
+
   const openDetail = useCallback(
     async (row: RankRow) => {
       const key = KEY(row.lottery, row.position);
-      if (openKey === key) {
-        setOpenKey(null);
-        return;
-      }
       setOpenKey(key);
       setAnalysis(null);
       setDetailError(null);
@@ -246,7 +248,7 @@ export default function FormulasPage() {
         setDetailError(caught instanceof Error ? caught.message : "โหลดรายละเอียดไม่สำเร็จ");
       }
     },
-    [api, bet, capital, formula, mode, openKey, payout, testYear, trainYears],
+    [api, bet, capital, formula, mode, payout, testYear, trainYears],
   );
 
   // ค่าตั้งเปลี่ยน = ปิดกล่องรายละเอียด ไม่ให้ค้างตัวเลขของค่าตั้งเก่า
@@ -396,14 +398,13 @@ export default function FormulasPage() {
           <SectionTitle>อันดับหวย</SectionTitle>
           {rows.map((row, index) => {
             const key = KEY(row.lottery, row.position);
-            const open = openKey === key;
             return (
-              <div key={key}>
-                <button
-                  type="button"
-                  className="row w-full py-2.5 text-left"
-                  onClick={() => void openDetail(row)}
-                >
+              <button
+                key={key}
+                type="button"
+                className="row w-full py-2.5 text-left"
+                onClick={() => void openDetail(row)}
+              >
                   <div className="flex items-center justify-between gap-2">
                     <span className="min-w-0 truncate text-[13px] font-semibold">
                       <span className="dim tnum mr-1.5">{index + 1}.</span>
@@ -424,103 +425,104 @@ export default function FormulasPage() {
                     เงินหมุน {row.roiPct >= 0 ? "+" : ""}
                     {row.roiPct.toFixed(1)}%
                     {row.z != null ? ` · เกินสุ่ม ${row.z >= 0 ? "+" : ""}${row.z.toFixed(1)} SD` : ""}
-                  </p>
-                </button>
-
-                {open ? (
-                  <div className="border-t pt-2.5 pb-1" style={{ borderColor: "var(--line)" }}>
-                    {detailError ? <Alert tone="error">{detailError}</Alert> : null}
-                    {!analysis && !detailError ? <Spinner label="กำลังคำนวณ..." /> : null}
-
-                    {analysis && choice ? (
-                      <div className="space-y-2.5">
-                        <p className="dim text-[10.5px]">
-                          เทรนด้วยปี {analysis.trainYears.map((year) => `25${year}`).join(", ")} · วัดผลปี 25
-                          {testYear}
-                        </p>
-
-                        <div className="flex gap-1.5 overflow-x-auto pb-0.5">
-                          {analysis.choices.map((item) => (
-                            <Chip
-                              key={item.rank}
-                              active={item.rank === (choice?.rank ?? 1)}
-                              onClick={() => setChosenRank(item.rank)}
-                            >
-                              #{item.rank} · {item.size} เลข
-                            </Chip>
-                          ))}
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2">
-                          <Kpi
-                            label="กำไร"
-                            value={formatSigned(choice.profit)}
-                            sub={`แทง ${choice.size} เลข × ${formatBahtShort(bet)} บ.`}
-                            tone={choice.profit >= 0 ? "up" : "down"}
-                          />
-                          <Kpi
-                            label="อัตราถูก"
-                            value={`${choice.winRate.toFixed(1)}%`}
-                            sub={`${choice.wins}/${choice.days} งวด`}
-                          />
-                          <Kpi
-                            label="Max DD"
-                            value={formatBahtShort(choice.maxDrawdown)}
-                            sub="ต่ำสุดเทียบกับทุนตั้งต้น"
-                          />
-                          {mode === "train" ? (
-                            <Kpi
-                              label="อันดับใน test"
-                              value={`#${choice.testRank}`}
-                              sub={choice.testRank <= 10 ? "ปีก่อนหน้าเดาไม่หลุด" : "ปีก่อนหน้าเดาพลาด"}
-                            />
-                          ) : (
-                            <Kpi
-                              label="แพ้ติดกันสูงสุด"
-                              value={`${risk?.maxLossStreak ?? 0} งวด`}
-                              sub={`ลบช่วงนั้น ${formatSigned(risk?.maxLossStreakAmount ?? 0)}`}
-                            />
-                          )}
-                        </div>
-
-                        {equity ? (
-                          <div>
-                            <SectionTitle>เส้นทุน</SectionTitle>
-                            <EquityChart values={equity} capital={capital} monthDivs={[]} />
-                          </div>
-                        ) : null}
-
-                        {baseline?.z != null ? (
-                          <p className="dim text-[10.5px] leading-relaxed">
-                            🎲 ถ้าสุ่ม {choice.size} เลขเท่ากัน: คาดหวัง {formatSigned(baseline.expectedProfit)} ·
-                            ที่เห็นเกินไป {baseline.z >= 0 ? "+" : ""}
-                            {baseline.z.toFixed(2)} SD
-                            {baseline.pBetter != null
-                              ? ` (สุ่มล้วนได้ดีเท่านี้หรือมากกว่า ${(baseline.pBetter * 100).toFixed(1)}%)`
-                              : ""}
-                          </p>
-                        ) : null}
-
-                        <button
-                          type="button"
-                          className="dim text-[11.5px] font-semibold"
-                          onClick={() => setShowNumbers((value) => !value)}
-                        >
-                          {showNumbers ? "ซ่อนเลข" : `ดูเลขที่แทง (${choice.size} ตัว)`}
-                        </button>
-                        {showNumbers ? (
-                          <p className="tnum dim text-[10.5px] leading-relaxed break-all">
-                            {analysis.numbers.slice(0, choice.size).join(" ")}
-                          </p>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
+                  {" · แตะดูรายละเอียด"}
+                </p>
+              </button>
             );
           })}
         </section>
+      ) : null}
+
+      {/* รายละเอียดของหวยเป็น **แผ่นเลื่อนขึ้นจากล่าง** ไม่ใช่กางในลิสต์
+          — เนื้อหายาวกว่าหนึ่งจอ กางแล้วอันดับที่เหลือถูกดันหายไป ต้องเลื่อนหาที่กดต่อ
+          (แบบเดียวกับ st.dialog ของแอปเดิม และเหมือนป๊อปอัปรายขาที่หน้าพอร์ต) */}
+      {openRow ? (
+        <Modal
+          title={`${openRow.flag} ${openRow.lottery} · ${openRow.position}`}
+          subtitle={`${formula} · วัดผลปี 25${testYear}`}
+          onClose={() => setOpenKey(null)}
+        >
+                  {detailError ? <Alert tone="error">{detailError}</Alert> : null}
+                  {!analysis && !detailError ? <Spinner label="กำลังคำนวณ..." /> : null}
+                  {analysis && choice ? (
+                    <div className="space-y-2.5">
+                      <p className="dim text-[10.5px]">
+                        เทรนด้วยปี {analysis.trainYears.map((year) => `25${year}`).join(", ")} · วัดผลปี 25
+                        {testYear}
+                      </p>
+                      <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+                        {analysis.choices.map((item) => (
+                          <Chip
+                            key={item.rank}
+                            active={item.rank === (choice?.rank ?? 1)}
+                            onClick={() => setChosenRank(item.rank)}
+                          >
+                            #{item.rank} · {item.size} เลข
+                          </Chip>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Kpi
+                          label="กำไร"
+                          value={formatSigned(choice.profit)}
+                          sub={`แทง ${choice.size} เลข × ${formatBahtShort(bet)} บ.`}
+                          tone={choice.profit >= 0 ? "up" : "down"}
+                        />
+                        <Kpi
+                          label="อัตราถูก"
+                          value={`${choice.winRate.toFixed(1)}%`}
+                          sub={`${choice.wins}/${choice.days} งวด`}
+                        />
+                        <Kpi
+                          label="Max DD"
+                          value={formatBahtShort(choice.maxDrawdown)}
+                          sub="ต่ำสุดเทียบกับทุนตั้งต้น"
+                        />
+                        {mode === "train" ? (
+                          <Kpi
+                            label="อันดับใน test"
+                            value={`#${choice.testRank}`}
+                            sub={choice.testRank <= 10 ? "ปีก่อนหน้าเดาไม่หลุด" : "ปีก่อนหน้าเดาพลาด"}
+                          />
+                        ) : (
+                          <Kpi
+                            label="แพ้ติดกันสูงสุด"
+                            value={`${risk?.maxLossStreak ?? 0} งวด`}
+                            sub={`ลบช่วงนั้น ${formatSigned(risk?.maxLossStreakAmount ?? 0)}`}
+                          />
+                        )}
+                      </div>
+                      {equity ? (
+                        <div>
+                          <SectionTitle>เส้นทุน</SectionTitle>
+                          <EquityChart values={equity} capital={capital} monthDivs={[]} />
+                        </div>
+                      ) : null}
+                      {baseline?.z != null ? (
+                        <p className="dim text-[10.5px] leading-relaxed">
+                          🎲 ถ้าสุ่ม {choice.size} เลขเท่ากัน: คาดหวัง {formatSigned(baseline.expectedProfit)} ·
+                          ที่เห็นเกินไป {baseline.z >= 0 ? "+" : ""}
+                          {baseline.z.toFixed(2)} SD
+                          {baseline.pBetter != null
+                            ? ` (สุ่มล้วนได้ดีเท่านี้หรือมากกว่า ${(baseline.pBetter * 100).toFixed(1)}%)`
+                            : ""}
+                        </p>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="dim text-[11.5px] font-semibold"
+                        onClick={() => setShowNumbers((value) => !value)}
+                      >
+                        {showNumbers ? "ซ่อนเลข" : `ดูเลขที่แทง (${choice.size} ตัว)`}
+                      </button>
+                      {showNumbers ? (
+                        <p className="tnum dim text-[10.5px] leading-relaxed break-all">
+                          {analysis.numbers.slice(0, choice.size).join(" ")}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+        </Modal>
       ) : null}
 
       <p className="dim px-1 pb-1 text-center text-[10.5px] leading-relaxed">
