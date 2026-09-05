@@ -731,8 +731,9 @@ function latestDrawInfo(
 
 /** ขาที่ผลหวยมาไม่ถึงวันเดียวกับขาอื่น */
 export interface LegLag {
-  /** "🇱🇦 หวยลาว VIP · สามบน" */
-  label: string;
+  flag: string;
+  lottery: string;
+  position: string;
   /** งวดจริงล่าสุดที่มีของขานี้ — null = entry ไม่ได้เรียงตามวันที่ (แปลงเป็นวันที่ไม่ได้) */
   date: Date | null;
 }
@@ -761,7 +762,9 @@ export function legsBehind(
     const info = latestDrawInfo(lookup, leg.lottery, leg.position ?? "", digits);
     if (!info?.date) continue;
     rows.push({
-      label: `${leg.flag ?? "🎰"} ${leg.lottery} · ${leg.position}`,
+      flag: leg.flag ?? "🎰",
+      lottery: leg.lottery,
+      position: leg.position ?? "",
       date: info.date,
     });
     if (newest === null || info.date.getTime() > newest.getTime()) newest = info.date;

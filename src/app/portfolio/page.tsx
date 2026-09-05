@@ -327,6 +327,29 @@ export default function PortfolioPage() {
     return legsBehind(draft.config.legs, [...sequences.values()]);
   }, [draft, sequences]);
 
+  /**
+   * ข้อความเตือน "ผลหวยยังไม่ครบ" แบบสั้น
+   *
+   * ⚠️ ของเดิมไล่ทีละ **ขา** พร้อมวันที่ต่อท้ายทุกตัว — 9 ขาของหวย 4 ตัวที่ค้างวันเดียวกัน
+   * กลายเป็นข้อความ 8 บรรทัดที่พูดเรื่องเดิมซ้ำ 9 รอบ ⇒ ยุบเหลือ **ชื่อหวย** (ตำแหน่ง
+   * ไม่ได้ช่วยตัดสินใจอะไร กรอกผลก็กรอกทั้งหวยอยู่แล้ว) และบอกวันที่ครั้งเดียวถ้าตรงกันหมด
+   */
+  const behindNote = useMemo(() => {
+    if (lag.behind.length === 0 || !lag.newest) return null;
+    const byLottery = new Map<string, { label: string; time: number | null }>();
+    for (const row of lag.behind) {
+      const label = `${row.flag} ${row.lottery.replace(/^หวย/, "")}`;
+      if (!byLottery.has(label)) byLottery.set(label, { label, time: row.date?.getTime() ?? null });
+    }
+    const items = [...byLottery.values()];
+    const times = new Set(items.map((item) => item.time));
+    const when = (time: number | null) => (time === null ? "งวดล่าสุด" : thaiDateOf(new Date(time)));
+    // ค้างวันเดียวกันหมด = บอกวันที่ครั้งเดียวท้ายประโยค · ไม่งั้นห้อยวันที่ไว้ทีละตัว
+    return times.size === 1
+      ? `${items.map((item) => item.label).join(" · ")} มีผลถึง ${when(items[0].time)}`
+      : items.map((item) => `${item.label} (ถึง ${when(item.time)})`).join(" · ");
+  }, [lag]);
+
   /* ───────────────── สร้าง / บันทึก / ลบ ───────────────── */
   const startCreate = useCallback(() => {
     setDraft(newPortfolioDraft(""));
@@ -612,15 +635,11 @@ export default function PortfolioPage() {
         </div>
       ) : null}
 
-      {lag.behind.length > 0 && lag.newest ? (
+      {behindNote ? (
         <Alert tone="warn">
-          <b>ผลหวยยังไม่ครบ</b> — ขาอื่นมีผลถึง {thaiDateOf(lag.newest)} แล้ว แต่{" "}
-          {lag.behind.length} ขานี้ยังไม่ถึง:
+          <b>ผลหวยยังไม่ครบ</b> — {behindNote} · ขาอื่นถึง {thaiDateOf(lag.newest as Date)} แล้ว
           <br />
-          {lag.behind.map((row) => `${row.label}${row.date ? ` (ถึง ${thaiDateOf(row.date)})` : ""}`).join(" · ")}
-          <br />
-          งวดที่ยังไม่มีผล<b>ไม่ถูกนับเลย</b> (ไม่ใช่แพ้) ⇒ ยอดรวมยังน้อยกว่าความจริง —
-          กรอกที่หน้า 📝 กรอกผล แล้วตัวเลขจะครบเอง
+          งวดที่ยังไม่มีผล<b>ไม่ถูกนับ</b> ⇒ ยอดยังน้อยกว่าจริง — กรอกที่หน้า 📝 กรอกผล
         </Alert>
       ) : null}
       {seqError ? <Alert tone="warn">โหลดผลหวยบางส่วนไม่สำเร็จ: {seqError}</Alert> : null}
