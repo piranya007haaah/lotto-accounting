@@ -18,6 +18,7 @@ import { EquityChart, MultiEquityChart, ProfitBar } from "@/components/Portfolio
 import { Alert, Chip, EmptyState, Modal, PageHeader, SectionTitle, Spinner } from "@/components/ui";
 import { formatBahtShort, formatSigned } from "@/lib/format";
 import { computeRiskMetrics, randomBaseline } from "@/lib/lottery/engine";
+import { walkForwardByYear } from "@/lib/lottery/walk-forward";
 import { DEFAULT_FORMULA, FORMULA_NAMES } from "@/lib/lottery/formulas";
 import {
   analyzeGroup,
@@ -122,6 +123,10 @@ export default function FormulasPage() {
   const [chosenRank, setChosenRank] = useState(1);
   /** sequence ของปี test ที่กำลังเปิดดู — ใช้หาเส้นแบ่งเดือน (index = งวดจริง) */
   const [testStr, setTestStr] = useState("");
+  /** ทุกปีของกลุ่มที่เปิดอยู่ — ใช้ทำ walk-forward (ทุกปีเทรนด้วยปีก่อนหน้า) */
+  const [openEntries, setOpenEntries] = useState<EntriesResponse["entries"]>([]);
+  /** true = ล็อก n_bet ตามอันดับที่เลือกด้านบน · false = ให้แต่ละปีเลือกเองจาก train */
+  const [wfLocked, setWfLocked] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [showNumbers, setShowNumbers] = useState(false);
   /** ผลหวยดิบของกลุ่มที่เคยเปิด — กดสลับไปมาแล้วไม่ต้องโหลดซ้ำ */
@@ -226,6 +231,7 @@ export default function FormulasPage() {
         }
         const testStr = entries.find((entry) => entry.year === testYear)?.sequence ?? "";
         setTestStr(testStr);
+        setOpenEntries(entries);
         // ⚠️ ต้องกรองด้วยกติกาเดียวกับ `trainYearsOf` ฝั่ง server เป๊ะ ๆ ไม่งั้นเลขในกล่อง
         // รายละเอียดจะไม่ตรงกับแถวในตารางที่เพิ่งกดเปิด — คนอ่านจับไม่ได้ว่าอันไหนจริง
         const usedTrainYears = trainYearsOf(
@@ -311,6 +317,30 @@ export default function FormulasPage() {
     }
     return out;
   }, [equity, monthDivs]);
+
+  /**
+   * Walk-forward รายปี — ทุกปีเทรนด้วยปีก่อนหน้าทั้งหมด แล้วต่อเส้นทุนข้ามปี
+   * = track record ถ้าใช้สูตรนี้จริงมาตลอด · **ไม่ขึ้นกับปี train/test ที่เลือกด้านบน**
+   * (ใช้ทุกปีที่มีเสมอ — กติกาเดียวกับแอปเดิม)
+   */
+  const wf = useMemo(() => {
+    if (openEntries.length < 2) return null;
+    const yearSequences = [...openEntries]
+      .sort((a, b) => a.year.localeCompare(b.year))
+      .map((entry) => [entry.year, entry.sequence] as [string, string]);
+    try {
+      return walkForwardByYear({
+        yearSequences,
+        formula,
+        capital,
+        betPerNumber: bet,
+        payoutRate: payout,
+        nBet: wfLocked ? (choice?.size ?? null) : null,
+      });
+    } catch {
+      return null;
+    }
+  }, [bet, capital, choice?.size, formula, openEntries, payout, wfLocked]);
 
   const maxProfit = Math.max(1, ...(rows ?? []).map((row) => Math.abs(row.profit)));
 
@@ -646,6 +676,85 @@ export default function FormulasPage() {
                               </tbody>
                             </table>
                           </div>
+                        </div>
+                      ) : null}
+
+                      {/* ───── Walk-Forward รายปี ─────
+                          ⚠️ ส่วนนี้ **ไม่ขึ้นกับปี train/test ที่เลือกด้านบน** — ใช้ทุกปีที่มีเสมอ
+                             (กติกาเดียวกับแอปเดิม) ⇒ ตอบคำถามคนละข้อ: "ถ้าใช้สูตรนี้จริงมาตลอด
+                             จะเป็นยังไง" ไม่ใช่ "ปีนี้เป็นยังไง" */}
+                      {wf && wf.folds.length > 0 ? (
+                        <div>
+                          <SectionTitle>Walk-Forward รายปี</SectionTitle>
+                          <p className="dim mb-1.5 text-[10.5px] leading-relaxed">
+                            ทุกปีเทรนด้วย<b>ปีก่อนหน้าทั้งหมด</b>แล้ววัดผลบนปีนั้น ต่อเส้นทุนข้ามปีเป็นเส้นเดียว
+                            = ผลถ้าใช้สูตรนี้จริงมาตลอด · ใช้ทุกปีที่มี ไม่เกี่ยวกับปีที่เลือกด้านบน
+                          </p>
+
+                          <div className="mb-2 flex flex-wrap gap-1.5">
+                            <Chip active={!wfLocked} onClick={() => setWfLocked(false)}>
+                              แต่ละปีเลือก n เอง
+                            </Chip>
+                            <Chip active={wfLocked} onClick={() => setWfLocked(true)}>
+                              ล็อก {choice?.size ?? 0} เลขทุกปี
+                            </Chip>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <Kpi
+                              label="กำไรรวมทุกปี"
+                              value={formatSigned(wf.totalProfit)}
+                              sub={`${wf.folds.length} ปี · ทุน ${formatBahtShort(wf.capital)}`}
+                              tone={wf.totalProfit >= 0 ? "up" : "down"}
+                            />
+                            <Kpi
+                              label="อัตราถูกรวม"
+                              value={`${wf.winRate.toFixed(1)}%`}
+                              sub={`${wf.wins}/${wf.actualDays} งวด`}
+                            />
+                          </div>
+
+                          <div className="mt-2">
+                            <EquityChart values={wf.equityCurve} capital={wf.capital} monthDivs={[]} />
+                          </div>
+
+                          <div className="mt-2 overflow-x-auto">
+                            <table className="tnum w-full text-[11.5px]">
+                              <thead>
+                                <tr className="dim text-[10px]">
+                                  <th className="py-1 text-left font-semibold">ปี</th>
+                                  <th className="py-1 text-right font-semibold">n_bet</th>
+                                  <th className="py-1 text-right font-semibold">กำไร</th>
+                                  <th className="py-1 text-right font-semibold">ถูก</th>
+                                  <th className="py-1 text-right font-semibold">Max DD</th>
+                                  <th className="py-1 text-right font-semibold">เดือนแย่สุด</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {wf.folds.map((fold) => (
+                                  <tr key={fold.year} style={{ borderTop: "1px solid var(--divider)" }}>
+                                    <td className="py-1 font-semibold">25{fold.year}</td>
+                                    <td className="py-1 text-right">{fold.nBet}</td>
+                                    <td
+                                      className="py-1 text-right font-bold"
+                                      style={{ color: fold.profit >= 0 ? "var(--color-money-out)" : "var(--color-money-in)" }}
+                                    >
+                                      {formatSigned(fold.profit)}
+                                    </td>
+                                    <td className="py-1 text-right">{fold.winRate.toFixed(1)}%</td>
+                                    <td className="py-1 text-right">{formatBahtShort(fold.maxDrawdown)}</td>
+                                    <td className="dim py-1 text-right text-[10.5px]">
+                                      {fold.worstMonth ? `${fold.worstMonth} ${formatBahtShort(fold.worstMonthDd)}` : "—"}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <p className="dim mt-1 text-[10.5px] leading-relaxed">
+                            เทรนด้วยปีก่อนหน้าเท่านั้น — ทั้งชุดเลขและ n_bet ไม่เคยเห็นปีที่กำลังวัดผล
+                            {wf.warnings.length > 0 ? ` · ข้ามไป: ${wf.warnings.join(" · ")}` : ""}
+                          </p>
                         </div>
                       ) : null}
 
