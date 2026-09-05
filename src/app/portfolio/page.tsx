@@ -124,6 +124,8 @@ export default function PortfolioPage() {
   const [missingGroups, setMissingGroups] = useState<string[]>([]);
   const [seqError, setSeqError] = useState<string | null>(null);
   const pending = useRef(new Set<string>());
+  /** คีย์กลุ่มที่ยิง API ไปแล้วยังไม่กลับ — ระหว่างนี้ห้ามสรุปว่า "ไม่มีผลหวย" */
+  const [inFlight, setInFlight] = useState<string[]>([]);
 
   const [legacy, setLegacy] = useState<SnapshotResponse | null>(null);
   const [showNumbers, setShowNumbers] = useState(false);
@@ -200,6 +202,9 @@ export default function PortfolioPage() {
       const key = `${lottery}|${position}`;
       if (pending.current.has(key)) return;
       pending.current.add(key);
+      // ⚠️ คนละเรื่องกับ `pending` (ตัวกันยิงซ้ำ ซึ่ง **ค้างไว้ตลอด** เมื่อเจอ 404) —
+      // ตัวนี้บอกว่า "ยังรออยู่" เพื่อไม่ให้หน้าจอสรุปว่า "ไม่มีผลหวย" ตั้งแต่ยังโหลดไม่จบ
+      setInFlight((current) => (current.includes(key) ? current : [...current, key]));
       void (async () => {
         try {
           const query = new URLSearchParams({ lottery, position });
@@ -229,6 +234,8 @@ export default function PortfolioPage() {
           }
           pending.current.delete(key);
           setSeqError(caught instanceof Error ? caught.message : "โหลดผลหวยไม่สำเร็จ");
+        } finally {
+          setInFlight((current) => current.filter((item) => item !== key));
         }
       })();
     },
@@ -264,17 +271,38 @@ export default function PortfolioPage() {
   /** ผลหวยที่โหลดมาแล้ว เป็นอาร์เรย์ — อ้างอิงคงที่ ไม่งั้น memo ปลายทางคำนวณใหม่ทุก render */
   const seqList = useMemo(() => [...sequences.values()], [sequences]);
 
-  const computed = useMemo((): { snapshot: PortfolioSnapshot | null; error: string | null } => {
+  const computed = useMemo((): {
+    snapshot: PortfolioSnapshot | null;
+    error: string | null;
+    /** true = ผลหวยยังโหลดไม่ครบ — ยังสรุปไม่ได้ว่าคำนวณได้หรือไม่ได้ */
+    loading?: boolean;
+  } => {
     if (!draft) return { snapshot: null, error: null };
     if (draft.config.legs.length === 0) return { snapshot: null, error: "พอร์ตนี้ยังไม่มีขา" };
 
     // id ยังไม่มีตอนพอร์ตใหม่ — engine ใช้แค่โชว์ ไม่ได้เอาไปหาข้อมูลอะไรต่อ
     const portfolio: LotteryPortfolio = { ...draft, id: draft.id ?? 0 };
-    const missing = requiredSequenceKeys(portfolio)
-      .filter((key) => !sequences.has(seqKey(key.lottery, key.position, key.year)))
-      .map((key) => `${key.lottery} ${key.position} 25${key.year}`);
+    const missingKeys = requiredSequenceKeys(portfolio).filter(
+      (key) => !sequences.has(seqKey(key.lottery, key.position, key.year)),
+    );
+    // ⚠️ "ยังโหลดไม่เสร็จ" ≠ "ไม่มีผลหวย" — ก่อนแก้ หน้าจอขึ้น "ยังคำนวณสดไม่ได้" แล้วตกไป
+    // ใช้ snapshot เก่าจาก Streamlit **ทุกครั้งที่เข้าหน้ามารอบแรก** เพราะ memo นี้ทำงาน
+    // ก่อน fetch กลับ · ต้องรอให้กลุ่มที่ยังค้างอยู่จบก่อนถึงจะสรุปได้
+    // `!pending.has` = ยังไม่ได้ยิงขอเลย (memo นี้ทำงานก่อน effect ที่สั่งโหลดเสมอในเรนเดอร์แรก)
+    // `inFlight` = ยิงไปแล้วรออยู่ · ทั้งสองกรณี = ยังสรุปไม่ได้
+    // ⚠️ กลุ่มที่ 404 จริง ๆ จะค้างใน `pending` แต่หลุดจาก `inFlight` ⇒ ตกไปที่ error ตามเดิม
+    const waiting = missingKeys.some((key) => {
+      const groupKey = `${key.lottery}|${key.position}`;
+      return inFlight.includes(groupKey) || !pending.current.has(groupKey);
+    });
+    if (waiting) return { snapshot: null, error: null, loading: true };
+    const missing = missingKeys.map((key) => `${key.lottery} ${key.position} 25${key.year}`);
     if (missing.length > 0) {
-      return { snapshot: null, error: `ยังไม่มีผลหวยที่ต้องใช้: ${[...new Set(missing)].slice(0, 4).join(" · ")}` };
+      return {
+        snapshot: null,
+        error: `ยังไม่มีผลหวยที่ต้องใช้: ${[...new Set(missing)].slice(0, 4).join(" · ")}`,
+        loading: false,
+      };
     }
 
     try {
@@ -288,7 +316,7 @@ export default function PortfolioPage() {
     } catch (caught) {
       return { snapshot: null, error: caught instanceof Error ? caught.message : "คำนวณไม่สำเร็จ" };
     }
-  }, [draft, sequences, seqList]);
+  }, [draft, sequences, seqList, inFlight]);
 
   /**
    * ขาที่ผลหวยยังมาไม่ถึงวันเดียวกับขาอื่น — งวดที่ยังไม่มีผลถูกข้ามไปเงียบ ๆ
@@ -616,6 +644,10 @@ export default function PortfolioPage() {
             sequences={seqList}
           />
         </>
+      ) : computed.loading ? (
+        // ระหว่างรอผลหวย: ขึ้นตัวหมุนเฉย ๆ — ห้ามเด้ง snapshot เก่าจาก Streamlit ขึ้นมา
+        // แล้วสลับเป็นเลขสดทีหลัง คนอ่านจะเห็นตัวเลข 2 ชุดต่างกันในไม่กี่วินาที
+        <Spinner label="กำลังโหลดผลหวยของพอร์ตนี้..." />
       ) : (
         <>
           {computed.error ? (
