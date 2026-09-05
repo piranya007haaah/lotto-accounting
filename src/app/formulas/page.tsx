@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/LiffProvider";
-import { EquityChart, MultiEquityChart, ProfitBar } from "@/components/PortfolioCharts";
+import { EquityChart, MonthlyPnlBars, MultiEquityChart, ProfitBar } from "@/components/PortfolioCharts";
 import { Alert, Chip, EmptyState, Modal, PageHeader, SectionTitle, Spinner } from "@/components/ui";
 import { formatBahtShort, formatSigned } from "@/lib/format";
 import { computeRiskMetrics, randomBaseline } from "@/lib/lottery/engine";
@@ -440,6 +440,21 @@ export default function FormulasPage() {
       setSending(false);
     }
   }, [api, bet, capital, choice, formula, mode, openRow, payout, testYear, trainYears]);
+
+  /** [ป้ายปี, index ของเดือนแรกของปีนั้น] — เส้นคั่นของบาร์กำไรรายเดือน */
+  const wfYearMarks = useMemo(() => {
+    if (!wf) return [];
+    const out: [string, number][] = [];
+    let last = "";
+    wf.monthly.forEach((month, i) => {
+      if (month.year !== last) {
+        // เดือนแรกสุดไม่ต้องมีเส้น — มันคือขอบซ้ายของกราฟอยู่แล้ว
+        if (i > 0) out.push([`25${month.year}`, i]);
+        last = month.year;
+      }
+    });
+    return out;
+  }, [wf]);
 
   const kinds = useMemo(() => {
     const count = new Map<Kind, number>();
@@ -930,6 +945,22 @@ export default function FormulasPage() {
                               </tbody>
                             </table>
                           </div>
+                          {/* กำไรรายเดือนเรียงยาวข้ามปี — เห็น "จังหวะ" ของสูตร: ช่วงไหนกำไรติดกัน
+                              ช่วงไหนพังติดกัน ซึ่งเส้นทุนสะสมกลบเอาไว้หมด */}
+                          {wf.monthly.length > 1 ? (
+                            <div className="mt-2">
+                              <SectionTitle>กำไรรายเดือน (walk-forward)</SectionTitle>
+                              <MonthlyPnlBars
+                                months={wf.monthly.map((month) => ({ label: month.label, profit: month.profit }))}
+                                dividers={wfYearMarks}
+                              />
+                              <p className="dim mt-1 text-[10.5px] leading-relaxed">
+                                บวก {wf.monthly.filter((month) => month.profit >= 0).length} เดือน · ลบ{" "}
+                                {wf.monthly.filter((month) => month.profit < 0).length} เดือน จาก {wf.monthly.length} เดือน
+                              </p>
+                            </div>
+                          ) : null}
+
                           <p className="dim mt-1 text-[10.5px] leading-relaxed">
                             เทรนด้วยปีก่อนหน้าเท่านั้น — ทั้งชุดเลขและ n_bet ไม่เคยเห็นปีที่กำลังวัดผล
                             {wf.warnings.length > 0 ? ` · ข้ามไป: ${wf.warnings.join(" · ")}` : ""}

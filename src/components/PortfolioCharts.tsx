@@ -418,3 +418,111 @@ export function MultiEquityChart({
     </svg>
   );
 }
+
+
+/**
+ * บาร์กำไรรายเดือนแบบ **แท่งตั้ง** เรียงยาวข้ามปี — walk-forward ของหน้าสูตร
+ *
+ * ต่างจาก `MonthlyBars` (รายการแนวนอน) ที่ใช้กับพอร์ต: ตรงนี้มี 50-60 เดือน
+ * ⇒ เรียงเป็นรายการยาวเกินไป · แท่งตั้งเรียงต่อกันเห็น "จังหวะ" ของสูตรทั้งเส้น
+ * ว่าช่วงไหนกำไรติดกัน ช่วงไหนพังติดกัน
+ *
+ * ⚠️ สีเขียว/แดงแยกไม่ออกด้วยตาบอดสี ⇒ **ทิศทางของแท่ง** (ขึ้น = กำไร · ลง = ขาดทุน)
+ *    คือตัวบอกความหมาย สีเป็นของแถม · ตัวเลขที่แตะอ่านมี +/− นำหน้าเสมอ
+ *
+ * ⚠️ ไม่ติดป้ายตัวเลขทุกแท่ง — 57 แท่งบนจอมือถือป้ายจะทับกันจนอ่านไม่ออกทั้งแถบ
+ *    ⇒ แตะแท่งไหนอ่านค่านั้น (กติกาเดียวกับ EquityChart)
+ */
+export function MonthlyPnlBars({
+  months,
+  dividers,
+}: {
+  months: { label: string; profit: number }[];
+  /** [ป้ายปี, index ของเดือนแรกของปีนั้น] */
+  dividers: [string, number][];
+}) {
+  const [picked, setPicked] = useState<number | null>(null);
+  if (months.length === 0) return null;
+
+  const BAR = 16;
+  const GAP = 3;
+  const H2 = 150;
+  const TOP = 14;
+  const BOTTOM = 16;
+  const width = Math.max(300, months.length * (BAR + GAP) + GAP);
+  const max = Math.max(1, ...months.map((m) => Math.abs(m.profit)));
+  const mid = TOP + (H2 - TOP - BOTTOM) / 2;
+  const half = (H2 - TOP - BOTTOM) / 2;
+  const xOf = (i: number) => GAP + i * (BAR + GAP);
+  const shown = picked !== null ? months[picked] : null;
+
+  return (
+    <div>
+      {/* ค่าที่แตะอ่าน — อยู่เหนือกราฟเพื่อไม่ต้องเลื่อนกลับมาดู */}
+      <p className="dim mb-1 text-[11px]">
+        {shown ? (
+          <>
+            <b>{shown.label}</b>{" "}
+            <span
+              className="tnum font-bold"
+              style={{ color: shown.profit >= 0 ? "var(--color-money-out)" : "var(--color-money-in)" }}
+            >
+              {formatSigned(shown.profit)}
+            </span>
+          </>
+        ) : (
+          `${months.length} เดือน — แตะแท่งเพื่อดูตัวเลข · แท่งขึ้น = กำไร · แท่งลง = ขาดทุน`
+        )}
+      </p>
+
+      <div className="overflow-x-auto">
+        <svg
+          width={width}
+          height={H2}
+          viewBox={`0 0 ${width} ${H2}`}
+          role="img"
+          aria-label="กำไรรายเดือนแบบ walk-forward"
+        >
+          {dividers.map(([label, at]) => (
+            <g key={`${label}-${at}`}>
+              <line
+                x1={xOf(at) - GAP / 2}
+                x2={xOf(at) - GAP / 2}
+                y1={TOP - 6}
+                y2={H2 - BOTTOM + 4}
+                stroke="var(--line)"
+                strokeWidth="1"
+                strokeDasharray="3 3"
+              />
+              <text x={xOf(at) + 2} y={TOP - 4} fontSize="10" fill="var(--dim)">
+                {label}
+              </text>
+            </g>
+          ))}
+
+          {/* เส้นศูนย์ — ตัวอ้างอิงว่าแท่งขึ้นหรือลง */}
+          <line x1={0} x2={width} y1={mid} y2={mid} stroke="var(--line-strong)" strokeWidth="1" />
+
+          {months.map((month, i) => {
+            const size = Math.max(1, (Math.abs(month.profit) / max) * half);
+            const up = month.profit >= 0;
+            return (
+              <rect
+                key={`${month.label}-${i}`}
+                x={xOf(i)}
+                y={up ? mid - size : mid}
+                width={BAR}
+                height={size}
+                rx="2"
+                fill={up ? "var(--color-money-out)" : "var(--color-money-in)"}
+                opacity={picked === null || picked === i ? 1 : 0.45}
+                onPointerDown={() => setPicked((current) => (current === i ? null : i))}
+                style={{ cursor: "pointer" }}
+              />
+            );
+          })}
+        </svg>
+      </div>
+    </div>
+  );
+}
