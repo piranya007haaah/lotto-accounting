@@ -16,7 +16,11 @@ import { EquityChart, MonthlyBars, ProfitBar } from "@/components/PortfolioChart
 import { Modal, SectionTitle } from "@/components/ui";
 import { formatBahtShort, formatSigned } from "@/lib/format";
 import { comparePositions, minutesOf } from "@/lib/lottery/day-result";
+import { prepareReplay } from "@/lib/lottery/day-result";
+import type { LotteryPortfolio } from "@/lib/lottery/portfolio-config";
+import type { DatasetSequence } from "@/lib/lottery/portfolio-engine";
 import type { PortfolioLeg, PortfolioSnapshot } from "@/lib/types";
+import { LegMonthTable } from "./LegMonthTable";
 import { LegReport } from "./LegReport";
 
 /** ตัวเลขสรุป 1 ช่อง — เล็กกว่า StatCard ของหน้าสรุปยอด เพราะหน้านี้มี 6 ช่อง */
@@ -107,12 +111,17 @@ export function SnapshotView({
   showNumbers,
   onToggleNumbers,
   times,
+  portfolio,
+  sequences,
 }: {
   snapshot: PortfolioSnapshot;
   showNumbers: boolean;
   onToggleNumbers: () => void;
   /** {ชื่อหวย: "HH:MM"} — ส่งมาแล้วเรียงขาตามเวลาที่หวยออกจริง แทนการเรียงตามกำไร */
   times?: Record<string, string>;
+  /** ส่งมาคู่กันแล้วป๊อปอัปรายขาจะมี **ตารางผลรายวันของเดือน** ต่อท้าย */
+  portfolio?: LotteryPortfolio;
+  sequences?: readonly DatasetSequence[];
 }) {
   const kpi = snapshot.kpi;
   /** ขาที่เปิดรายงานอยู่ (`index` ของขา) — ป๊อปอัปทีละขาเดียว */
@@ -146,6 +155,12 @@ export function SnapshotView({
   }, [snapshot.legs, times]);
 
   const maxLegProfit = Math.max(1, ...ordered.map((leg) => Math.abs(leg.profit)));
+
+  // replay ครั้งเดียวแล้วใช้ซ้ำทุกป๊อปอัป — replay ทั้งพอร์ตใหม่ทุกครั้งที่เปิดขาจะหน่วง
+  const replay = useMemo(
+    () => (portfolio && sequences ? prepareReplay(portfolio, sequences) : undefined),
+    [portfolio, sequences],
+  );
   const open = ordered.find((leg) => leg.index === openLeg) ?? null;
 
   return (
@@ -231,6 +246,9 @@ export function SnapshotView({
           onClose={() => setOpenLeg(null)}
         >
           <LegReport leg={open} months={snapshot.monthly} monthDivs={snapshot.equity.monthDivs} />
+          {portfolio && sequences ? (
+            <LegMonthTable portfolio={portfolio} sequences={sequences} replay={replay} leg={open} />
+          ) : null}
         </Modal>
       ) : null}
     </>

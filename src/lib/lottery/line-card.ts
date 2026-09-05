@@ -30,7 +30,6 @@ const HEAD_INK = "#ffffff";
 const TINT = "#f4f7fb";
 const UP = "#0f9d63";
 const DOWN = "#d93a3f";
-const UP_SOFT = "#e2f5ec";
 
 /**
  * เพดานของ LINE คือ JSON 30 KB ต่อข้อความ Flex — เกินแล้วมันปฏิเสธทั้งข้อความ
@@ -302,21 +301,22 @@ function monthBubble(table: MonthTable, maxDays: number): LineMessage | null {
   const shown = table.days.slice(-maxDays);
   const trimmed = table.days.length - shown.length;
 
-  // ⚠️ ตารางเต็มเดือนมี 31 แถว × 2-3 คอลัมน์ ⇒ ทุกไบต์ต่อช่องคูณเกือบร้อย
-  // ช่องที่ **ไม่ถูก** จึงเป็น text เปล่า ๆ (ไม่มีกล่องห่อ ไม่ตั้งสี/น้ำหนัก ใช้ค่าเริ่มต้น)
-  // เหลือกล่องเฉพาะช่องที่ **ถูก** ซึ่งต้องมีพื้นหลัง — ประหยัดไปครึ่งหนึ่งของตาราง
-  // และทำให้ตารางอยู่ครบทั้งเดือนโดยไม่ชนเพดาน 30 KB ของ LINE
-  const cell = (value: string, hit: boolean): LineMessage =>
-    hit
-      ? {
-          type: "box",
-          layout: "vertical",
-          flex: 3,
-          backgroundColor: UP_SOFT,
-          cornerRadius: "4px",
-          contents: [text(value, { size: "xxs", align: "center", color: UP, weight: "bold" })],
-        }
-      : text(value, { size: "xxs", align: "center", flex: 3 });
+  // ช่องที่ถูก = **เขียวตัวหนา** · ไม่ถูก = **แดงตัวปกติ** (ไม่มีกล่องพื้นหลังแล้ว)
+  // ⚠️ สีอย่างเดียวใช้ไม่ได้ — เขียว/แดงแยกไม่ออกด้วยตาบอดสี ⇒ **ความหนา** คือตัวบอก
+  //    ความหมายจริง สีเป็นของแถม · หัวตารางบอกไว้ด้วยว่าตัวหนา = ถูก
+  // ⚠️ ตารางเต็มเดือนมี 31 แถว × 2-3 คอลัมน์ ⇒ ทุกไบต์ต่อช่องคูณเกือบร้อย —
+  //    ตัดกล่องห่อออกแล้วประหยัดไปครึ่งหนึ่ง ยิ่งห่างเพดาน 30 KB ของ LINE
+  const cell = (value: string, status: string | undefined): LineMessage => {
+    // วันหยุด/ยังไม่มีผล = สีจาง ไม่ใช่แดง — ไม่ได้แพ้ แค่ไม่มีงวด
+    const color = status === "hit" ? UP : status === "miss" ? DOWN : DIM;
+    return text(value, {
+      size: "xxs",
+      align: "center",
+      flex: 3,
+      color,
+      ...(status === "hit" ? { weight: "bold" } : {}),
+    });
+  };
 
   const header: LineMessage = {
     type: "box",
@@ -335,7 +335,7 @@ function monthBubble(table: MonthTable, maxDays: number): LineMessage | null {
       text(String(day), { size: "xxs", color: DIM, flex: 2 }),
       ...table.columns.map((c) => {
         const found = c.cells[day - 1];
-        return cell(found?.draw ?? "—", found?.status === "hit");
+        return cell(found?.draw ?? "—", found?.status);
       }),
     ],
   }));
@@ -375,7 +375,7 @@ function monthBubble(table: MonthTable, maxDays: number): LineMessage | null {
   return bubble({
     kicker: `${TH_MONTHS[table.month]} 25${table.yearBe} · ${table.days.length} งวด`,
     title: `${table.flag} ${shortLottery(table.lottery)} รายวัน`,
-    when: "ช่องพื้นเข้ม = ถูก · ช่องจาง = ไม่ถูก",
+    when: "ตัวหนา = ถูก · ตัวบาง = ไม่ถูก",
     body,
   });
 }

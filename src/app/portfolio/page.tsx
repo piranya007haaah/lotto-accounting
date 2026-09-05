@@ -261,6 +261,9 @@ export default function PortfolioPage() {
   }, [api, canViewLottery, selectedId]);
 
   /* ───────────────── คำนวณสด ───────────────── */
+  /** ผลหวยที่โหลดมาแล้ว เป็นอาร์เรย์ — อ้างอิงคงที่ ไม่งั้น memo ปลายทางคำนวณใหม่ทุก render */
+  const seqList = useMemo(() => [...sequences.values()], [sequences]);
+
   const computed = useMemo((): { snapshot: PortfolioSnapshot | null; error: string | null } => {
     if (!draft) return { snapshot: null, error: null };
     if (draft.config.legs.length === 0) return { snapshot: null, error: "พอร์ตนี้ยังไม่มีขา" };
@@ -275,7 +278,7 @@ export default function PortfolioPage() {
     }
 
     try {
-      const fresh = computeSnapshot({ portfolio, sequences: [...sequences.values()] });
+      const fresh = computeSnapshot({ portfolio, sequences: seqList });
       // ⚠️ แปลง "ภาพ" หลัง engine คำนวณเสร็จเท่านั้น — ห้ามให้ engine รู้เรื่องการถอนเงิน
       // ไม่งั้นตัวเลขจะไม่ตรงกับฝั่ง Python อีกต่อไป (กำไรไม่เกี่ยวกับทุนอยู่แล้ว)
       return {
@@ -285,7 +288,7 @@ export default function PortfolioPage() {
     } catch (caught) {
       return { snapshot: null, error: caught instanceof Error ? caught.message : "คำนวณไม่สำเร็จ" };
     }
-  }, [draft, sequences]);
+  }, [draft, sequences, seqList]);
 
   /**
    * ขาที่ผลหวยยังมาไม่ถึงวันเดียวกับขาอื่น — งวดที่ยังไม่มีผลถูกข้ามไปเงียบ ๆ
@@ -609,6 +612,8 @@ export default function PortfolioPage() {
             showNumbers={showNumbers}
             onToggleNumbers={() => setShowNumbers((value) => !value)}
             times={draft ? scheduleTimes(draft) : undefined}
+            portfolio={draft ? { ...draft, id: draft.id ?? 0 } : undefined}
+            sequences={seqList}
           />
         </>
       ) : (
