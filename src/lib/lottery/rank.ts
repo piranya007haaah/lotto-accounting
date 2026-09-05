@@ -246,6 +246,54 @@ export function drawMonthDividers(testStr: string, yearBe: string, digits = 2): 
   return out;
 }
 
+/** ช่วงหนึ่งเดือนของเส้นทุนรายหวย — รูปเดียวกับ `PortfolioMonth` ⇒ ส่งเข้ากราฟได้ตรง ๆ */
+export interface EquityMonth {
+  label: string;
+  capitalStart: number;
+  profit: number;
+  maxDd: number;
+  idxStart: number;
+  idxEnd: number;
+}
+
+/**
+ * หั่นเส้นทุนเป็นรายเดือนด้วยเส้นแบ่งจาก `drawMonthDividers`
+ *
+ * ⚠️ อยู่ที่นี่ที่เดียว เพราะทั้งหน้าเว็บและ API ที่ส่งการ์ดเข้า LINE ต้องได้เลขชุดเดียวกัน
+ * — ก๊อปคนละที่เมื่อไหร่ ตัวเลขบนจอกับในการ์ดจะเริ่มไม่ตรงกันโดยไม่มีใครจับได้
+ */
+export function monthlyFromEquity(
+  equity: readonly number[],
+  monthDivs: readonly [string, number][],
+): EquityMonth[] {
+  if (equity.length < 2) return [];
+  const last = equity.length - 1;
+  const bounds = [0, ...monthDivs.map(([, at]) => at), last];
+  const labels = ["Jan", ...monthDivs.map(([name]) => name)];
+
+  const out: EquityMonth[] = [];
+  for (let i = 0; i < labels.length; i += 1) {
+    const from = Math.min(bounds[i], last);
+    const to = Math.min(bounds[i + 1] ?? last, last);
+    if (to <= from) continue; // เดือนที่ไม่มีงวดจริง (หวยออกห่าง/ยังไม่ถึง)
+    let peak = equity[from];
+    let dd = 0;
+    for (let k = from; k <= to; k += 1) {
+      if (equity[k] > peak) peak = equity[k];
+      if (equity[k] - peak < dd) dd = equity[k] - peak;
+    }
+    out.push({
+      label: labels[i],
+      capitalStart: equity[from],
+      profit: equity[to] - equity[from],
+      maxDd: Math.trunc(dd),
+      idxStart: from,
+      idxEnd: to,
+    });
+  }
+  return out;
+}
+
 export interface GroupAnalysis {
   trainYears: string[];
   numbers: string[];

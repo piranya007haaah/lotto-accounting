@@ -9,7 +9,7 @@
 import golden from "../src/lib/lottery/__fixtures__/walk-forward-golden.json";
 import { randomBaseline } from "../src/lib/lottery/engine";
 import { buildFormulaCard } from "../src/lib/lottery/formula-card";
-import { analyzeGroup, trainYearsOf } from "../src/lib/lottery/rank";
+import { analyzeGroup, drawMonthDividers, monthlyFromEquity, trainYearsOf } from "../src/lib/lottery/rank";
 import { walkForwardByYear } from "../src/lib/lottery/walk-forward";
 
 interface Case {
@@ -66,6 +66,7 @@ for (const item of data.cases) {
     flag: "🎰", lottery: item.lottery, position: item.position, formula: item.formula,
     testYear, mode: "train", capital: 100_000, betPerNumber: 100, payoutRate: 100,
     analysis, choice, wf, z: baseline?.z ?? null, appUrl: "https://lotto-accounting.vercel.app",
+    monthly: monthlyFromEquity(analysis.equityOf(choice.size), drawMonthDividers(item.sequences[testYear] ?? "", testYear, 2)),
   });
 
   for (const message of messages) {

@@ -45,6 +45,8 @@ export interface FormulaCardInput {
   choice: RankChoice;
   /** null = ปีไม่พอทำ walk-forward (ยังส่งการ์ดได้ แค่ไม่มีใบที่สอง) */
   wf: WalkForwardResult | null;
+  /** กำไรรายเดือนของปี test — [ชื่อเดือน, กำไร, ทุนต้นเดือน] */
+  monthly: { label: string; profit: number; capitalStart: number }[];
   /** เกินสุ่มกี่ SD — null = คำนวณไม่ได้ */
   z: number | null;
   appUrl: string;
@@ -95,15 +97,116 @@ function mainBubble(input: FormulaCardInput): LineMessage {
   }
 
   rows.push(filler());
-  rows.push(
-    tally(`เลขที่แทง ${choice.size} ตัว`, "", INK,
-      analysis.numbers.slice(0, choice.size).join(" ")),
-  );
-
   return bubble({
     kicker: `${input.formula} · อันดับ #${choice.rank}`,
     title: `${input.flag} ${shortLottery(input.lottery)} · ${shortPosition(input.position)}`,
     when: `วัดผลปี 25${input.testYear} · เทรนด้วย ${analysis.trainYears.map((y) => `25${y}`).join(", ")}`,
+    body: rows,
+  });
+}
+
+/** ใบ "ทุกอันดับ" — n ไหนก็ให้ผลใกล้กัน = สูตรทน ไม่ได้ขึ้นกับ n ที่เลือกเป๊ะ ๆ */
+function ranksBubble(input: FormulaCardInput): LineMessage | null {
+  const items = input.analysis.choices;
+  if (items.length < 2) return null;
+
+  const head: LineMessage = {
+    type: "box",
+    layout: "horizontal",
+    contents: [
+      text("อันดับ", { size: "xxs", color: DIM, flex: 3 }),
+      text("แทง", { size: "xxs", color: DIM, align: "end", flex: 3 }),
+      text("กำไร", { size: "xxs", color: DIM, align: "end", flex: 5 }),
+      text(input.mode === "train" ? "ใน test" : "ถูก", { size: "xxs", color: DIM, align: "end", flex: 4 }),
+    ],
+  };
+
+  const rows: LineMessage[] = [head, separator("xs")];
+  for (const item of items) {
+    const picked = item.rank === input.choice.rank;
+    rows.push({
+      type: "box",
+      layout: "horizontal",
+      margin: "xs",
+      contents: [
+        text(`#${item.rank}`, { size: "xxs", flex: 3, color: picked ? INK : DIM, ...(picked ? { weight: "bold" } : {}) }),
+        text(String(item.size), { size: "xxs", align: "end", flex: 3, color: picked ? INK : DIM }),
+        text(signed(item.profit), { size: "xxs", align: "end", flex: 5, color: tone(item.profit), ...(picked ? { weight: "bold" } : {}) }),
+        text(
+          input.mode === "train" ? `#${item.testRank}` : `${item.winRate.toFixed(1)}%`,
+          { size: "xxs", align: "end", flex: 4, color: picked ? INK : DIM },
+        ),
+      ],
+    });
+  }
+
+  rows.push(filler());
+  rows.push(
+    tally("อันดับที่เลือก", `#${input.choice.rank} · ${input.choice.size} เลข`, INK,
+      input.mode === "train"
+        ? "อันดับใน test ≤ 10 = n ที่เลือกจากอดีตก็ติด Top 10 ของปีจริงด้วย (overfit น้อย)"
+        : "โหมดรู้ผลแล้ว — เป็นเพดานทฤษฎี ไม่ใช่ผลที่เลือกได้จริงตอนนั้น"),
+  );
+
+  return bubble({
+    kicker: `${items.length} อันดับ · แถวหนา = ที่เลือกอยู่`,
+    title: "ควรแทงกี่เลข",
+    when: "n ไหนก็ใกล้กัน = สูตรทน ไม่ได้ขึ้นกับ n ที่เลือกเป๊ะ ๆ",
+    body: rows,
+  });
+}
+
+/** ใบ "กำไรรายเดือน" ของปี test — เดือนไหนพัง เดือนไหนแบก */
+function monthlyBubble(input: FormulaCardInput): LineMessage | null {
+  if (input.monthly.length < 2) return null;
+  const rows: LineMessage[] = [];
+  input.monthly.forEach((month, i) => {
+    if (i > 0) rows.push(separator("xs"));
+    rows.push(
+      statRow(
+        [
+          text(month.label, { size: "xs", weight: "bold", color: INK }),
+          text(`ทุนต้นเดือน ${baht(month.capitalStart)}`, { size: "xxs", color: DIM }),
+        ],
+        signed(month.profit),
+        tone(month.profit),
+      ),
+    );
+  });
+
+  const up = input.monthly.filter((month) => month.profit >= 0).length;
+  rows.push(filler());
+  rows.push(
+    tally("รวมทั้งปี", signed(input.choice.profit), tone(input.choice.profit),
+      `บวก ${up} เดือน · ลบ ${input.monthly.length - up} เดือน`),
+  );
+
+  return bubble({
+    kicker: `ปี 25${input.testYear} · ${input.monthly.length} เดือน`,
+    title: "เดือนไหนพัง เดือนไหนแบก",
+    when: "กำไรทั้งปีก้อนเดียวซ่อนเรื่องนี้ไว้หมด",
+    body: rows,
+  });
+}
+
+/** ใบ "เลขที่แทง" — แยกใบเพราะชุดเลขยาว ยัดรวมแล้วใบอื่นถูกลากให้สูงตาม */
+function numbersBubble(input: FormulaCardInput): LineMessage {
+  const picked = input.analysis.numbers.slice(0, input.choice.size);
+  const perRow = 10;
+  const rows: LineMessage[] = [];
+  for (let i = 0; i < picked.length; i += perRow) {
+    rows.push(text(picked.slice(i, i + perRow).join("  "), { size: "sm", color: INK, margin: i === 0 ? "none" : "xs" }));
+  }
+  rows.push(filler());
+  rows.push(
+    tally("ต้นทุนต่องวด", `${baht(input.choice.size * input.betPerNumber)} บ.`, INK,
+      `${input.choice.size} เลข × ${baht(input.betPerNumber)} บ. · เรียงจากดีสุดไปแย่สุด`),
+  );
+
+  return bubble({
+    kicker: `อันดับ #${input.choice.rank}`,
+    title: `เลขที่แทง ${picked.length} ตัว`,
+    when: `${input.formula} · เทรนด้วย ${input.analysis.trainYears.map((y) => `25${y}`).join(", ")}`,
     body: rows,
   });
 }
@@ -146,9 +249,21 @@ function wfBubble(input: FormulaCardInput, wf: WalkForwardResult, buttons: LineM
 
 export function buildFormulaCard(input: FormulaCardInput): LineMessage[] {
   const buttons = [linkButton("เปิดหน้าสูตร", `${input.appUrl}/formulas`, true)];
+
+  // เรียงตามลำดับที่คนอ่านต้องการรู้: สรุป → ควรแทงกี่เลข → เดือนไหนพัง →
+  // ใช้มาตลอดแล้วเป็นไง → เลขที่จะแทงจริง
   const bubbles: LineMessage[] = [mainBubble(input)];
-  if (input.wf && input.wf.folds.length > 0) bubbles.push(wfBubble(input, input.wf, buttons));
-  else bubbles[0].footer = { type: "box", layout: "vertical", spacing: "sm", paddingAll: "14px", contents: buttons };
+  const ranks = ranksBubble(input);
+  if (ranks) bubbles.push(ranks);
+  const months = monthlyBubble(input);
+  if (months) bubbles.push(months);
+  if (input.wf && input.wf.folds.length > 0) bubbles.push(wfBubble(input, input.wf, []));
+  bubbles.push(numbersBubble(input));
+
+  // ปุ่มเกาะใบสุดท้ายเสมอ ไม่ว่าจะมีกี่ใบ
+  bubbles[bubbles.length - 1].footer = {
+    type: "box", layout: "vertical", spacing: "sm", paddingAll: "14px", contents: buttons,
+  };
 
   const alt =
     `${input.flag} ${shortLottery(input.lottery)} ${shortPosition(input.position)} · ${input.formula} · ` +

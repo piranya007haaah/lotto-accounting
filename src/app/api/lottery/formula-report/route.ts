@@ -15,7 +15,13 @@ import { readAllDatasetRows } from "@/lib/lottery/dataset-read";
 import { randomBaseline } from "@/lib/lottery/engine";
 import { FORMULAS } from "@/lib/lottery/formulas";
 import { buildFormulaCard } from "@/lib/lottery/formula-card";
-import { analyzeGroup, trainYearsOf, type RankMode } from "@/lib/lottery/rank";
+import {
+  analyzeGroup,
+  drawMonthDividers,
+  monthlyFromEquity,
+  trainYearsOf,
+  type RankMode,
+} from "@/lib/lottery/rank";
 import { walkForwardByYear } from "@/lib/lottery/walk-forward";
 
 export const runtime = "nodejs";
@@ -130,6 +136,7 @@ export const POST = route(async (request) => {
     analysis,
     choice,
     wf,
+    monthly: monthlyFromEquity(analysis.equityOf(choice.size), drawMonthDividers(testStr, testYear, 2)),
     z: baseline?.z ?? null,
     appUrl: appUrl(),
   });

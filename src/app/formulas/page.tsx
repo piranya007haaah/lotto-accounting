@@ -23,6 +23,7 @@ import { DEFAULT_FORMULA, FORMULA_NAMES } from "@/lib/lottery/formulas";
 import {
   analyzeGroup,
   drawMonthDividers,
+  monthlyFromEquity,
   trainYearsOf,
   type GroupAnalysis,
   type RankMode,
@@ -336,19 +337,11 @@ export default function FormulasPage() {
   }, [analysis]);
 
   /** กำไรรายเดือนของช่วง test — ตัดเส้นทุนตามเส้นแบ่งเดือนที่คิดไว้แล้ว */
-  const monthly = useMemo(() => {
-    if (!equity || equity.length < 2) return [];
-    const bounds = [0, ...monthDivs.map(([, at]) => at), equity.length - 1];
-    const labels = ["Jan", ...monthDivs.map(([name]) => name)];
-    const out: { label: string; profit: number; start: number }[] = [];
-    for (let i = 0; i < labels.length; i += 1) {
-      const from = Math.min(bounds[i], equity.length - 1);
-      const to = Math.min(bounds[i + 1] ?? equity.length - 1, equity.length - 1);
-      if (to <= from) continue;
-      out.push({ label: labels[i], profit: equity[to] - equity[from], start: equity[from] });
-    }
-    return out;
-  }, [equity, monthDivs]);
+  /** กำไรรายเดือนของช่วง test — logic อยู่ที่ `rank.ts` ที่เดียว (API ที่ส่งการ์ดใช้ตัวเดียวกัน) */
+  const monthly = useMemo(
+    () => (equity ? monthlyFromEquity(equity, monthDivs) : []),
+    [equity, monthDivs],
+  );
 
   /**
    * Walk-forward รายปี — ทุกปีเทรนด้วยปีก่อนหน้าทั้งหมด แล้วต่อเส้นทุนข้ามปี
@@ -732,7 +725,12 @@ export default function FormulasPage() {
                       {equity ? (
                         <div>
                           <SectionTitle>เส้นทุน</SectionTitle>
-                          <EquityChart values={equity} capital={capital} monthDivs={monthDivs} />
+                          <EquityChart
+                            values={equity}
+                            capital={capital}
+                            monthDivs={monthDivs}
+                            months={monthly}
+                          />
                         </div>
                       ) : null}
                       {baseline?.z != null ? (
@@ -835,7 +833,8 @@ export default function FormulasPage() {
                                   <tr key={month.label} style={{ borderTop: "1px solid var(--divider)" }}>
                                     <td className="py-1 font-semibold">{month.label}</td>
                                     <td className="dim py-1 text-right text-[10.5px]">
-                                      ทุนต้นเดือน {formatBahtShort(month.start)}
+                                      ทุนต้นเดือน {formatBahtShort(month.capitalStart)} · ร่วงในเดือน{" "}
+                                      {formatBahtShort(month.maxDd)}
                                     </td>
                                     <td
                                       className="py-1 text-right font-bold"

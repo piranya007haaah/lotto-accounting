@@ -145,7 +145,9 @@ export function bubble(options: {
     },
     body: { type: "box", layout: "vertical", paddingAll: "14px", spacing: "sm", contents: options.body },
   };
-  if (options.footer) {
+  // ⚠️ `[]` เป็น truthy ใน JS — เช็คความยาวด้วย ไม่งั้นได้กล่อง footer เปล่า ๆ
+  //    ที่กินที่ท้ายใบโดยไม่มีอะไรอยู่ข้างใน (เจอจริงตอนส่ง `[]` มาแทน undefined)
+  if (options.footer && options.footer.length > 0) {
     node.footer = { type: "box", layout: "vertical", spacing: "sm", paddingAll: "14px", contents: options.footer };
   }
   return node;
