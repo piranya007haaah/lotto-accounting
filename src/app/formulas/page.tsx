@@ -798,8 +798,26 @@ export default function FormulasPage() {
                             />
                           </div>
 
+                          {/* คั่น **รายปี** ไม่ใช่รายเดือน — เส้นนี้ต่อกันข้ามปี ถ้าไม่คั่นจะอ่าน
+                              ไม่ออกว่าช่วงไหนปีไหน · ใช้ `months` ตัวเดิมของ EquityChart ได้ตรง ๆ
+                              เพราะรูปเหมือนกัน (ช่วง + ทุนต้นช่วง + กำไรปิดช่วง)
+                              ⇒ ได้เส้นประ = ทุนต้นปี และป้ายกำไรปิดปี ติดมาด้วยเลย */}
                           <div className="mt-2">
-                            <EquityChart values={wf.equityCurve} capital={wf.capital} monthDivs={[]} />
+                            <EquityChart
+                              values={wf.equityCurve}
+                              capital={wf.capital}
+                              monthDivs={wf.folds
+                                .filter((fold) => fold.idxStart > 0)
+                                .map((fold) => [`25${fold.year}`, fold.idxStart] as [string, number])}
+                              months={wf.folds.map((fold) => ({
+                                label: `25${fold.year}`,
+                                capitalStart: wf.equityCurve[fold.idxStart] ?? wf.capital,
+                                profit: fold.profit,
+                                maxDd: fold.maxDrawdown,
+                                idxStart: fold.idxStart,
+                                idxEnd: fold.idxEnd,
+                              }))}
+                            />
                           </div>
 
                           <div className="mt-2 overflow-x-auto">
