@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { MonthWindowDetails } from "./MonthWindowDetails";
 import { useAuth } from "./LiffProvider";
 import { Alert, EmptyState, SectionTitle, Spinner } from "./ui";
 import { EquityChart, ProfitBar } from "./PortfolioCharts";
@@ -27,6 +28,8 @@ export function MonthWindowExplorer({ groups }: { groups: GroupOption[] }) {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<WindowAnalysis | null>(null);
   const [busy, setBusy] = useState(false);
+  const [detailTarget, setDetailTarget] = useState<{ formula?: string; month?: number | "test" }>({});
+  const [detailOpen, setDetailOpen] = useState(false);
   const [selected, setSelected] = useState(0);
   const [retry, setRetry] = useState(0);
 
@@ -49,7 +52,7 @@ export function MonthWindowExplorer({ groups }: { groups: GroupOption[] }) {
 
   const months = useMemo(() => entries ? monthCalendar(entries).filter((m) => m.days > 0) : [], [entries]);
   useEffect(() => {
-    setResult(null); setSelected(0);
+    setResult(null); setSelected(0); setDetailOpen(false);
     if (!entries) return;
     const values = [Number(capital), Number(bet), Number(payout)];
     if (!capital || !bet || !payout || !values.every(Number.isFinite) || values[0] < 0 || values[0] > 1e9 || values[1] < 1 || values[1] > 1e6 || values[2] < 1 || values[2] > 10000) {
@@ -122,6 +125,8 @@ export function MonthWindowExplorer({ groups }: { groups: GroupOption[] }) {
     {result && best ? <>
       <Alert title={`กรอบที่เลือกได้ก่อนทดสอบ: ${best.months} เดือน`}>
         <p>{best.best.formula}</p>
+        <p className="mt-1 text-[12px]">ใช้ชุดเลขครั้งละ 1 เดือน · กรอบย้อนหลังคือข้อมูลฝึก ไม่ใช่ระยะเวลาแทง</p>
+        <button type="button" className="mt-2 font-semibold underline" onClick={() => { setSelected(best.months); setDetailTarget({}); setDetailOpen(true); }}>ดูที่มาของกรอบและสูตรที่เลือก →</button>
         <p>กำไรช่วงคัดเลือก {formatSigned(best.best.profit)} บาท · ROI {pct(best.best.roiPct)}</p>
         <p className="mt-1 text-[12px]">คัดเลือก {monthLabel(result.validationStart)} – {monthLabel(result.validationEnd)} · {best.best.days} งวด<br />ทดสอบ {monthLabel(result.testMonth)}: {formatSigned(best.test.profit)} บาท · ROI {pct(best.test.roiPct)} · {best.test.days} งวด</p>
       </Alert>
@@ -134,7 +139,7 @@ export function MonthWindowExplorer({ groups }: { groups: GroupOption[] }) {
           <table className="w-full text-left text-[11px]">
             <thead className="sticky top-0" style={{ background: "var(--card)" }}><tr className="muted"><th className="py-2">กรอบ / สูตร</th><th className="text-right">กำไรคัดเลือก<br />ROI</th><th className="text-right">กำไรทดสอบ</th></tr></thead>
             <tbody>{result.rows.map((row) => <tr key={row.months} style={{ background: row.months === selected ? "var(--accent-tint)" : undefined }}>
-              <td className="py-2 pr-2"><button className="whitespace-nowrap font-semibold underline" type="button" onClick={() => setSelected(row.months)} aria-pressed={selected === row.months}>{row.months} เดือน{row.months === result.bestMonths ? " ★" : ""}</button><span className="dim mt-0.5 block text-[10px]">{row.best.formula}</span></td>
+              <td className="py-2 pr-2"><button className="whitespace-nowrap font-semibold underline" type="button" onClick={() => { setSelected(row.months); setDetailTarget({}); setDetailOpen(true); }} aria-pressed={selected === row.months}>{row.months} เดือน{row.months === result.bestMonths ? " ★" : ""}</button><span className="dim mt-0.5 block text-[10px]">{row.best.formula}</span></td>
               <td className="tnum text-right">{formatSigned(row.best.profit)}<span className="dim block text-[10px]">{pct(row.best.roiPct)}</span></td><td className="tnum pl-2 text-right">{formatSigned(row.test.profit)}</td>
             </tr>)}</tbody>
           </table>
@@ -142,6 +147,7 @@ export function MonthWindowExplorer({ groups }: { groups: GroupOption[] }) {
       </section>
       {detail && risk ? <section className="card space-y-3 px-3.5 py-3">
         <SectionTitle>รายละเอียดกรอบ {detail.months} เดือน</SectionTitle>
+        <button type="button" className="btn btn-primary w-full" onClick={() => { setDetailTarget({}); setDetailOpen(true); }}>เปิดรายละเอียดทุกสูตร ทุกเดือน และรายงวด</button>
         <ProfitBar value={detail.best.profit} max={maxProfit} />
         <p className="text-[12px]">{detail.best.formula} · เดือนทดสอบใช้ {detail.test.nBet} เลข · ถูก {detail.test.wins}/{detail.test.days} งวด</p>
         <div className="grid grid-cols-2 gap-2 text-[12px]">
@@ -150,13 +156,14 @@ export function MonthWindowExplorer({ groups }: { groups: GroupOption[] }) {
         </div>
         <EquityChart values={detail.test.equity} capital={Number(capital)} monthDivs={[]} />
         <details><summary className="cursor-pointer text-[12px] font-semibold">เทียบทุกสูตรในกรอบนี้</summary>
-          {detail.formulas.map((f) => <div key={f.formula} className="row flex justify-between gap-2 py-2 text-[12px]"><span>{f.formula}</span><span className="tnum text-right">{formatSigned(f.profit)} บาท<br /><span className="dim">ROI {pct(f.roiPct)}</span></span></div>)}
+          {detail.formulas.map((f) => <button type="button" key={f.formula} className="row flex w-full justify-between gap-2 py-2 text-left text-[12px]" onClick={() => { setDetailTarget({ formula: f.formula }); setDetailOpen(true); }}><span>{f.formula}</span><span className="tnum text-right">{formatSigned(f.profit)} บาท<br /><span className="dim">ROI {pct(f.roiPct)}</span></span></button>)}
         </details>
         <details><summary className="cursor-pointer text-[12px] font-semibold">ผลรายเดือนที่ใช้คัดเลือก</summary>
-          {detail.best.folds.map((fold) => <div key={fold.month} className="row flex justify-between gap-2 py-2 text-[12px]"><span>{monthLabel(fold.month)}<span className="dim block">{fold.nBet} เลข · {fold.days} งวด</span></span><span className="tnum">{formatSigned(fold.profit)} บาท</span></div>)}
+          {detail.best.folds.map((fold) => <button type="button" key={fold.month} className="row flex w-full justify-between gap-2 py-2 text-left text-[12px]" onClick={() => { setDetailTarget({ formula: detail.best.formula, month: fold.month }); setDetailOpen(true); }}><span>{monthLabel(fold.month)}<span className="dim block">{fold.nBet} เลข · {fold.days} งวด</span></span><span className="tnum">{formatSigned(fold.profit)} บาท</span></button>)}
         </details>
-        <details><summary className="cursor-pointer text-[12px] font-semibold">ชุดเลขที่ใช้ในเดือนทดสอบ ({detail.test.nBet} ตัว)</summary><p className="tnum mt-2 text-[12px] leading-relaxed">{detail.test.numbers.join(" ")}</p></details>
+        <details><summary className="cursor-pointer text-[12px] font-semibold">ชุดเลขที่ใช้ในเดือนทดสอบ ({detail.test.nBet} ตัว)</summary><p className="tnum mt-2 text-[12px] leading-relaxed">{detail.test.numbers.join(" ")}</p><button type="button" className="mt-2 text-[12px] underline" onClick={() => { setDetailTarget({ formula: detail.best.formula, month: "test" }); setDetailOpen(true); }}>ดูที่มาของเลขและผลรายงวด</button></details>
       </section> : null}
+      {detailOpen && detail && entries ? <MonthWindowDetails key={detail.months} row={detail} initialFormula={detailTarget.formula} initialMonth={detailTarget.month} entries={entries} params={{ capital: Number(capital), betPerNumber: Number(bet), payoutRate: Number(payout) }} lottery={`${lottery} · ${position}`} onClose={() => setDetailOpen(false)} /> : null}
       <Alert tone="warn">การค้นหาหลายกรอบและหลายสูตรอาจเจอตัวที่ดีเพราะความบังเอิญ กำไรคัดเลือกจึงควรดูคู่กับผลทดสอบแยก โดยเฉพาะเมื่อมีงวดน้อย ผลย้อนหลังไม่รับประกันเดือนถัดไป</Alert>
     </> : null}
   </div>;
