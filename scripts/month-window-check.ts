@@ -1,6 +1,6 @@
 /** Regression checks: calendar indexing, exact engine parity, and holdout isolation. */
 import assert from "node:assert/strict";
-import { analyzeMonthWindows, monthCalendar, type MonthEntry } from "../src/lib/lottery/month-window";
+import { analyzeMonthWindows, inspectMonthScore, monthCalendar, type MonthEntry } from "../src/lib/lottery/month-window";
 import { FORMULAS } from "../src/lib/lottery/formulas";
 import { equityCurve, runAllSizes } from "../src/lib/lottery/engine";
 
@@ -72,4 +72,32 @@ check(() => assert.throws(() => analyzeMonthWindows({ ...options, entries: empty
 // Flat identical observations lead to equal profits across windows -> shortest wins deterministically.
 const ties = analyzeMonthWindows({ ...options, entries: entries.map((e) => ({ ...e, sequence: "00".repeat(e.sequence.length / 2) })) });
 check(() => assert.equal(ties.bestMonths, 1));
+// Drill-down must reconcile to the exact parent totals for every formula, including losers.
+for (const row of result.rows.filter((r) => [1, 12, 41].includes(r.months))) {
+  for (const formula of row.formulas) {
+    for (const score of [...formula.folds, row.tests[formula.formula]]) {
+      const details = inspectMonthScore(score, entries, params);
+      check(() => assert.equal(details.draws.reduce((sum, d) => sum + d.profit, 0), score.profit));
+      check(() => assert.equal(details.draws.reduce((sum, d) => sum + d.cost, 0), score.turnover));
+      check(() => assert.equal(details.draws.filter((d) => d.won === true).length, score.wins));
+      check(() => assert.equal(details.draws.filter((d) => d.result !== null).length, score.days));
+      check(() => assert.deepEqual([params.capital, ...details.draws.filter((d) => d.result !== null).map((d) => d.equity)], score.equity));
+      check(() => assert.ok(details.draws.filter((d) => d.result === null).every((d) => d.cost === 0 && d.prize === 0 && d.profit === 0)));
+      check(() => assert.equal(details.trainMonths.reduce((sum, m) => sum + m.days, 0), score.trainDays));
+      check(() => assert.ok(details.trainMonths.every((m) => m.id < score.month)));
+      check(() => assert.equal(details.sizeChoices[0].size, score.nBet));
+      check(() => assert.equal(details.sizeChoices.length, 99));
+      check(() => assert.equal(details.numberRanks.length, 100));
+      check(() => assert.deepEqual(details.numberRanks.filter((n) => n.selected).map((n) => n.number), score.numbers));
+      check(() => assert.equal(details.numberRanks.reduce((sum, n) => sum + n.count, 0), score.trainDays));
+    }
+    const changedRow = changedResult.rows.find((r) => r.months === row.months)!;
+    check(() => assert.deepEqual(row.tests[formula.formula].numbers, changedRow.tests[formula.formula].numbers));
+    check(() => assert.equal(row.tests[formula.formula].nBet, changedRow.tests[formula.formula].nBet));
+  }
+}
+const february = analyzeMonthWindows({ ...options, testMonth: 2024 * 12 + 1 }).rows[0].test;
+const febDetails = inspectMonthScore(february, entries, params);
+check(() => assert.equal(febDetails.draws.at(-1)?.date, "2024-02-29"));
+check(() => assert.equal(febDetails.draws[0].result, /^\d{2}$/.test(entries[1].sequence.slice(62, 64)) ? entries[1].sequence.slice(62, 64) : null));
 console.log(`${checks} monthly-window checks passed (${((performance.now() - start) / 1000).toFixed(2)}s).`);
