@@ -13,6 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { MonthWindowExplorer } from "@/components/MonthWindowExplorer";
 import { useAuth } from "@/components/LiffProvider";
 import { EquityChart, MonthlyPnlBars, MultiEquityChart, ProfitBar } from "@/components/PortfolioCharts";
 import { Alert, Chip, EmptyState, Modal, PageHeader, SectionTitle, Spinner } from "@/components/ui";
@@ -136,6 +137,8 @@ function Kpi({ label, value, sub, tone = "plain" }: {
 export default function FormulasPage() {
   const { api, canViewLottery, isAdmin } = useAuth();
 
+  const [view, setView] = useState<"year" | "months">("year");
+  const [groups, setGroups] = useState<GroupsResponse["groups"]>([]);
   const [years, setYears] = useState<string[]>([]);
   const [formula, setFormula] = useState(DEFAULT_FORMULA);
   const [testYear, setTestYear] = useState("");
@@ -183,6 +186,7 @@ export default function FormulasPage() {
         // `digits=2` — สูตรในหน้านี้เป็นสูตร 2 ตัวล้วน · ตารางผลหวยเก็บสามบนไว้ด้วย
         const data = await api<GroupsResponse>("/api/lottery/datasets?digits=2");
         if (cancelled) return;
+        setGroups(data.groups);
         setYears(data.years);
         setTestYear((current) => current || data.years[data.years.length - 1] || "");
       } catch (caught) {
@@ -214,7 +218,7 @@ export default function FormulasPage() {
 
   // คำนวณตารางอันดับใหม่เมื่อค่าตั้งเปลี่ยน — หน่วงไว้ก่อน เพราะพิมพ์เลขทีละหลัก
   useEffect(() => {
-    if (!canViewLottery || !testYear) return;
+    if (!canViewLottery || !testYear || view !== "year") return;
     let cancelled = false;
     setLoading(true);
     const timer = setTimeout(() => {
@@ -244,7 +248,7 @@ export default function FormulasPage() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [api, canViewLottery, formula, testYear, trainParam, mode, capital, bet, payout]);
+  }, [api, canViewLottery, formula, testYear, trainParam, mode, capital, bet, payout, view]);
 
   // เปลี่ยนค่าตั้งค่าใด ๆ = ตัวเลขในกล่องรายละเอียดเก่าใช้ไม่ได้แล้ว
   /** แถวที่เปิดป๊อปอัปอยู่ — null = ปิด */
@@ -507,9 +511,14 @@ export default function FormulasPage() {
     <div className="space-y-3.5">
       <PageHeader
         title="สูตร"
-        subtitle={`เรียงตามกำไรของปี test ${testYear || "—"} · ${rows?.length ?? 0} หวย`}
+        subtitle={view === "months" ? "เทียบกรอบย้อนหลังและสูตรจากเดือนก่อนทดสอบ" : `เรียงตามกำไรของปี test ${testYear || "—"} · ${rows?.length ?? 0} หวย`}
       />
 
+      <div className="flex gap-2">
+        <Chip active={view === "year"} onClick={() => setView("year")}>อันดับรายปี</Chip>
+        <Chip active={view === "months"} onClick={() => { setOpenKey(null); setView("months"); }}>เทียบกรอบเดือน</Chip>
+      </div>
+      {view === "months" ? <><MonthWindowExplorer groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : <>
       <section className="card space-y-2.5 px-3.5 py-3">
         <div>
           <p className="field-label">สูตร</p>
@@ -1049,6 +1058,7 @@ export default function FormulasPage() {
         <br />
         หวยที่มีงวดน้อยหรือกำไรมาจากงวดเดียว ตัวเลขจะแกว่งด้วยดวงมากกว่าฝีมือสูตร
       </p>
+      </>}
     </div>
   );
 }
