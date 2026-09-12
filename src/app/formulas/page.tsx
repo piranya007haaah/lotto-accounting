@@ -14,6 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MonthWindowExplorer } from "@/components/MonthWindowExplorer";
+import { Tb9Experiment } from "@/components/Tb9Experiment";
 import { useAuth } from "@/components/LiffProvider";
 import { EquityChart, MonthlyPnlBars, MultiEquityChart, ProfitBar } from "@/components/PortfolioCharts";
 import { Alert, Chip, EmptyState, Modal, PageHeader, SectionTitle, Spinner } from "@/components/ui";
@@ -137,7 +138,7 @@ function Kpi({ label, value, sub, tone = "plain" }: {
 export default function FormulasPage() {
   const { api, canViewLottery, isAdmin } = useAuth();
 
-  const [view, setView] = useState<"year" | "months">("year");
+  const [view, setView] = useState<"year" | "months" | "tb9">("year");
   const [groups, setGroups] = useState<GroupsResponse["groups"]>([]);
   const [years, setYears] = useState<string[]>([]);
   const [formula, setFormula] = useState(DEFAULT_FORMULA);
@@ -511,14 +512,15 @@ export default function FormulasPage() {
     <div className="space-y-3.5">
       <PageHeader
         title="สูตร"
-        subtitle={view === "months" ? "เทียบกรอบย้อนหลังและสูตรจากเดือนก่อนทดสอบ" : `เรียงตามกำไรของปี test ${testYear || "—"} · ${rows?.length ?? 0} หวย`}
+        subtitle={view === "tb9" ? "ทดลอง TB9-Fixed v1.0 · ชุดคงที่รายเดือน" : view === "months" ? "เทียบกรอบย้อนหลังและสูตรจากเดือนก่อนทดสอบ" : `เรียงตามกำไรของปี test ${testYear || "—"} · ${rows?.length ?? 0} หวย`}
       />
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 overflow-x-auto pb-1">
         <Chip active={view === "year"} onClick={() => setView("year")}>อันดับรายปี</Chip>
         <Chip active={view === "months"} onClick={() => { setOpenKey(null); setView("months"); }}>เทียบกรอบเดือน</Chip>
+        <Chip active={view === "tb9"} onClick={() => { setOpenKey(null); setView("tb9"); }}>ทดลอง TB9</Chip>
       </div>
-      {view === "months" ? <><MonthWindowExplorer groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : <>
+      {view === "tb9" ? <><Tb9Experiment groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : view === "months" ? <><MonthWindowExplorer groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : <>
       <section className="card space-y-2.5 px-3.5 py-3">
         <div>
           <p className="field-label">สูตร</p>
