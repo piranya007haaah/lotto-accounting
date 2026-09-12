@@ -109,9 +109,9 @@ export function OwnerSheet({
         </ul>
 
         {members.length === 0 ? (
-          <p className="dim px-2 pb-1 text-[11.5px]">กำลังโหลดรายชื่อ…</p>
+          <p className="dim px-2 pb-1 text-[12px]">กำลังโหลดรายชื่อ…</p>
         ) : (
-          <p className="dim px-2 pb-1 text-[11.5px]">
+          <p className="dim px-2 pb-1 text-[12px]">
             เห็นของคนอื่นได้อย่างเดียว แก้ไขหรือลบได้เฉพาะรายการของตัวเอง
           </p>
         )}

@@ -31,7 +31,7 @@ export function ModeSwitch() {
                 key={mode.key}
                 href={mode.items[0].href}
                 aria-current={active ? "page" : undefined}
-                className="rounded-full px-3 py-1.5 text-[12.5px] font-bold transition-colors"
+                className="inline-flex min-h-11 items-center gap-1 rounded-full px-3 py-1.5 text-[12.5px] font-bold transition-colors"
                 style={{
                   background: active ? "var(--ink-btn)" : "var(--card)",
                   color: active ? "var(--ink-btn-text)" : "var(--muted)",
@@ -49,7 +49,7 @@ export function ModeSwitch() {
           href={ADMIN_PAGE.href}
           aria-label={ADMIN_PAGE.label}
           aria-current={pathname === ADMIN_PAGE.href ? "page" : undefined}
-          className="ml-auto flex size-[34px] items-center justify-center rounded-full transition-colors"
+          className="ml-auto flex size-[44px] items-center justify-center rounded-full transition-colors"
           style={{
             background: pathname === ADMIN_PAGE.href ? "var(--ink-btn)" : "var(--card)",
             border: `1px solid ${pathname === ADMIN_PAGE.href ? "var(--ink-btn)" : "var(--line)"}`,

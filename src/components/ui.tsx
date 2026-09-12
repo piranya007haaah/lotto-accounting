@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { formatBahtShort, formatSigned } from "@/lib/format";
 import { bankMark } from "@/lib/thai-banks";
 
@@ -22,6 +22,7 @@ export function Alert({
 
   return (
     <div
+      role={tone === "error" ? "alert" : undefined}
       className="rounded-2xl border px-3.5 py-2.5 text-[13.5px] leading-relaxed"
       style={{ background: palette.bg, borderColor: palette.border, color: palette.text }}
     >
@@ -176,7 +177,7 @@ export function StatCard({
             {icon}
           </span>
         ) : null}
-        <p className="muted text-[11px] font-semibold">{label}</p>
+        <p className="muted text-[12px] font-semibold">{label}</p>
       </div>
       <p className="display-num mt-2 text-[19px]" style={{ color }}>
         {raw ? value.toLocaleString("th-TH") : signed ? formatSigned(value) : formatBahtShort(value)}
@@ -205,11 +206,11 @@ export function BarRow({
       <div className="bar-track">
         <div className="bar-fill" style={{ width: `${width}%`, background: color }} />
       </div>
-      <span className="tnum w-[76px] flex-none text-right text-[11px]" style={{ color: "var(--muted)" }}>
+      <span className="tnum w-[76px] flex-none text-right text-[12px]" style={{ color: "var(--muted)" }}>
         {formatBahtShort(value)}
       </span>
       {count !== undefined ? (
-        <span className="tnum dim w-[44px] flex-none text-right text-[10.5px]">{count} ครั้ง</span>
+        <span className="tnum dim w-[44px] flex-none text-right text-[12px]">{count} ครั้ง</span>
       ) : null}
     </div>
   );
@@ -246,7 +247,7 @@ export function SiteBadge({
 
 export function Spinner({ label }: { label?: string }) {
   return (
-    <span className="muted inline-flex items-center gap-2 text-sm">
+    <span role="status" className="muted inline-flex items-center gap-2 text-sm">
       <span
         className="inline-block size-[18px] animate-spin rounded-full border-[2.5px]"
         style={{ borderColor: "var(--accent-tint)", borderTopColor: "var(--accent)" }}
@@ -323,18 +324,40 @@ export function Modal({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const panel = useRef<HTMLDivElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
+  const close = useRef(onClose);
+  const titleId = useId();
+  const subtitleId = useId();
+  useEffect(() => { close.current = onClose; }, [onClose]);
   useEffect(() => {
+    const origin = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    closeButton.current?.focus({ preventScroll: true });
+    const isTop = () => [...document.querySelectorAll('[role="dialog"]')].at(-1) === panel.current;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (!isTop()) return;
+      if (event.key === "Escape") { event.preventDefault(); event.stopImmediatePropagation(); close.current(); return; }
+      if (event.key !== "Tab") return;
+      const focusable = [...(panel.current?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex="0"]') ?? [])].filter((el) => el.getClientRects().length > 0);
+      const first = focusable[0], last = focusable.at(-1);
+      if (!first || !last) { event.preventDefault(); panel.current?.focus(); return; }
+      if (event.shiftKey && (document.activeElement === first || !panel.current?.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && (document.activeElement === last || !panel.current?.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
     };
-    window.addEventListener("keydown", onKey);
+    const onFocus = (event: FocusEvent) => {
+      if (isTop() && event.target instanceof Node && !panel.current?.contains(event.target)) closeButton.current?.focus({ preventScroll: true });
+    };
+    document.addEventListener("keydown", onKey, true);
+    document.addEventListener("focusin", onFocus);
     return () => {
       document.body.style.overflow = previous;
-      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onKey, true);
+      document.removeEventListener("focusin", onFocus);
+      if (origin?.isConnected) origin.focus({ preventScroll: true });
     };
-  }, [onClose]);
+  }, []);
 
   return (
     <div
@@ -344,7 +367,11 @@ export function Modal({
       role="presentation"
     >
       <div
-        className="sheet-panel card flex max-h-[88vh] w-full max-w-[640px] flex-col overflow-hidden rounded-b-none sm:rounded-2xl"
+        ref={panel}
+        tabIndex={-1}
+        aria-labelledby={titleId}
+        aria-describedby={subtitle ? subtitleId : undefined}
+        className="sheet-panel card flex max-h-[90dvh] w-full max-w-[640px] flex-col overflow-hidden rounded-b-none sm:rounded-2xl"
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -354,19 +381,20 @@ export function Modal({
           style={{ borderBottom: "1px solid var(--divider)" }}
         >
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[14px] font-bold">{title}</p>
-            {subtitle ? <p className="dim mt-0.5 text-[10.5px] leading-tight">{subtitle}</p> : null}
+            <p id={titleId} className="text-[16px] font-bold">{title}</p>
+            {subtitle ? <p id={subtitleId} className="dim mt-1 text-[12px] leading-relaxed">{subtitle}</p> : null}
           </div>
           <button
             type="button"
-            className="dim flex-none px-1.5 text-[18px] leading-none"
+            ref={closeButton}
+            className="sheet-close dim flex-none text-[20px] leading-none"
             onClick={onClose}
             aria-label="ปิด"
           >
             ✕
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-3.5 py-3">{children}</div>
+        <div className="sheet-content min-h-0 flex-1 overflow-y-auto px-4 py-4">{children}</div>
       </div>
     </div>
   );

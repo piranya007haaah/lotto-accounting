@@ -213,8 +213,8 @@ export function EquityChart({
 
       {/* ป้ายค่าท้ายเส้นอันเดียว — ไม่ติดตัวเลขทุกจุด */}
       <div className="mt-1 flex items-baseline justify-between gap-2">
-        <span className="dim text-[10.5px]">ทุนตั้งต้น {formatBahtShort(capital)}</span>
-        <span className="tnum text-[11.5px] font-bold" style={{ color: "var(--text)" }}>
+        <span className="dim text-[12px]">ทุนตั้งต้น {formatBahtShort(capital)}</span>
+        <span className="tnum text-[12px] font-bold" style={{ color: "var(--text)" }}>
           {formatBahtShort(last)}{" "}
           <span style={{ color: profit >= 0 ? "var(--color-money-out)" : "var(--color-money-in)" }}>
             ({formatSigned(profit)})
@@ -224,7 +224,7 @@ export function EquityChart({
 
       {hover ? (
         <div
-          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-lg px-2 py-1 text-[11px] whitespace-nowrap"
+          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-lg px-2 py-1 text-[12px] whitespace-nowrap"
           style={{
             left: `${hover.x}%`,
             top: `calc(${hover.y}% - 8px)`,
@@ -288,7 +288,7 @@ export function MonthlyBars({
                 }}
               />
             </div>
-            <p className="dim mt-1 text-[10.5px]">
+            <p className="dim mt-1 text-[12px]">
               {startLabel}{" "}
               {startSigned ? formatSigned(month.capitalStart) : formatBahtShort(month.capitalStart)} ·
               ร่วงในเดือนสูงสุด{" "}
@@ -459,7 +459,7 @@ export function MonthlyPnlBars({
   return (
     <div>
       {/* ค่าที่แตะอ่าน — อยู่เหนือกราฟเพื่อไม่ต้องเลื่อนกลับมาดู */}
-      <p className="dim mb-1 text-[11px]">
+      <p className="dim mb-1 text-[12px]">
         {shown ? (
           <>
             <b>{shown.label}</b>{" "}

@@ -242,7 +242,7 @@ export default function HistoryPage() {
           <section key={dateKey} className="card overflow-hidden">
             <div className="group-head flex items-baseline justify-between px-4 py-2.5">
               <span className="text-[13px] font-bold">{formatThaiDate(`${dateKey}T00:00:00Z`)}</span>
-              <span className="tnum text-[11px]">
+              <span className="tnum text-[12px]">
                 <span style={{ color: "var(--color-money-in)" }}>{formatBahtShort(dayDeposit)}</span>
                 <span className="dim"> / </span>
                 <span style={{ color: "var(--color-money-out)" }}>{formatBahtShort(dayWithdraw)}</span>
@@ -290,7 +290,7 @@ export default function HistoryPage() {
                           {/* ดูของคนเดียวอยู่แล้วไม่ต้องบอกซ้ำทุกแถว — บอกเฉพาะตอนดูรวมทุกคน */}
                           {canViewAll && !viewOwner ? (
                             <span
-                              className="flex flex-none items-center gap-1 text-[11px]"
+                              className="flex flex-none items-center gap-1 text-[12px]"
                               style={{ color: isOpen ? "var(--nav-dim)" : "var(--dim)" }}
                             >
                               <AvatarCircle
@@ -306,7 +306,7 @@ export default function HistoryPage() {
                         </span>
                         {row.note ? (
                           <span
-                            className="block truncate text-[11px]"
+                            className="block truncate text-[12px]"
                             style={{ color: isOpen ? "var(--nav-dim)" : "var(--dim)" }}
                           >
                             {row.note}
@@ -346,7 +346,7 @@ export default function HistoryPage() {
                               .filter(([path]) => Boolean(path))
                               .map(([path, label]) => (
                                 <div key={label} className="space-y-1">
-                                  <span className="dim text-[11px] font-semibold">{label}</span>
+                                  <span className="dim text-[12px] font-semibold">{label}</span>
                                   {imageUrls[path!] ? (
                                     <a href={imageUrls[path!]} target="_blank" rel="noreferrer">
                                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -367,7 +367,7 @@ export default function HistoryPage() {
                           <p className="muted text-xs">ไม่มีรูปแนบ</p>
                         )}
 
-                        <dl className="muted grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                        <dl className="muted grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
                           <div>ที่มา: {OCR_LABEL[row.ocr_status] ?? row.ocr_status}</div>
                           {row.ocr_confidence !== null ? (
                             <div>ความมั่นใจ: {Math.round(Number(row.ocr_confidence) * 100)}%</div>
@@ -473,7 +473,7 @@ export default function HistoryPage() {
                           </div>
                         ) : (
                           // ไม่ใช่ของเราและไม่ใช่ผู้ดูแล — ดูได้อย่างเดียว (ฝั่ง API กันไว้อีกชั้น)
-                          <p className="dim text-[11.5px]">
+                          <p className="dim text-[12px]">
                             รายการของ {row.owner?.display_name ?? "คนอื่น"} — แก้ไขไม่ได้
                           </p>
                         )}

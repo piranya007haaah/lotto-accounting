@@ -72,7 +72,7 @@ export function PortfolioMeta({
         />
         <span className="text-[12.5px] leading-tight font-semibold">
           ⭐ ใช้จริง
-          <span className="dim block text-[10.5px] font-normal">
+          <span className="dim block text-[12px] font-normal">
             พอร์ตที่รายงาน LINE และหน้านี้หยิบขึ้นมาก่อน
           </span>
         </span>
@@ -86,7 +86,7 @@ export function PortfolioMeta({
         />
         <span className="text-[12.5px] leading-tight font-semibold">
           💸 ถอนกำไรออกทุกเดือน
-          <span className="dim block text-[10.5px] font-normal">
+          <span className="dim block text-[12px] font-normal">
             ต้นเดือนกลับมาเริ่มที่ {formatBahtShort(capital)} บ. เสมอ ไม่ทบทุน —
             เปลี่ยนแค่เส้นทุน/เงินสำรอง <b>กำไรเท่าเดิมทุกตัว</b>
           </span>
@@ -94,14 +94,14 @@ export function PortfolioMeta({
       </label>
 
       {isNew ? (
-        <p className="dim text-[10.5px] leading-relaxed">
+        <p className="dim text-[12px] leading-relaxed">
           พอร์ตใหม่ยังไม่ได้บันทึก — เพิ่มขาให้ครบแล้วกด “บันทึก” ทีเดียว
         </p>
       ) : confirming ? (
         <div className="flex items-center gap-2">
           <span className="flex-1 text-[12px] leading-tight font-semibold">
             ลบ “{name}” ทั้งพอร์ต?
-            <span className="dim block text-[10.5px] font-normal">
+            <span className="dim block text-[12px] font-normal">
               ขา {legCount} ขาและตัวเลขที่เก็บไว้หายถาวร กู้คืนไม่ได้
             </span>
           </span>

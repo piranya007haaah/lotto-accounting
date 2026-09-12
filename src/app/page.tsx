@@ -102,6 +102,8 @@ export default function EntryPage() {
         }}
       />
 
+      <div className="entry-layout">
+      <div className="space-y-4">
       {today ? (
         <Link href="/summary" className="hero">
           <span className="hero-blob" aria-hidden />
@@ -110,7 +112,7 @@ export default function EntryPage() {
               <p className="muted text-xs font-bold" style={{ letterSpacing: "0.03em" }}>
                 สุทธิวันนี้ (กำไร/ขาดทุน)
               </p>
-              <span className="text-[11.5px]" style={{ color: "var(--accent)" }}>
+              <span className="text-[12px]" style={{ color: "var(--accent)" }}>
                 ดูสรุปยอด ›
               </span>
             </div>
@@ -130,14 +132,14 @@ export default function EntryPage() {
             <div className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1">
               <div className="flex items-center gap-1.5">
                 <span className="size-[9px] rounded-full" style={{ background: "var(--pastel-in)" }} />
-                <span className="muted text-[11.5px]">เข้าเว็บวันนี้</span>
+                <span className="muted text-[12px]">เข้าเว็บวันนี้</span>
                 <span className="tnum text-[14.5px] font-bold" style={{ color: "var(--color-money-in)" }}>
                   {formatBahtShort(today.totals.deposit)}
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="size-[9px] rounded-full" style={{ background: "var(--pastel-out)" }} />
-                <span className="muted text-[11.5px]">ออกจากเว็บวันนี้</span>
+                <span className="muted text-[12px]">ออกจากเว็บวันนี้</span>
                 <span className="tnum text-[14.5px] font-bold" style={{ color: "var(--color-money-out)" }}>
                   {formatBahtShort(today.totals.withdraw)}
                 </span>
@@ -160,10 +162,12 @@ export default function EntryPage() {
             </button>
           ))}
         </div>
-        <p className="dim mt-1.5 text-[11px]">{active.hint}</p>
+        <p className="dim mt-1.5 text-[12px]">{active.hint}</p>
       </div>
 
-      <PairUploader direction={direction} onSaved={loadToday} />
+      </div>
+      <div><PairUploader direction={direction} onSaved={loadToday} /></div>
+      </div>
     </div>
   );
 }

@@ -74,7 +74,7 @@ function OwnerStack({ owners }: { owners: OwnerRef[] }) {
         </span>
       ))}
       {owners.length > shown.length ? (
-        <span className="dim ml-1 text-[10px]">+{owners.length - shown.length}</span>
+        <span className="dim ml-1 text-[12px]">+{owners.length - shown.length}</span>
       ) : null}
     </span>
   );
@@ -390,7 +390,7 @@ export default function SummaryPage() {
                 ) : null}
 
                 {breakdown === "bank" ? (
-                  <p className="dim mt-2.5 text-[11px]">
+                  <p className="dim mt-2.5 text-[12px]">
                     แถบชมพู = โอนออกจากบัญชีนี้เข้าเว็บ · แถบเขียวมินต์ = ถอนจากเว็บเข้าบัญชีนี้ ·
                     ตัวเลขขวาสุด = จำนวนครั้ง
                   </p>
@@ -399,7 +399,7 @@ export default function SummaryPage() {
             )}
           </section>
 
-          <p className="dim text-center text-[11px]">
+          <p className="dim text-center text-[12px]">
             แถบชมพู = เงินเข้าเว็บ · แถบเขียวมินต์ = เงินออกจากเว็บ · ตัวเลขขวา = กำไร/ขาดทุน
           </p>
         </>

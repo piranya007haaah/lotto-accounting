@@ -31,7 +31,7 @@ import {
 function ParseHint({ text, digits }: { text: string; digits: number }) {
   const parsed = parseNumbers(text, digits);
   return (
-    <p className="dim mt-1 text-[10.5px] leading-relaxed">
+    <p className="dim mt-1 text-[12px] leading-relaxed">
       {parsed.numbers.length > 0 ? `✅ ${parsed.numbers.length} ตัว` : `⚪ ยังไม่ใส่เลข`}
       {parsed.duplicates > 0 ? ` · ตัดตัวซ้ำออก ${parsed.duplicates}` : ""}
       {parsed.invalid.length > 0 ? (
@@ -189,7 +189,7 @@ export function ManualNumbers({
                 </Chip>
               ))}
             </div>
-            <p className="dim mt-1 text-[10.5px] leading-relaxed">
+            <p className="dim mt-1 text-[12px] leading-relaxed">
               เดือนที่ไม่ได้เลือก = <b>ไม่แทงเดือนนั้นเลย</b> (ต้นทุน 0 · กำไรเดือนนั้น 0 · เส้นทุนแบนราบ)
               — ไม่ใช่ตกลงไปใช้เลขของทั้งปีแทน
             </p>
@@ -249,7 +249,7 @@ export function ManualNumbers({
           )}
 
           {emptyPicked.length > 0 || skipped.length > 0 ? (
-            <p className="dim text-[10.5px] leading-relaxed">
+            <p className="dim text-[12px] leading-relaxed">
               ⚪ ไม่แทง:{" "}
               {[...skipped, ...emptyPicked]
                 .sort((a, b) => a - b)

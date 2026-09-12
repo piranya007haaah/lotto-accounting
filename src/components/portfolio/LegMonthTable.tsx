@@ -95,7 +95,7 @@ export function LegMonthTable({
       <div className="overflow-x-auto">
         <table className="tnum w-full text-[12px]">
           <thead>
-            <tr className="dim text-[10.5px]">
+            <tr className="dim text-[12px]">
               <th className="w-10 py-1 text-left font-semibold">วัน</th>
               <th className="py-1 text-center font-semibold">{column.position}</th>
               <th className="py-1 text-right font-semibold">กำไร</th>
@@ -107,7 +107,7 @@ export function LegMonthTable({
               const miss = cell.status === "miss";
               return (
                 <tr key={cell.day} style={{ borderTop: "1px solid var(--divider)" }}>
-                  <td className="dim py-1 text-[11px]">{cell.day}</td>
+                  <td className="dim py-1 text-[12px]">{cell.day}</td>
                   <td
                     className="py-1 text-center"
                     style={{
@@ -118,7 +118,7 @@ export function LegMonthTable({
                     {cell.draw ?? "—"}
                   </td>
                   <td
-                    className="py-1 text-right text-[11px]"
+                    className="py-1 text-right text-[12px]"
                     style={{ color: cell.pnl >= 0 ? "var(--color-money-out)" : "var(--color-money-in)" }}
                   >
                     {cell.pnl === 0 ? "—" : formatSigned(cell.pnl)}
@@ -135,7 +135,7 @@ export function LegMonthTable({
         style={{ background: "var(--subtle)" }}
       >
         <div className="flex items-baseline justify-between gap-2">
-          <span className="dim text-[11px]">
+          <span className="dim text-[12px]">
             ถูก {column.hits} · ไม่ถูก {column.misses}
             {draws > 0 ? ` · ${((column.hits / draws) * 100).toFixed(1)}%` : ""}
           </span>
@@ -146,7 +146,7 @@ export function LegMonthTable({
             {formatSigned(column.pnl)}
           </span>
         </div>
-        <p className="dim mt-0.5 text-[10px] leading-relaxed">
+        <p className="dim mt-0.5 text-[12px] leading-relaxed">
           ลงเงินไปทั้งเดือน {formatBahtShort(column.cost)} บ. · <b>ตัวหนา = ถูก</b> ·
           วันที่ไม่มีเลข = วันหยุด/ยังไม่มีผล (ไม่คิดต้นทุน)
         </p>

@@ -109,7 +109,7 @@ function NumberField({
           }}
           onBlur={() => setText(String(value))}
         />
-        {suffix ? <span className="dim flex-none text-[11px]">{suffix}</span> : null}
+        {suffix ? <span className="dim flex-none text-[12px]">{suffix}</span> : null}
       </span>
     </label>
   );
@@ -125,11 +125,11 @@ function Kpi({ label, value, sub, tone = "plain" }: {
     tone === "up" ? "var(--color-money-out)" : tone === "down" ? "var(--color-money-in)" : "var(--text)";
   return (
     <div className="card px-3 py-2.5">
-      <p className="muted text-[11px] font-semibold">{label}</p>
+      <p className="muted text-[12px] font-semibold">{label}</p>
       <p className="display-num mt-1 text-[17px]" style={{ color }}>
         {value}
       </p>
-      {sub ? <p className="dim mt-0.5 text-[10.5px]">{sub}</p> : null}
+      {sub ? <p className="dim mt-0.5 text-[12px]">{sub}</p> : null}
     </div>
   );
 }
@@ -532,7 +532,7 @@ export default function FormulasPage() {
         </div>
 
         <div>
-          <p className="field-label">ปี test</p>
+          <p className="field-label">ปีที่ใช้ทดสอบ</p>
           <div className="flex gap-1.5 overflow-x-auto pb-0.5">
             {years.map((year) => (
               <Chip key={year} active={testYear === year} onClick={() => setTestYear(year)}>
@@ -542,8 +542,10 @@ export default function FormulasPage() {
           </div>
         </div>
 
+        <details className="settings-disclosure"><summary>ตั้งค่าการวิเคราะห์<span className="dim">{trainYears.length ? `ฝึก ${trainYears.length} ปี` : "ฝึกทุกปีก่อนหน้า"} · แทง {bet.toLocaleString("th-TH")} / ตัว · เรต {payout} · {mode === "train" ? "เลือกจากอดีต" : "รู้ผลแล้ว"}</span></summary>
+        <div className="space-y-3">
         <div>
-          <p className="field-label">ปี train (ข้อมูลที่สูตรเอาไปนับ)</p>
+          <p className="field-label">ปีข้อมูลย้อนหลังที่ใช้สร้างเลข</p>
           <div className="flex gap-1.5 overflow-x-auto pb-0.5">
             <Chip active={trainYears.length === 0} onClick={() => setTrainYears([])}>
               ทุกปีก่อนหน้า
@@ -564,7 +566,7 @@ export default function FormulasPage() {
               </Chip>
             ))}
           </div>
-          <p className="dim mt-1 text-[10.5px] leading-relaxed">
+          <p className="dim mt-1 text-[12px] leading-relaxed">
             {trainYears.length === 0
               ? "ใช้ทุกปีที่อยู่ก่อนปี test ของหวยนั้น — หวยที่มีข้อมูลไม่เท่ากันก็ใช้เท่าที่มี"
               : `เทรนด้วย ${[...trainYears].sort().map((year) => `25${year}`).join(" · ")} เท่านั้น — หวยที่ไม่มีปีพวกนี้จะหลุดจากตาราง`}
@@ -572,7 +574,7 @@ export default function FormulasPage() {
         </div>
 
         <div>
-          <p className="field-label">เลือก n_bet จาก</p>
+          <p className="field-label">เลือกจำนวนเลขจาก</p>
           <div className="flex gap-1.5">
             <Chip active={mode === "train"} onClick={() => setMode("train")}>
               ปีก่อนหน้า (ใช้จริงได้)
@@ -588,6 +590,8 @@ export default function FormulasPage() {
           <NumberField label="เงินแทง/ตัว" value={bet} onChange={setBet} min={1} />
           <NumberField label="เรตจ่าย" value={payout} onChange={setPayout} min={1} />
         </div>
+        </div>
+        </details>
       </section>
 
       {mode === "hindsight" ? (
@@ -622,7 +626,7 @@ export default function FormulasPage() {
           <SectionTitle
             action={
               kind !== null ? (
-                <span className="dim text-[11px]">
+                <span className="dim text-[12px]">
                   {shownRows.length} จาก {rows.length}
                 </span>
               ) : null
@@ -680,7 +684,7 @@ export default function FormulasPage() {
                   <div className="mt-1.5">
                     <ProfitBar value={row.profit} max={maxProfit} />
                   </div>
-                  <p className="dim mt-1 text-[10.5px]">
+                  <p className="dim mt-1 text-[12px]">
                     แทง {row.nBet} เลข · ถูก {row.wins}/{row.days} งวด ({row.winRate.toFixed(1)}%) · ROI ต่อ
                     เงินหมุน {row.roiPct >= 0 ? "+" : ""}
                     {row.roiPct.toFixed(1)}%
@@ -706,7 +710,7 @@ export default function FormulasPage() {
                   {!analysis && !detailError ? <Spinner label="กำลังคำนวณ..." /> : null}
                   {analysis && choice ? (
                     <div className="space-y-2.5">
-                      <p className="dim text-[10.5px]">
+                      <p className="dim text-[12px]">
                         เทรนด้วยปี {analysis.trainYears.map((year) => `25${year}`).join(", ")} · วัดผลปี 25
                         {testYear}
                       </p>
@@ -764,7 +768,7 @@ export default function FormulasPage() {
                         </div>
                       ) : null}
                       {baseline?.z != null ? (
-                        <p className="dim text-[10.5px] leading-relaxed">
+                        <p className="dim text-[12px] leading-relaxed">
                           🎲 ถ้าสุ่ม {choice.size} เลขเท่ากัน: คาดหวัง {formatSigned(baseline.expectedProfit)} ·
                           ที่เห็นเกินไป {baseline.z >= 0 ? "+" : ""}
                           {baseline.z.toFixed(2)} SD
@@ -784,7 +788,7 @@ export default function FormulasPage() {
                             selected={topRows.findIndex((item) => item.choice.rank === (choice?.rank ?? 1))}
                             monthDivs={monthDivs}
                           />
-                          <p className="dim mt-1 text-[10.5px] leading-relaxed">
+                          <p className="dim mt-1 text-[12px] leading-relaxed">
                             เส้นหนา = อันดับที่เลือกอยู่ · เส้นจาง = อีก {topRows.length - 1} อันดับ ·
                             ทุกเส้นไปทางเดียวกัน = สูตรทน ไม่ได้ขึ้นกับ n ที่เลือกเป๊ะ ๆ
                           </p>
@@ -797,9 +801,9 @@ export default function FormulasPage() {
                         <div>
                           <SectionTitle>ทุกอันดับ</SectionTitle>
                           <div className="overflow-x-auto">
-                            <table className="tnum w-full text-[11.5px]">
+                            <table className="tnum w-full text-[12px]">
                               <thead>
-                                <tr className="dim text-[10px]">
+                                <tr className="dim text-[12px]">
                                   <th className="py-1 text-left font-semibold">อันดับ</th>
                                   <th className="py-1 text-right font-semibold">n_bet</th>
                                   <th className="py-1 text-right font-semibold">กำไร</th>
@@ -844,7 +848,7 @@ export default function FormulasPage() {
                             </table>
                           </div>
                           {mode === "train" ? (
-                            <p className="dim mt-1 text-[10.5px] leading-relaxed">
+                            <p className="dim mt-1 text-[12px] leading-relaxed">
                               <b>ใน test ≤ 10</b> = n ที่เลือกจากปีก่อนหน้าก็ติด Top 10 ของปีจริงด้วย →
                               สูตรไม่ overfit เชื่อได้มากกว่า
                             </p>
@@ -857,12 +861,12 @@ export default function FormulasPage() {
                         <div>
                           <SectionTitle>กำไรรายเดือน (ช่วง test)</SectionTitle>
                           <div className="overflow-x-auto">
-                            <table className="tnum w-full text-[11.5px]">
+                            <table className="tnum w-full text-[12px]">
                               <tbody>
                                 {monthly.map((month) => (
                                   <tr key={month.label} style={{ borderTop: "1px solid var(--divider)" }}>
                                     <td className="py-1 font-semibold">{month.label}</td>
-                                    <td className="dim py-1 text-right text-[10.5px]">
+                                    <td className="dim py-1 text-right text-[12px]">
                                       ทุนต้นเดือน {formatBahtShort(month.capitalStart)} · ร่วงในเดือน{" "}
                                       {formatBahtShort(month.maxDd)}
                                     </td>
@@ -887,13 +891,13 @@ export default function FormulasPage() {
                       {wf && wf.folds.length > 0 ? (
                         <div>
                           <SectionTitle>Walk-Forward รายปี</SectionTitle>
-                          <p className="dim mb-1.5 text-[10.5px] leading-relaxed">
+                          <p className="dim mb-1.5 text-[12px] leading-relaxed">
                             ทุกปีเทรนด้วย<b>ปีก่อนหน้าทั้งหมด</b>แล้ววัดผลบนปีนั้น ต่อเส้นทุนข้ามปีเป็นเส้นเดียว
                             = ผลถ้าใช้สูตรนี้จริงมาตลอด · ใช้ทุกปีที่มี ไม่เกี่ยวกับปีที่เลือกด้านบน
                           </p>
                           {/* บอกตรง ๆ ว่าทำไมได้กี่ปี — หวยที่เพิ่งเปิดมีข้อมูล 2 ปี ⇒ วัดได้ปีเดียว
                               ซึ่งดูเหมือนกราฟพังทั้งที่ถูกแล้ว (ปีแรกไม่มีอดีตให้เทรน) */}
-                          <p className="dim mb-1.5 text-[10.5px] leading-relaxed">
+                          <p className="dim mb-1.5 text-[12px] leading-relaxed">
                             หวยตัวนี้มีผลย้อนหลัง <b>{wfYears.length} ปี</b> ({yearSpanLabel(wfYears)}) ⇒ วัดผลได้{" "}
                             <b>{wf.folds.length} ปี</b> — ปี 25{wfYears[0]} ใช้เทรนอย่างเดียว ไม่มีปีก่อนหน้าให้เรียน
                           </p>
@@ -948,9 +952,9 @@ export default function FormulasPage() {
                           </div>
 
                           <div className="mt-2 overflow-x-auto">
-                            <table className="tnum w-full text-[11.5px]">
+                            <table className="tnum w-full text-[12px]">
                               <thead>
-                                <tr className="dim text-[10px]">
+                                <tr className="dim text-[12px]">
                                   <th className="py-1 text-left font-semibold">ปี</th>
                                   <th className="py-1 text-right font-semibold">n_bet</th>
                                   <th className="py-1 text-right font-semibold">กำไร</th>
@@ -972,7 +976,7 @@ export default function FormulasPage() {
                                     </td>
                                     <td className="py-1 text-right">{fold.winRate.toFixed(1)}%</td>
                                     <td className="py-1 text-right">{formatBahtShort(fold.maxDrawdown)}</td>
-                                    <td className="dim py-1 text-right text-[10.5px]">
+                                    <td className="dim py-1 text-right text-[12px]">
                                       {fold.worstMonth ? `${fold.worstMonth} ${formatBahtShort(fold.worstMonthDd)}` : "—"}
                                     </td>
                                   </tr>
@@ -989,14 +993,14 @@ export default function FormulasPage() {
                                 months={wf.monthly.map((month) => ({ label: month.label, profit: month.profit }))}
                                 dividers={wfYearMarks}
                               />
-                              <p className="dim mt-1 text-[10.5px] leading-relaxed">
+                              <p className="dim mt-1 text-[12px] leading-relaxed">
                                 บวก {wf.monthly.filter((month) => month.profit >= 0).length} เดือน · ลบ{" "}
                                 {wf.monthly.filter((month) => month.profit < 0).length} เดือน จาก {wf.monthly.length} เดือน
                               </p>
                             </div>
                           ) : null}
 
-                          <p className="dim mt-1 text-[10.5px] leading-relaxed">
+                          <p className="dim mt-1 text-[12px] leading-relaxed">
                             เทรนด้วยปีก่อนหน้าเท่านั้น — ทั้งชุดเลขและ n_bet ไม่เคยเห็นปีที่กำลังวัดผล
                             {wf.warnings.length > 0 ? ` · ข้ามไป: ${wf.warnings.join(" · ")}` : ""}
                           </p>
@@ -1006,7 +1010,7 @@ export default function FormulasPage() {
                            (กติกาเดียวกับที่อื่นในแอป: บอกเหตุผล + วิธีแก้ ไม่ใช่เงียบ) */
                         <div>
                           <SectionTitle>Walk-Forward รายปี</SectionTitle>
-                          <p className="dim text-[10.5px] leading-relaxed">
+                          <p className="dim text-[12px] leading-relaxed">
                             {wfYears.length < 2
                               ? `ยังทำไม่ได้ — หวยตัวนี้มีผลย้อนหลังปีเดียว (25${wfYears[0]}) · walk-forward ต้องมีอย่างน้อย 2 ปี เพราะปีแรกใช้เทรนอย่างเดียว แล้ววัดผลบนปีถัดไป`
                               : `ยังทำไม่ได้ — มีผลย้อนหลัง ${wfYears.length} ปี (${yearSpanLabel(wfYears)}) แต่คำนวณไม่ผ่านสักปี`}
@@ -1017,13 +1021,13 @@ export default function FormulasPage() {
 
                       <button
                         type="button"
-                        className="dim text-[11.5px] font-semibold"
+                        className="dim text-[12px] font-semibold"
                         onClick={() => setShowNumbers((value) => !value)}
                       >
                         {showNumbers ? "ซ่อนเลข" : `ดูเลขที่แทง (${choice.size} ตัว)`}
                       </button>
                       {showNumbers ? (
-                        <p className="tnum dim text-[10.5px] leading-relaxed break-all">
+                        <p className="tnum dim text-[12px] leading-relaxed break-all">
                           {analysis.numbers.slice(0, choice.size).join(" ")}
                         </p>
                       ) : null}
@@ -1042,7 +1046,7 @@ export default function FormulasPage() {
                           >
                             {sending ? "กำลังส่ง..." : "📤 ส่งรายงานหวยตัวนี้เข้า LINE"}
                           </button>
-                          <p className="dim mt-1 text-[10.5px] leading-relaxed">
+                          <p className="dim mt-1 text-[12px] leading-relaxed">
                             ส่งอันดับ #{choice?.rank ?? 1} ({choice?.size ?? 0} เลข) ที่เลือกอยู่ · การ์ด 2 ใบ:
                             ผลปี 25{testYear} + ถ้าใช้สูตรนี้มาตลอด · <b>ส่งแล้วถอนคืนไม่ได้</b>
                           </p>
@@ -1053,7 +1057,7 @@ export default function FormulasPage() {
         </Modal>
       ) : null}
 
-      <p className="dim px-1 pb-1 text-center text-[10.5px] leading-relaxed">
+      <p className="dim px-1 pb-1 text-center text-[12px] leading-relaxed">
         ทั้งหมดเป็นผลย้อนหลังของปีเดียว ไม่ใช่การรับประกันผลในอนาคต
         <br />
         หวยที่มีงวดน้อยหรือกำไรมาจากงวดเดียว ตัวเลขจะแกว่งด้วยดวงมากกว่าฝีมือสูตร

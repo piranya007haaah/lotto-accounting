@@ -81,7 +81,7 @@ export function ScheduleEditor({
           </div>
         </div>
       ))}
-      <p className="dim pt-1 text-[10.5px] leading-relaxed">
+      <p className="dim pt-1 text-[12px] leading-relaxed">
         เรียงตามเวลาให้เอง — ลำดับนี้คือลำดับในฟอร์มกรอกผลและในการ์ดที่ส่งเข้า LINE
         · ปล่อยว่าง = ไม่ตั้งเวลา (ไปอยู่ท้ายสุด)
       </p>

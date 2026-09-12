@@ -133,14 +133,14 @@ function LotteryCard({
         <p className="min-w-0 truncate text-[13.5px] font-semibold">
           {group.flag} {group.lottery}
         </p>
-        <span className="dim tnum flex-none text-[11.5px]">{group.time ?? "ยังไม่ตั้งเวลา"}</span>
+        <span className="dim tnum flex-none text-[12px]">{group.time ?? "ยังไม่ตั้งเวลา"}</span>
       </div>
 
       {group.untouched ? null : (
         <div className="space-y-0.5">
           {group.legs.map((leg) => (
-            <p key={leg.position} className="dim text-[11px]">
-              <b className="text-[11.5px]" style={{ color: "var(--text)" }}>
+            <p key={leg.position} className="dim text-[12px]">
+              <b className="text-[12px]" style={{ color: "var(--text)" }}>
                 {leg.position}
               </b>{" "}
               · {statusText(leg)}
@@ -181,7 +181,7 @@ function LotteryCard({
                     setValues((current) => ({ ...current, [leg.position]: next }));
                   }}
                 />
-                <span className="dim mt-1 block text-[10px] leading-tight">
+                <span className="dim mt-1 block text-[12px] leading-tight">
                   แทง {leg.nBet} เลข × {formatBahtShort(leg.betPerNumber)} บ. · เรต {leg.payoutRate}
                 </span>
               </label>
@@ -189,7 +189,7 @@ function LotteryCard({
           </div>
 
           {group.legs.some((leg) => leg.digits === 3) ? (
-            <p className="dim text-[10.5px]">สองบนเติมให้เองจาก 2 หลักท้ายของสามบน</p>
+            <p className="dim text-[12px]">สองบนเติมให้เองจาก 2 หลักท้ายของสามบน</p>
           ) : null}
 
           <div className="flex items-center gap-2">
@@ -213,7 +213,7 @@ function LotteryCard({
             </button>
           </div>
           {editing ? (
-            <p className="dim text-[10.5px] leading-relaxed">
+            <p className="dim text-[12px] leading-relaxed">
               ผลเดิมจะถูกทับ และการ์ดใบใหม่จะขึ้นหัวว่า <b>แก้ไขผล</b> — ข้อความเก่าใน LINE ลบไม่ได้
             </p>
           ) : null}
@@ -357,7 +357,7 @@ export default function DrawsPage() {
           </div>
         ) : null}
         {data && !data.lineReady ? (
-          <div className="dim space-y-1 text-[10.5px] leading-relaxed">
+          <div className="dim space-y-1 text-[12px] leading-relaxed">
             <p>
               ⚠️ ยังส่งการ์ดเข้า LINE ไม่ได้ — บันทึกผลได้ตามปกติ
               <br />
@@ -384,17 +384,17 @@ export default function DrawsPage() {
                 </button>
               </p>
             ) : null}
-            <p>ส่งเข้ากลุ่ม: เชิญ OA เข้ากลุ่มนั้น แล้วพิมพ์ <code className="text-[10px]">/id</code> ในกลุ่ม</p>
+            <p>ส่งเข้ากลุ่ม: เชิญ OA เข้ากลุ่มนั้น แล้วพิมพ์ <code className="text-[12px]">/id</code> ในกลุ่ม</p>
             {/* ⚠️ webhook ที่ยังไม่ได้ตั้งค่า **เงียบสนิท** — พิมพ์ /id แล้วไม่มีอะไรขึ้น
                 และไม่มีทางรู้ว่าพลาดตรงไหน ⇒ บอกว่าขาด env ตัวไหน
                 · อยู่ในบล็อกนี้เท่านั้น (ยังไม่ได้ตั้งปลายทาง) — ตั้งเสร็จแล้วไม่ต้องใช้ /id
                   อีก การขึ้นค้างไว้มีแต่รกจอ */}
             {data.idCommandProblem ? (
               <p>
-                <code className="text-[10px]">/id</code> ยังใช้ไม่ได้: <b>{data.idCommandProblem}</b> ·
+                <code className="text-[12px]">/id</code> ยังใช้ไม่ได้: <b>{data.idCommandProblem}</b> ·
                 ตั้งครบแล้ว Redeploy แล้วตั้ง Webhook URL ที่ LINE Developers Console →
                 Messaging API เป็น{" "}
-                <code className="text-[10px]">
+                <code className="text-[12px]">
                   {typeof window === "undefined" ? "" : window.location.origin}/api/line/webhook
                 </code>
               </p>
@@ -425,7 +425,7 @@ export default function DrawsPage() {
               {formatSigned(day.pnl)}
             </span>
           </div>
-          <p className="dim mt-0.5 text-[10.5px]">
+          <p className="dim mt-0.5 text-[12px]">
             ออกแล้ว {day.doneCount} จาก {day.totalCount} หวย · ลงเงิน {formatBahtShort(day.cost)} บ.
             {roi === null ? "" : ` · ${roi >= 0 ? "+" : "−"}${Math.abs(roi).toFixed(1)}% ของเงินที่ลง`}
           </p>
@@ -464,7 +464,7 @@ export default function DrawsPage() {
       ))}
 
       {!isAdmin && day ? (
-        <p className="dim px-1 text-center text-[10.5px]">กรอกผลได้เฉพาะผู้ดูแล — คนอื่นดูได้อย่างเดียว</p>
+        <p className="dim px-1 text-center text-[12px]">กรอกผลได้เฉพาะผู้ดูแล — คนอื่นดูได้อย่างเดียว</p>
       ) : null}
     </div>
   );

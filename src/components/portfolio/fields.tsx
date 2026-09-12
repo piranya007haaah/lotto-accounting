@@ -51,9 +51,9 @@ export function NumberField({
           }}
           onBlur={() => setText(String(value))}
         />
-        {suffix ? <span className="dim flex-none text-[11px]">{suffix}</span> : null}
+        {suffix ? <span className="dim flex-none text-[12px]">{suffix}</span> : null}
       </span>
-      {help ? <span className="dim mt-1 block text-[10.5px] leading-tight">{help}</span> : null}
+      {help ? <span className="dim mt-1 block text-[12px] leading-tight">{help}</span> : null}
     </label>
   );
 }
@@ -84,7 +84,7 @@ export function TextField({
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
       />
-      {help ? <span className="dim mt-1 block text-[10.5px] leading-tight">{help}</span> : null}
+      {help ? <span className="dim mt-1 block text-[12px] leading-tight">{help}</span> : null}
     </label>
   );
 }
