@@ -52,7 +52,7 @@ export function LegPicker({
         <p className="text-[13px] font-semibold">
           {picked.flag} {picked.lottery} · {picked.position}
         </p>
-        <p className="dim text-[10.5px]">เลือกปีที่จะวัดผล (ปีที่แทงจริง) · {picked.digits} หลัก</p>
+        <p className="dim text-[12px]">เลือกปีที่จะวัดผล (ปีที่แทงจริง) · {picked.digits} หลัก</p>
         <div className="flex flex-wrap gap-1.5">
           {years.map((year) => (
             <Chip key={year} active={false} onClick={() => onAdd(picked, year)}>
@@ -102,7 +102,7 @@ export function LegPicker({
             <span className="flex-1 truncate text-[12.5px] font-semibold">
               {group.flag} {group.lottery} · {group.position}
             </span>
-            <span className="dim flex-none text-[10.5px]">
+            <span className="dim flex-none text-[12px]">
               {group.digits} หลัก · {group.years.length} ปี
             </span>
           </button>
@@ -110,7 +110,7 @@ export function LegPicker({
       </div>
 
       {!loading && groups.length > matches.length ? (
-        <p className="dim text-[10.5px]">
+        <p className="dim text-[12px]">
           โชว์ {matches.length} จาก {groups.length} กลุ่ม — พิมพ์ชื่อเพื่อกรองให้แคบลง
         </p>
       ) : null}

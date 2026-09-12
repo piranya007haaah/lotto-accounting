@@ -546,7 +546,7 @@ export default function PortfolioPage() {
             ) : null}
           </div>
           {dirty ? (
-            <p className="dim mt-1 text-[10.5px]">
+            <p className="dim mt-1 text-[12px]">
               สลับ/สร้างพอร์ตไม่ได้ตอนนี้ — บันทึกหรือกดยกเลิกของที่แก้ค้างไว้ก่อน
             </p>
           ) : null}
@@ -627,7 +627,7 @@ export default function PortfolioPage() {
             </button>
           )}
 
-          <p className="dim px-1 text-[10.5px] leading-relaxed">
+          <p className="dim px-1 text-[12px] leading-relaxed">
             ต้นทุนรวมทุกขา <b>{formatBahtShort(totalCost)}</b> บ./งวด
             <br />
             ขาที่เพิ่มที่นี่เป็นแบบ <b>กำหนดเลขเอง</b> — ขาที่ให้สูตรเลือกเลขให้ยังต้องตั้งที่แอปเดิม
@@ -683,7 +683,7 @@ export default function PortfolioPage() {
                   <b>ตารางผลหวยที่นี่ยังไม่มี:</b> {missingHere.join(" · ")}
                   <br />
                   เติมได้จากแอปเดิม (Streamlit) — บันทึกผลหวยที่หน้า 📝 กรอกผลส่งไลน์ อีกครั้ง
-                  หรือรัน <code className="text-[11px]">python3 scripts/sync_to_supabase.py</code>
+                  หรือรัน <code className="text-[12px]">python3 scripts/sync_to_supabase.py</code>
                 </>
               ) : null}
             </Alert>
@@ -707,14 +707,14 @@ export default function PortfolioPage() {
 
       {/* ───── แถบบันทึก — ลอยเหนือเมนูล่าง โผล่เฉพาะตอนมีของค้าง ───── */}
       {isAdmin && dirty && draft ? (
-        <div className="sticky bottom-24 z-10">
+        <div className="app-save-bar sticky bottom-24 z-10">
           <div
             className="card flex items-center gap-2 px-3 py-2.5"
             style={{ boxShadow: "0 10px 26px rgb(22 36 61 / 0.22)" }}
           >
             <span className="flex-1 text-[12px] leading-tight font-semibold">
               ⚠️ ยังไม่ได้บันทึก
-              <span className="dim block text-[10.5px] font-normal">กด “บันทึก” ถึงจะเก็บของจริง</span>
+              <span className="dim block text-[12px] font-normal">กด “บันทึก” ถึงจะเก็บของจริง</span>
             </span>
             <button
               type="button"
@@ -740,7 +740,7 @@ export default function PortfolioPage() {
         </div>
       ) : null}
 
-      <p className="dim px-1 pb-1 text-center text-[10.5px] leading-relaxed">
+      <p className="dim px-1 pb-1 text-center text-[12px] leading-relaxed">
         ตัวเลขทั้งหมดเป็นผลย้อนหลัง ไม่ใช่การรับประกันผลในอนาคต
       </p>
     </div>

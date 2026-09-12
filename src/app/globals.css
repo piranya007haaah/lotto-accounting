@@ -12,8 +12,8 @@
   --color-brand-600: #3e71c4;
   --color-brand-700: #2c5497;
 
-  --color-money-in: #e5484d;
-  --color-money-out: #0fa36b;
+  --color-money-in: #bb3343;
+  --color-money-out: #08794f;
 }
 
 :root {
@@ -28,14 +28,14 @@
   --text: #10192b;
   --muted: #5f6e85;
   /* ข้อความลำดับสาม: placeholder, คำอธิบายใต้ปุ่ม */
-  --dim: #97a5bc;
+  --dim: #61718a;
   /* พื้นอ่อนสำหรับแถบหัวกลุ่ม / กรอบรูปตัวอย่าง */
   --subtle: #f5f8fc;
   /* ช่องกรอกแบบพื้นทึบ (filled) */
   --field-bg: #f2f6fb;
   --field-line: #e7edf7;
   /* สีหลักฟ้า pastel + พื้นอ่อนของมัน */
-  --accent: #5b93e8;
+  --accent: #3268b6;
   --accent-tint: #ddeafc;
   /* ปุ่ม/แถบสีเข้ม (กรมท่า) — กลับด้านเป็นสีอ่อนในโหมดมืด */
   --ink-btn: #16243d;
@@ -57,6 +57,8 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
+    --color-money-in: #ff929c;
+    --color-money-out: #6fd8ac;
     --surface: #0c1220;
     --card: #151e30;
     --line: #232f47;
@@ -64,7 +66,7 @@
     --divider: #1d2840;
     --text: #e8edf5;
     --muted: #9aa8c0;
-    --dim: #667690;
+    --dim: #a1b0c8;
     --subtle: #1a2438;
     --field-bg: #1a2438;
     --field-line: #26334e;
@@ -73,7 +75,7 @@
     --ink-btn: #e8edf5;
     --ink-btn-text: #10192b;
     --nav-bg: #151e30;
-    --nav-dim: #667690;
+    --nav-dim: #a1b0c8;
     --nav-active-bg: #e8edf5;
     --nav-active-text: #10192b;
     --tint-in: #3a2228;
@@ -125,14 +127,14 @@ body {
 }
 
 .page-sub {
-  font-size: 0.78125rem;
+  font-size: 0.8125rem;
   color: var(--muted);
   margin: 0.125rem 0 0;
 }
 
 /* หัวข้อย่อยในการ์ด */
 .card-title {
-  font-size: 0.84375rem;
+  font-size: 0.875rem;
   font-weight: 700;
   color: var(--text);
   margin: 0;
@@ -140,7 +142,7 @@ body {
 
 .field-label {
   display: block;
-  font-size: 0.78125rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--muted);
   margin-bottom: 0.375rem;
@@ -152,7 +154,7 @@ body {
   border: 1px solid var(--field-line);
   border-radius: 0.875rem;
   padding: 0.6875rem 0.875rem;
-  font-size: 0.9375rem;
+  font-size: 1rem;
   color: var(--text);
   outline: none;
 }
@@ -198,7 +200,7 @@ button.field:disabled {
 .btn-primary {
   background: var(--ink-btn);
   color: var(--ink-btn-text);
-  box-shadow: 0 8px 18px rgb(22 36 61 / 0.25);
+  box-shadow: 0 3px 8px rgb(22 36 61 / 0.12);
 }
 
 .btn-ghost {
@@ -232,7 +234,8 @@ button.field:disabled {
   background: var(--card);
   color: var(--muted);
   padding: 0.4375rem 0.75rem;
-  font-size: 0.75rem;
+  min-height: 44px;
+  font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -258,7 +261,7 @@ button.field:disabled {
   color: var(--text);
   cursor: pointer;
   background: var(--card);
-  box-shadow: 0 14px 30px rgb(22 36 61 / 0.10);
+  box-shadow: 0 3px 12px rgb(22 36 61 / 0.05);
 }
 
 .hero-blob {
@@ -294,7 +297,7 @@ button.field:disabled {
   background: transparent;
   border-radius: 999px;
   padding: 0.625rem 0.5rem;
-  font-size: 0.84375rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--muted);
   cursor: pointer;
@@ -467,4 +470,46 @@ code {
   .sheet-panel {
     animation: none;
   }
+}
+
+
+/* Shared layout: preserve the mobile visual language with room for desktop work. */
+html { color-scheme: light; scroll-padding-bottom: 110px; }
+body { font-size: 14px; line-height: 1.6; }
+@media (prefers-color-scheme: dark) { html { color-scheme: dark; } }
+.app-shell { width: 100%; max-width: 720px; margin: 0 auto; padding: 20px 16px calc(112px + env(safe-area-inset-bottom)); }
+.app-navigation { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+.app-navigation > div { max-width: 696px; }
+.app-save-bar { bottom: calc(100px + env(safe-area-inset-bottom)); }
+.btn, .seg-item { min-height: 44px; }
+.field { min-height: 46px; min-width: 0; }
+button, a, summary { touch-action: manipulation; }
+:where(button, a, input, select, textarea, summary, [tabindex]):focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+:where(button, a, summary) { -webkit-tap-highlight-color: transparent; }
+summary { cursor: pointer; min-height: 44px; align-content: center; }
+button.row:hover, a.row:hover { background: var(--subtle); }
+.page-sub { white-space: normal; line-height: 1.6; }
+.card-title { font-size: 15px; }
+.settings-disclosure { border-top: 1px solid var(--line); padding-top: 4px; }
+.settings-disclosure > summary { color: var(--text); font-size: 13px; font-weight: 600; }
+.settings-disclosure > summary .dim { display: block; font-size: 12px; font-weight: 400; }
+.settings-disclosure[open] > summary { margin-bottom: 12px; }
+.analysis-controls, .analysis-results { min-width: 0; }
+.entry-layout { display: grid; gap: 16px; }
+.analysis-results > * + * { margin-top: 14px; }
+.analysis-context { border-left: 3px solid var(--accent); padding: 8px 12px; background: var(--subtle); border-radius: 0 10px 10px 0; }
+.sheet-content { overscroll-behavior: contain; padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+.sheet-close { width: 44px; height: 44px; border-radius: 12px; background: var(--subtle); }
+@media (min-width: 1100px) {
+  .app-shell { max-width: 1180px; padding-left: 208px; padding-right: 24px; padding-top: 28px; }
+  .app-navigation { inset: 92px auto auto max(20px, calc((100vw - 1180px) / 2)); width: 176px; padding: 0; }
+  .app-navigation > div { flex-direction: column; padding: 12px; border-radius: 20px; }
+  .app-navigation a { flex-direction: row; justify-content: flex-start; gap: 12px; min-height: 52px; padding: 8px; }
+  .app-navigation a > span:last-child { font-size: 14px; }
+  .analysis-layout { display: grid; grid-template-columns: minmax(260px, .8fr) minmax(0, 1.3fr); align-items: start; gap: 20px; }
+  .analysis-controls { position: sticky; top: 20px; }
+  .analysis-results { margin-top: 0 !important; }
+  .entry-layout { display: grid; grid-template-columns: minmax(250px, .8fr) minmax(0, 1.2fr); align-items: start; gap: 24px; }
+  .entry-layout > * { min-width: 0; }
+  .app-save-bar { bottom: 20px; }
 }

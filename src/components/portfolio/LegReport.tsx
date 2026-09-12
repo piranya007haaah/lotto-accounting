@@ -31,11 +31,11 @@ function Stat({ label, value, sub, tone = "plain" }: {
     tone === "up" ? "var(--color-money-out)" : tone === "down" ? "var(--color-money-in)" : "var(--text)";
   return (
     <div className="rounded-xl px-2.5 py-2" style={{ background: "var(--accent-tint)" }}>
-      <p className="muted text-[10.5px] font-semibold">{label}</p>
+      <p className="muted text-[12px] font-semibold">{label}</p>
       <p className="tnum mt-0.5 text-[14px] font-bold" style={{ color }}>
         {value}
       </p>
-      {sub ? <p className="dim mt-0.5 text-[10px] leading-tight">{sub}</p> : null}
+      {sub ? <p className="dim mt-0.5 text-[12px] leading-tight">{sub}</p> : null}
     </div>
   );
 }
@@ -124,8 +124,8 @@ export function LegReport({
           ⚠️ ต้นทุนคำนวณย้อนจาก `ได้ − กำไร` ไม่ใช่ `งวด × n_bet × เงินแทง` เพราะขา
           ตั้งเลขรายเดือนแทงไม่เท่ากันทุกงวด ⇒ สูตรตรง ๆ จะเกินจริง · แบบนี้ตรงเสมอ */}
       <div className="rounded-xl px-2.5 py-2" style={{ background: "var(--subtle)" }}>
-        <p className="muted text-[10.5px] font-semibold">กำไรนี้คิดมาจาก</p>
-        <div className="mt-1 space-y-0.5 text-[11px]">
+        <p className="muted text-[12px] font-semibold">กำไรนี้คิดมาจาก</p>
+        <div className="mt-1 space-y-0.5 text-[12px]">
           <div className="flex items-baseline justify-between gap-2">
             <span className="dim min-w-0 flex-1">
               ได้จากที่ถูก {leg.wins} งวด × {formatBahtShort(leg.betPerNumber)} × เรต {leg.payoutRate}
@@ -158,7 +158,7 @@ export function LegReport({
             </span>
           </div>
         </div>
-        <p className="dim mt-1.5 text-[10px] leading-relaxed">
+        <p className="dim mt-1.5 text-[12px] leading-relaxed">
           ⚠️ <b>งวดที่ถูกก็เสียต้นทุนของงวดนั้นด้วย</b> — เงินแทงไม่ได้คืนมา ·
           ต้นทุนคิดจาก<b>เลขทุกตัวที่แทง</b> ไม่ใช่เฉพาะตัวที่ถูก ·
           วันหยุด/วันที่ยังไม่มีผลไม่คิดต้นทุน จึงนับเป็น {leg.draws} งวด
@@ -191,23 +191,23 @@ export function LegReport({
               .sort((a, b) => a - b)
               .map((month) => (
                 <div key={month}>
-                  <p className="text-[11.5px] font-semibold">
+                  <p className="text-[12px] font-semibold">
                     {monthName(month)}{" "}
                     <span className="dim font-normal">
                       {leg.monthSets[String(month)]?.length ?? 0} ตัว
                     </span>
                   </p>
-                  <p className="tnum dim text-[10.5px] leading-relaxed break-all">
+                  <p className="tnum dim text-[12px] leading-relaxed break-all">
                     {(leg.monthSets[String(month)] ?? []).join(" ")}
                   </p>
                 </div>
               ))}
-            <p className="dim text-[10px] leading-relaxed">
+            <p className="dim text-[12px] leading-relaxed">
               เดือนที่ไม่อยู่ในรายการนี้ = <b>ไม่ได้แทงเดือนนั้น</b> (ต้นทุน 0 · กำไร 0)
             </p>
           </div>
         ) : (
-          <p className="tnum dim pt-1 text-[10.5px] leading-relaxed break-all">
+          <p className="tnum dim pt-1 text-[12px] leading-relaxed break-all">
             {leg.numbers.join(" ")}
           </p>
         )}

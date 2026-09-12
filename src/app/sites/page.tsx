@@ -209,7 +209,7 @@ function SiteStyleSheet({
           </span>
           <div className="min-w-0">
             <p className="truncate text-[15px] font-bold">{site.name}</p>
-            <p className="dim text-[11.5px]">ตั้งสีและอิโมจิประจำเว็บ</p>
+            <p className="dim text-[12px]">ตั้งสีและอิโมจิประจำเว็บ</p>
           </div>
         </div>
 
@@ -217,7 +217,7 @@ function SiteStyleSheet({
           <span className="field-label">อิโมจิ</span>
           <div className="flex items-center gap-3">
             <EmojiInput value={emoji} onChange={setEmoji} color={color} ariaLabel="อิโมจิประจำเว็บ" size={40} />
-            <p className="dim text-[11.5px]">แตะช่องนี้แล้วกดปุ่มอิโมจิบนแป้นพิมพ์ เลือกตัวไหนก็ได้</p>
+            <p className="dim text-[12px]">แตะช่องนี้แล้วกดปุ่มอิโมจิบนแป้นพิมพ์ เลือกตัวไหนก็ได้</p>
           </div>
           <EmojiChoices value={emoji} onChange={setEmoji} />
         </div>
@@ -406,7 +406,7 @@ export default function SitesPage() {
               ariaLabel="อิโมจิประจำเว็บ"
               size={40}
             />
-            <p className="dim text-[11.5px]">แตะช่องนี้แล้วกดปุ่มอิโมจิบนแป้นพิมพ์ เลือกตัวไหนก็ได้</p>
+            <p className="dim text-[12px]">แตะช่องนี้แล้วกดปุ่มอิโมจิบนแป้นพิมพ์ เลือกตัวไหนก็ได้</p>
           </div>
           <EmojiChoices value={emoji} onChange={setEmoji} />
         </div>
@@ -421,7 +421,7 @@ export default function SitesPage() {
             onChange={(event) => setDomain(event.target.value)}
             maxLength={120}
           />
-          <p className="dim mt-1 text-[11px]">
+          <p className="dim mt-1 text-[12px]">
             ผูกไว้แล้วระบบจะเลือกเว็บนี้ให้เอง เมื่ออ่านเจอโดเมนนี้บนภาพหน้าฝาก/ถอน
           </p>
         </div>
@@ -491,7 +491,7 @@ export default function SitesPage() {
                   </li>
                 ))}
               </ul>
-              <p className="muted mt-2.5 text-[11px]">
+              <p className="muted mt-2.5 text-[12px]">
                 แตะช่องหน้าชื่อเว็บเพื่อตั้งสีและอิโมจิ · ใส่โดเมนไว้เพื่อให้ระบบเลือกเว็บให้อัตโนมัติตอนอัปโหลดเป็นคู่ ·
                 ปิดใช้ = ยังอยู่ในรายการเก่า แต่ไม่ขึ้นตอนบันทึกใหม่
               </p>

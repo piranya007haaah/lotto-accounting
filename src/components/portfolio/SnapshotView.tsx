@@ -46,12 +46,12 @@ function Kpi({
         : "var(--text)";
   return (
     <div className="card px-3 py-2.5">
-      <p className="muted text-[11px] font-semibold">{label}</p>
+      <p className="muted text-[12px] font-semibold">{label}</p>
       <p className="display-num mt-1 text-[17px]" style={{ color }}>
         {value}
       </p>
-      {sub ? <p className="dim mt-0.5 text-[10.5px]">{sub}</p> : null}
-      {help ? <p className="dim mt-0.5 text-[10px] leading-tight">{help}</p> : null}
+      {sub ? <p className="dim mt-0.5 text-[12px]">{sub}</p> : null}
+      {help ? <p className="dim mt-0.5 text-[12px] leading-tight">{help}</p> : null}
     </div>
   );
 }
@@ -82,7 +82,7 @@ function LegRow({
     <button type="button" className="row w-full py-2.5 text-left" onClick={onToggle}>
       <div className="flex items-center justify-between gap-2">
         <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">
-          <span className="dim mr-1 text-[11px]">▸</span>
+          <span className="dim mr-1 text-[12px]">▸</span>
           {leg.name}
         </span>
         <span
@@ -95,7 +95,7 @@ function LegRow({
       <div className="mt-1.5">
         <ProfitBar value={leg.profit} max={max} />
       </div>
-      <p className="dim mt-1 text-[10.5px]">
+      <p className="dim mt-1 text-[12px]">
         แทง {leg.nBet} เลข × {formatBahtShort(leg.betPerNumber)} บ. · เรต {leg.payoutRate} · ถูก{" "}
         {leg.wins}/{leg.draws} งวด ({leg.winRate.toFixed(1)}%)
         {breakEven !== null ? ` · เท่าทุนที่ ${breakEven.toFixed(1)}%` : ""} · แพ้ติดกัน{" "}
@@ -286,7 +286,7 @@ export function SnapshotView({
       <section className="card px-3.5 py-3">
         <SectionTitle
           action={
-            <button type="button" className="dim text-[11.5px] font-semibold" onClick={onToggleNumbers}>
+            <button type="button" className="dim text-[12px] font-semibold" onClick={onToggleNumbers}>
               {showNumbers ? "ซ่อนเลข" : "ดูเลขที่แทง"}
             </button>
           }
@@ -297,7 +297,7 @@ export function SnapshotView({
           <div key={`${leg.index}-${leg.name}`}>
             <LegRow leg={leg} max={maxLegProfit} onToggle={() => setOpenLeg(leg.index)} />
             {showNumbers ? (
-              <p className="tnum dim px-0.5 pb-2 text-[10.5px] leading-relaxed break-all">
+              <p className="tnum dim px-0.5 pb-2 text-[12px] leading-relaxed break-all">
                 {leg.numbers.join(" ")}
               </p>
             ) : null}

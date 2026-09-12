@@ -81,7 +81,8 @@ export function MonthWindowExplorer({ groups }: { groups: GroupOption[] }) {
   const detail = result?.rows.find((row) => row.months === selected);
   const risk = detail ? testRisk(detail.test) : null;
   const maxProfit = Math.max(1, ...(result?.rows.map((row) => Math.abs(row.best.profit)) ?? []));
-  return <div className="space-y-3.5">
+  return <div className="analysis-layout space-y-3.5">
+    <div className="analysis-controls space-y-3.5">
     <section className="card space-y-3 px-3.5 py-3">
       <SectionTitle>ย้อนหลังแค่ไหน สูตรไหนกำไรดีที่สุด</SectionTitle>
       <label className="block"><span className="field-label">หวย / ตำแหน่ง · 2 ตัว</span>
@@ -107,11 +108,13 @@ export function MonthWindowExplorer({ groups }: { groups: GroupOption[] }) {
           {FORMULA_NAMES.map((name) => <option key={name}>{name}</option>)}
         </select>
       </label>
+      <details className="settings-disclosure"><summary>เงินแทงและเรตจ่าย<span className="dim">ทุน {Number(capital).toLocaleString("th-TH")} · แทง {Number(bet).toLocaleString("th-TH")} / ตัว · เรต {payout}</span></summary>
       <div className="grid grid-cols-3 gap-2">
         {([{ label: "ทุนเริ่มต้น", value: capital, set: setCapital }, { label: "เงินแทง/ตัว", value: bet, set: setBet }, { label: "เรตจ่าย", value: payout, set: setPayout }]).map((f) =>
           <label key={f.label}><span className="field-label">{f.label}</span><input className="field tabular-nums" inputMode="numeric" value={f.value} onChange={(e) => f.set(e.target.value.replace(/[^\d]/g, ""))} /></label>)}
       </div>
-      <p className="dim text-[11px] leading-relaxed">เกณฑ์เลือก: <b>กำไรรวมสูงสุด</b> · ลองกรอบย้อนหลัง 1, 2, 3 เดือนต่อเนื่องจนสุดข้อมูลที่ใช้เปรียบเทียบได้ โดยกันเดือนคัดเลือกและเดือนทดสอบออกก่อน</p>
+      </details>
+      <p className="dim text-[12px] leading-relaxed">เกณฑ์เลือก: <b>กำไรรวมสูงสุด</b> · ลองกรอบย้อนหลัง 1, 2, 3 เดือนต่อเนื่องจนสุดข้อมูลที่ใช้เปรียบเทียบได้ โดยกันเดือนคัดเลือกและเดือนทดสอบออกก่อน</p>
     </section>
     <details className="card px-3.5 py-3 text-[12px] leading-relaxed">
       <summary className="cursor-pointer font-semibold">อ่านผลอย่างไร</summary>
@@ -119,6 +122,8 @@ export function MonthWindowExplorer({ groups }: { groups: GroupOption[] }) {
       <p className="mt-2">เลือกสูตรที่กำไรสูงสุดให้แต่ละกรอบ แล้วเลือกกรอบที่กำไรสูงสุดอีกครั้ง ก่อนทดสอบจะสร้างชุดเลขใหม่จากกรอบย้อนหลังล่าสุดด้วยสูตรที่เลือกไว้ ผลเดือนทดสอบไม่ใช้จัดอันดับ หากกำไรเสมอกันเลือกกรอบสั้นกว่า</p>
       <p className="mt-2">กรอบนับเป็นเดือนปฏิทินเต็มก่อนเดือนที่วัดผล วันหยุดคงตำแหน่งเดิม เดือนแรกอาจมีข้อมูลไม่ครบเดือน จำนวนเลขเลือกจากกำไรบนข้อมูลฝึก ชุดเลขคงที่ตลอดเดือนที่วัดผล</p>
     </details>
+    </div>
+    <div className="analysis-results">
     {error ? <Alert tone="error">{error}<button type="button" className="ml-2 underline" onClick={() => setRetry((n) => n + 1)}>ลองใหม่</button></Alert> : null}
     {busy ? <Spinner label="กำลังเปรียบเทียบทุกกรอบเดือนและสูตร..." /> : null}
     {!groups.length ? <EmptyState>ยังไม่มีรายชื่อหวย</EmptyState> : null}
@@ -131,16 +136,16 @@ export function MonthWindowExplorer({ groups }: { groups: GroupOption[] }) {
         <p className="mt-1 text-[12px]">คัดเลือก {monthLabel(result.validationStart)} – {monthLabel(result.validationEnd)} · {best.best.days} งวด<br />ทดสอบ {monthLabel(result.testMonth)}: {formatSigned(best.test.profit)} บาท · ROI {pct(best.test.roiPct)} · {best.test.days} งวด</p>
       </Alert>
       {best.best.profit <= 0 ? <Alert tone="warn">แม้แต่กรอบที่ดีที่สุดก็ไม่มีกำไรในช่วงคัดเลือก</Alert> : null}
-      <p className="dim px-1 text-[11px]">ผลทดสอบมีข้อมูลถึง {result.asOf} อาจยังไม่ครบเดือน · ค้นหา {result.rows.length} กรอบ (สูงสุด {result.maxMonths} เดือน; ข้ามกรอบที่ข้อมูลฝึกขาด) · หน้านี้รองรับ 2 ตัว</p>
+      <p className="dim px-1 text-[12px]">ผลทดสอบมีข้อมูลถึง {result.asOf} อาจยังไม่ครบเดือน · ค้นหา {result.rows.length} กรอบ (สูงสุด {result.maxMonths} เดือน; ข้ามกรอบที่ข้อมูลฝึกขาด) · หน้านี้รองรับ 2 ตัว</p>
       <section className="card px-3.5 py-3">
         <SectionTitle>สูตรที่ดีที่สุดของแต่ละกรอบ</SectionTitle>
-        <p className="dim mb-2 text-[11px]">เรียงตามจำนวนเดือน · เลื่อนดูได้ทุกกรอบ · กดจำนวนเดือนเพื่อดูรายละเอียด</p>
+        <p className="dim mb-2 text-[12px]">เรียงตามจำนวนเดือน · เลื่อนดูได้ทุกกรอบ · กดจำนวนเดือนเพื่อดูรายละเอียด</p>
         <div className="max-h-[460px] overflow-auto" tabIndex={0} role="region" aria-label="ตารางเปรียบเทียบทุกกรอบเดือน">
-          <table className="w-full text-left text-[11px]">
+          <table className="w-full text-left text-[12px]">
             <thead className="sticky top-0" style={{ background: "var(--card)" }}><tr className="muted"><th className="py-2">กรอบ / สูตร</th><th className="text-right">กำไรคัดเลือก<br />ROI</th><th className="text-right">กำไรทดสอบ</th></tr></thead>
             <tbody>{result.rows.map((row) => <tr key={row.months} style={{ background: row.months === selected ? "var(--accent-tint)" : undefined }}>
-              <td className="py-2 pr-2"><button className="whitespace-nowrap font-semibold underline" type="button" onClick={() => { setSelected(row.months); setDetailTarget({}); setDetailOpen(true); }} aria-pressed={selected === row.months}>{row.months} เดือน{row.months === result.bestMonths ? " ★" : ""}</button><span className="dim mt-0.5 block text-[10px]">{row.best.formula}</span></td>
-              <td className="tnum text-right">{formatSigned(row.best.profit)}<span className="dim block text-[10px]">{pct(row.best.roiPct)}</span></td><td className="tnum pl-2 text-right">{formatSigned(row.test.profit)}</td>
+              <td className="py-2 pr-2"><button className="whitespace-nowrap font-semibold underline" type="button" onClick={() => { setSelected(row.months); setDetailTarget({}); setDetailOpen(true); }} aria-pressed={selected === row.months}>{row.months} เดือน{row.months === result.bestMonths ? " ★" : ""}</button><span className="dim mt-0.5 block text-[12px]">{row.best.formula}</span></td>
+              <td className="tnum text-right">{formatSigned(row.best.profit)}<span className="dim block text-[12px]">{pct(row.best.roiPct)}</span></td><td className="tnum pl-2 text-right">{formatSigned(row.test.profit)}</td>
             </tr>)}</tbody>
           </table>
         </div>
@@ -151,8 +156,8 @@ export function MonthWindowExplorer({ groups }: { groups: GroupOption[] }) {
         <ProfitBar value={detail.best.profit} max={maxProfit} />
         <p className="text-[12px]">{detail.best.formula} · เดือนทดสอบใช้ {detail.test.nBet} เลข · ถูก {detail.test.wins}/{detail.test.days} งวด</p>
         <div className="grid grid-cols-2 gap-2 text-[12px]">
-          <p>Max DD: {formatSigned(risk.maxDrawdown)}<span className="dim block text-[10px]">ต่ำสุดเทียบทุนตั้งต้น</span></p>
-          <p>แพ้ติดกันสูงสุด: {risk.maxLossStreak} งวด<span className="dim block text-[10px]">ลบช่วงนั้น {formatSigned(risk.maxLossStreakAmount)} บาท</span></p>
+          <p>Max DD: {formatSigned(risk.maxDrawdown)}<span className="dim block text-[12px]">ต่ำสุดเทียบทุนตั้งต้น</span></p>
+          <p>แพ้ติดกันสูงสุด: {risk.maxLossStreak} งวด<span className="dim block text-[12px]">ลบช่วงนั้น {formatSigned(risk.maxLossStreakAmount)} บาท</span></p>
         </div>
         <EquityChart values={detail.test.equity} capital={Number(capital)} monthDivs={[]} />
         <details><summary className="cursor-pointer text-[12px] font-semibold">เทียบทุกสูตรในกรอบนี้</summary>
@@ -166,5 +171,6 @@ export function MonthWindowExplorer({ groups }: { groups: GroupOption[] }) {
       {detailOpen && detail && entries ? <MonthWindowDetails key={detail.months} row={detail} initialFormula={detailTarget.formula} initialMonth={detailTarget.month} entries={entries} params={{ capital: Number(capital), betPerNumber: Number(bet), payoutRate: Number(payout) }} lottery={`${lottery} · ${position}`} onClose={() => setDetailOpen(false)} /> : null}
       <Alert tone="warn">การค้นหาหลายกรอบและหลายสูตรอาจเจอตัวที่ดีเพราะความบังเอิญ กำไรคัดเลือกจึงควรดูคู่กับผลทดสอบแยก โดยเฉพาะเมื่อมีงวดน้อย ผลย้อนหลังไม่รับประกันเดือนถัดไป</Alert>
     </> : null}
+    </div>
   </div>;
 }

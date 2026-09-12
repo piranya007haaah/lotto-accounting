@@ -48,7 +48,7 @@ export function LegEditor({
         </p>
         {/* หวย/ตำแหน่ง/ปี เปลี่ยนไม่ได้ — เปลี่ยนแล้วมันคือคนละขากัน (เลข ต้นทุน ผลย้อนหลัง
             คนละชุดทั้งหมด) ⇒ บอกไว้ตรง ๆ ว่าต้องไปทำที่แอปเดิม ไม่ใช่ปล่อยให้หาปุ่มไม่เจอ */}
-        <p className="dim mt-0.5 text-[10.5px]">
+        <p className="dim mt-0.5 text-[12px]">
           ทดสอบปี 25{leg.test_year} · {legModeText(leg)} · {digits} หลัก
           {usesFormula ? ` · เลขมาจากสูตร ${leg.formula_name ?? "—"}` : ""}
         </p>
@@ -72,7 +72,7 @@ export function LegEditor({
       {/* เรตผิดชั้นไม่ทำให้อะไรพัง มันแค่คูณกำไรผิดสิบเท่าเงียบ ๆ ⇒ ต้องเห็นตรงนี้ */}
       {rateWarning ? (
         <p
-          className="text-[10.5px] leading-relaxed font-semibold"
+          className="text-[12px] leading-relaxed font-semibold"
           style={{ color: "var(--color-money-in)" }}
         >
           ⚠️ {rateWarning}
@@ -81,14 +81,14 @@ export function LegEditor({
 
       {usesFormula ? (
         // ขาที่ใช้สูตรเลือกเลขให้ — แก้เลขตรงนี้ไม่ได้ เพราะสูตรจะคำนวณทับทุกครั้งที่รัน
-        <p className="dim text-[10.5px] leading-relaxed">
+        <p className="dim text-[12px] leading-relaxed">
           ขานี้ให้สูตรเลือกเลขให้ ({leg.n_bet} ตัว) — เปลี่ยนสูตร/อันดับได้ที่แอปเดิม
         </p>
       ) : (
         <ManualNumbers leg={leg} onChange={onChange} />
       )}
 
-      <p className="dim text-[10.5px]">
+      <p className="dim text-[12px]">
         ต้นทุนงวดละ {formatBahtShort(legCost(leg))} บ. ({leg.n_bet} เลข ×{" "}
         {formatBahtShort(leg.bet_per_number)} บ.
         {isMonthly(leg) ? " · คิดจากเดือนที่แทงเยอะสุด" : ""})
@@ -97,7 +97,7 @@ export function LegEditor({
       {onRemove ? (
         confirming ? (
           <div className="flex items-center gap-2">
-            <span className="flex-1 text-[11.5px] leading-tight font-semibold">ลบขานี้ออกจากพอร์ต?</span>
+            <span className="flex-1 text-[12px] leading-tight font-semibold">ลบขานี้ออกจากพอร์ต?</span>
             <button
               type="button"
               className="btn btn-ghost flex-none py-1.5 text-[12px]"

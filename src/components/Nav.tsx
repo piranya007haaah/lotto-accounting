@@ -19,10 +19,10 @@ export function Nav() {
   if (items.length === 0) return null;
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 px-3 pb-3">
+    <nav className="app-navigation fixed inset-x-0 bottom-0 z-20 px-3 pb-3">
       <div
-        className="mx-auto flex max-w-md rounded-3xl px-1.5 py-2.5"
-        style={{ background: "var(--nav-bg)", boxShadow: "0 12px 28px rgb(22 36 61 / 0.30)" }}
+        className="mx-auto flex rounded-3xl px-1.5 py-2.5"
+        style={{ background: "var(--nav-bg)", boxShadow: "0 6px 20px rgb(22 36 61 / 0.16)" }}
       >
         {items.map((item) => {
           const active = pathname === item.href;
@@ -52,7 +52,7 @@ export function Nav() {
                 </svg>
               </span>
               <span
-                className="text-[10.5px]"
+                className="text-[12px]"
                 style={{
                   color: active ? "var(--nav-active-bg)" : "var(--nav-dim)",
                   fontWeight: active ? 700 : 500,

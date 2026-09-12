@@ -496,7 +496,7 @@ export function PairUploader({
             🧾
           </span>
           <span className="text-sm font-semibold">เลือกรูปทั้งหมดทีเดียว</span>
-          <span className="dim text-center text-[11.5px]">
+          <span className="dim text-center text-[12px]">
             {direction === "deposit"
               ? "ภาพหน้าฝากของเว็บ + สลิปโอนเงิน กี่คู่ก็ได้ — ระบบจับคู่ให้ตามยอดเงินและเวลา"
               : "ภาพหน้าถอนของเว็บ + สลิปเงินเข้าบัญชี กี่คู่ก็ได้ — ระบบจับคู่ให้ตามยอดเงินและเวลา"}
@@ -584,7 +584,7 @@ export function PairUploader({
                 const url = image ? previews[image.id] : null;
                 return (
                   <div key={kind} className="space-y-1">
-                    <span className="dim text-[11px] font-semibold">{KIND_LABEL[kind]}</span>
+                    <span className="dim text-[12px] font-semibold">{KIND_LABEL[kind]}</span>
                     {image ? (
                       <div
                         className="overflow-hidden rounded-xl"
@@ -595,7 +595,7 @@ export function PairUploader({
                           <img src={url} alt={KIND_LABEL[kind]} className="h-36 w-full object-contain" />
                         ) : (
                           <div className="flex h-36 items-center justify-center">
-                            <span className="dim text-[11px]">{image.fileName}</span>
+                            <span className="dim text-[12px]">{image.fileName}</span>
                           </div>
                         )}
                       </div>
@@ -607,7 +607,7 @@ export function PairUploader({
                         className="dropzone flex h-36 w-full flex-col items-center justify-center gap-1"
                       >
                         <span className="text-[20px]">＋</span>
-                        <span className="dim text-[11px]">เพิ่ม{KIND_LABEL[kind]}</span>
+                        <span className="dim text-[12px]">เพิ่ม{KIND_LABEL[kind]}</span>
                       </button>
                     )}
                   </div>
@@ -740,13 +740,13 @@ export function PairUploader({
                 ))}
               </select>
               {!edit.bankName && !locked ? (
-                <p className="muted mt-1 text-[11.5px]">
+                <p className="muted mt-1 text-[12px]">
                   อ่านธนาคารจากรูปไม่ได้ — เลือกเองก่อนบันทึก ไม่งั้นสรุปยอดจะขึ้นว่าไม่ระบุธนาคาร
                 </p>
               ) : null}
             </div>
 
-            <dl className="muted grid grid-cols-1 gap-y-1 text-[11.5px]">
+            <dl className="muted grid grid-cols-1 gap-y-1 text-[12px]">
               {draft.accountNo || draft.accountName ? (
                 <div>
                   บัญชีของเรา: {[draft.accountNo, draft.accountName].filter(Boolean).join(" · ")}
@@ -803,7 +803,7 @@ export function PairUploader({
             {savingAll ? "กำลังบันทึก…" : `บันทึกทั้งหมด (${pending.length} รายการ)`}
           </button>
           <div className="flex items-center justify-between">
-            <span className="dim text-[11.5px]">
+            <span className="dim text-[12px]">
               {savedCount > 0 ? `บันทึกแล้ว ${savedCount} รายการ` : ""}
             </span>
             <button type="button" className="link-sm" onClick={clearAll} disabled={savingAll}>

@@ -28,7 +28,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#edf2f8" },
     { media: "(prefers-color-scheme: dark)", color: "#0c1220" },
@@ -40,7 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="th" className={`${anuphan.variable} ${prompt.variable} ${archivoBlack.variable}`}>
       <body className="min-h-dvh">
         <LiffProvider>
-          <main className="mx-auto w-full max-w-md px-4 pt-4 pb-28">
+          <main className="app-shell">
             <ModeSwitch />
             {children}
           </main>
