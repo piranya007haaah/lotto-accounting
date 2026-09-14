@@ -77,25 +77,41 @@ export async function getOrCreateUser(profile: {
   if (isAdmin) payload.is_active = true;
 
   const supabase = supabaseAdmin();
-  const columns = "id, line_user_id, display_name, picture_url, is_active, can_view_all";
+  const columns = "id, line_user_id, display_name, picture_url, is_active, can_view_all, last_seen_at";
+  // อ่านสิทธิ์สดทุก request แต่ไม่ upsert แถวเดิมทุกครั้งที่เปลี่ยนหน้า/ยิง API พร้อมกัน
+  let supportsLottery = true;
   let { data, error } = await supabase
     .from("app_users")
-    .upsert(payload, { onConflict: "line_user_id" })
     .select(`${columns}, can_view_lottery`)
-    .single();
-
-  // ยังไม่ได้รัน migration 0010 = ไม่มีคอลัมน์ can_view_lottery — ให้ล็อกอินได้ตามปกติ
-  // แล้วถือว่าไม่มีใครมีสิทธิ์ดูหน้าหวย (ยกเว้นผู้ดูแล) ดีกว่าล็อกทุกคนออกจากทั้งแอป
+    .eq("line_user_id", profile.lineUserId)
+    .maybeSingle();
   if (isMissingColumnError(error, "can_view_lottery")) {
+    supportsLottery = false;
+    ({ data, error } = await supabase
+      .from("app_users")
+      .select(columns)
+      .eq("line_user_id", profile.lineUserId)
+      .maybeSingle());
+  }
+  if (error) throw new HttpError(500, `อ่านข้อมูลผู้ใช้ไม่สำเร็จ: ${error.message}`);
+
+  // อัปเดตโปรไฟล์เมื่อเปลี่ยนจริง และ last_seen_at ไม่ถี่กว่า 5 นาที
+  // ไม่ cache สิทธิ์: การระงับบัญชี/ถอนสิทธิ์หวยยังมีผลใน request ถัดไป
+  const lastSeen = Date.parse(data?.last_seen_at ?? "");
+  const refresh = !data || (isAdmin && !data.is_active) ||
+    ((data.is_active || isAdmin) && (
+      !Number.isFinite(lastSeen) || Date.now() - lastSeen >= 5 * 60 * 1000 ||
+      data.display_name !== payload.display_name || data.picture_url !== payload.picture_url
+    ));
+  if (refresh) {
     ({ data, error } = await supabase
       .from("app_users")
       .upsert(payload, { onConflict: "line_user_id" })
-      .select(columns)
+      .select(supportsLottery ? `${columns}, can_view_lottery` : columns)
       .single());
+    if (error) throw new HttpError(500, `บันทึกข้อมูลผู้ใช้ไม่สำเร็จ: ${error.message}`);
   }
-
-  if (error) throw new HttpError(500, `บันทึกข้อมูลผู้ใช้ไม่สำเร็จ: ${error.message}`);
-  if (!data) throw new HttpError(500, "บันทึกข้อมูลผู้ใช้ไม่สำเร็จ");
+  if (!data) throw new HttpError(500, "ไม่พบข้อมูลผู้ใช้");
   if (!data.is_active) {
     // ครอบทั้งคนที่เพิ่งเข้ามาครั้งแรก และคนที่ถูกถอนสิทธิ์ภายหลัง
     throw new HttpError(403, "บัญชีนี้ยังไม่ได้รับสิทธิ์ใช้งาน — รอผู้ดูแลอนุมัติ", "pending_approval");
