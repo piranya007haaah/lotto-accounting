@@ -103,7 +103,15 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
 
     const response = await fetch(path, { ...init, headers });
     const text = await response.text();
-    const data = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+    let data: Record<string, unknown> = {};
+    try {
+      data = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+    } catch {
+      // Gateway อาจคืน HTML/text แทน JSON — อย่าแสดง SyntaxError ให้ผู้ใช้
+      throw new ApiError(
+        response.status === 504 ? "เซิร์ฟเวอร์ตอบช้า กรุณาลองใหม่" : `เชื่อมต่อไม่สำเร็จ (${response.status})`,
+      );
+    }
 
     if (!response.ok) {
       // token หมดอายุ → ให้ล็อกอินใหม่
@@ -143,8 +151,10 @@ export function LiffProvider({ children }: { children: React.ReactNode }) {
           }
           tokenRef.current = idToken;
 
-          const lineProfile = await liff.getProfile().catch(() => null);
-          if (lineProfile && !cancelled) setProfile(lineProfile);
+          // รูป/ชื่อจาก LINE ไม่ต้องขวาง /api/me และการเปิดหน้าแรก
+          void liff.getProfile().then((lineProfile) => {
+            if (!cancelled) setProfile(lineProfile);
+          }).catch(() => undefined);
         }
 
         const me = await api<{

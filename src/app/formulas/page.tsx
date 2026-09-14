@@ -13,9 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MonthWindowExplorer } from "@/components/MonthWindowExplorer";
-import { TmbExperiment } from "@/components/TmbExperiment";
-import { Tb9Experiment } from "@/components/Tb9Experiment";
+import dynamic from "next/dynamic";
 import { useAuth } from "@/components/LiffProvider";
 import { EquityChart, MonthlyPnlBars, MultiEquityChart, ProfitBar } from "@/components/PortfolioCharts";
 import { Alert, Chip, EmptyState, Modal, PageHeader, SectionTitle, Spinner } from "@/components/ui";
@@ -32,6 +30,12 @@ import {
   type RankMode,
   type RankRow,
 } from "@/lib/lottery/rank";
+
+// ไม่โหลด engine/หน้าทดลองทั้งสามชุดตอนเปิดอันดับรายปี
+const labLoading = () => <Spinner label="กำลังเปิดการทดลอง…" />;
+const MonthWindowExplorer = dynamic(() => import("@/components/MonthWindowExplorer").then((m) => m.MonthWindowExplorer), { loading: labLoading });
+const TmbExperiment = dynamic(() => import("@/components/TmbExperiment").then((m) => m.TmbExperiment), { loading: labLoading });
+const Tb9Experiment = dynamic(() => import("@/components/Tb9Experiment").then((m) => m.Tb9Experiment), { loading: labLoading });
 
 /**
  * กลุ่มของหวยตามคำท้ายชื่อ — หวยตัวเดียวกันมักมีหลายรอบต่อวัน (ปกติ/VIP/พิเศษ)
@@ -142,6 +146,7 @@ export default function FormulasPage() {
   const [section, setSection] = useState<"main" | "lab">("main");
   const [experiment, setExperiment] = useState<"months" | "tb9" | "tmb">("months");
   const view = section === "main" ? "year" : experiment;
+  const [catalogueAttempt, setCatalogueAttempt] = useState(0);
   const [groups, setGroups] = useState<GroupsResponse["groups"]>([]);
   const [years, setYears] = useState<string[]>([]);
   const [formula, setFormula] = useState(DEFAULT_FORMULA);
@@ -185,6 +190,8 @@ export default function FormulasPage() {
       return;
     }
     let cancelled = false;
+    setLoading(true);
+    setError(null);
     void (async () => {
       try {
         // `digits=2` — สูตรในหน้านี้เป็นสูตร 2 ตัวล้วน · ตารางผลหวยเก็บสามบนไว้ด้วย
@@ -203,7 +210,7 @@ export default function FormulasPage() {
     return () => {
       cancelled = true;
     };
-  }, [api, canViewLottery]);
+  }, [api, canViewLottery, catalogueAttempt]);
 
   // ปีที่เลือกเป็น train ได้ = ปีก่อน test เท่านั้น (ปีหลังคือ lookahead)
   const trainOptions = useMemo(
@@ -522,6 +529,11 @@ export default function FormulasPage() {
         <Chip active={section === "main"} onClick={() => setSection("main")}>อันดับรายปี</Chip>
         <Chip active={section === "lab"} onClick={() => { setOpenKey(null); setSection("lab"); }}>Lab ทดลอง</Chip>
       </div>
+      {error && groups.length === 0 ? (
+        <button type="button" className="btn btn-ghost self-start" onClick={() => setCatalogueAttempt((n) => n + 1)}>
+          ลองโหลดรายชื่อหวยอีกครั้ง
+        </button>
+      ) : null}
       {section === "lab" ? (
         <section className="space-y-2.5 border-t pt-3" style={{ borderColor: "var(--line)" }} aria-label="Lab ทดลอง">
           <div>
