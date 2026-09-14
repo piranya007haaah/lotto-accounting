@@ -139,7 +139,9 @@ function Kpi({ label, value, sub, tone = "plain" }: {
 export default function FormulasPage() {
   const { api, canViewLottery, isAdmin } = useAuth();
 
-  const [view, setView] = useState<"year" | "months" | "tb9" | "tmb">("year");
+  const [section, setSection] = useState<"main" | "lab">("main");
+  const [experiment, setExperiment] = useState<"months" | "tb9" | "tmb">("months");
+  const view = section === "main" ? "year" : experiment;
   const [groups, setGroups] = useState<GroupsResponse["groups"]>([]);
   const [years, setYears] = useState<string[]>([]);
   const [formula, setFormula] = useState(DEFAULT_FORMULA);
@@ -516,12 +518,23 @@ export default function FormulasPage() {
         subtitle={view === "tmb" ? "ทดลอง Top/Mid/Bottom · ตัดและเติมจากอดีต" : view === "tb9" ? "ทดลอง TB9-Fixed v1.0 · ชุดคงที่รายเดือน" : view === "months" ? "เทียบกรอบย้อนหลังและสูตรจากเดือนก่อนทดสอบ" : `เรียงตามกำไรของปี test ${testYear || "—"} · ${rows?.length ?? 0} หวย`}
       />
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        <Chip active={view === "year"} onClick={() => setView("year")}>อันดับรายปี</Chip>
-        <Chip active={view === "months"} onClick={() => { setOpenKey(null); setView("months"); }}>เทียบกรอบเดือน</Chip>
-        <Chip active={view === "tmb"} onClick={() => { setOpenKey(null); setView("tmb"); }}>ทดลอง TMB</Chip>
-        <Chip active={view === "tb9"} onClick={() => { setOpenKey(null); setView("tb9"); }}>ทดลอง TB9</Chip>
+      <div className="flex flex-wrap gap-2" role="group" aria-label="หมวดหน้าสูตร">
+        <Chip active={section === "main"} onClick={() => setSection("main")}>อันดับรายปี</Chip>
+        <Chip active={section === "lab"} onClick={() => { setOpenKey(null); setSection("lab"); }}>Lab ทดลอง</Chip>
       </div>
+      {section === "lab" ? (
+        <section className="space-y-2.5 border-t pt-3" style={{ borderColor: "var(--line)" }} aria-label="Lab ทดลอง">
+          <div>
+            <h2 className="text-[15px] font-semibold">Lab ทดลอง</h2>
+            <p className="muted mt-1 text-[12px]">รวมเครื่องมือที่ยังอยู่ระหว่างทดลอง แยกจากสูตรหลัก</p>
+          </div>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="เลือกการทดลอง">
+            <Chip active={experiment === "months"} onClick={() => setExperiment("months")}>เทียบกรอบรายเดือน</Chip>
+            <Chip active={experiment === "tmb"} onClick={() => setExperiment("tmb")}>ทดลอง TMB</Chip>
+            <Chip active={experiment === "tb9"} onClick={() => setExperiment("tb9")}>ทดลอง TB9</Chip>
+          </div>
+        </section>
+      ) : null}
       {view === "tmb" ? <><TmbExperiment groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : view === "tb9" ? <><Tb9Experiment groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : view === "months" ? <><MonthWindowExplorer groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : <>
       <section className="card space-y-2.5 px-3.5 py-3">
         <div>
