@@ -457,14 +457,14 @@ export default function DrawsPage() {
         <LotteryCard
           key={group.lottery}
           group={group}
-          disabled={!isAdmin}
+          disabled={!canViewLottery}
           saving={savingFor === group.lottery}
           onSave={(draws, overwrite) => void save(group.lottery, draws, overwrite)}
         />
       ))}
 
-      {!isAdmin && day ? (
-        <p className="dim px-1 text-center text-[12px]">กรอกผลได้เฉพาะผู้ดูแล — คนอื่นดูได้อย่างเดียว</p>
+      {day ? (
+        <p className="dim px-1 text-center text-[12px]">สมาชิกที่ได้รับสิทธิ์หวยกรอกและแก้ไขผลได้</p>
       ) : null}
     </div>
   );

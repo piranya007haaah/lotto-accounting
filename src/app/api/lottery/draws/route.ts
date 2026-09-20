@@ -2,7 +2,7 @@
  * กรอกผลหวยรายวัน แล้วเด้งการ์ดเข้า LINE
  *
  * GET  — สถานะของวันนั้น: หวยไหนกรอกแล้ว/ยังไม่กรอก · ผลรายตำแหน่ง · รวมวันนี้
- * POST — บันทึกผลของหวยหนึ่งตัว แล้วส่งการ์ด (ผู้ดูแลเท่านั้น)
+ * POST — สมาชิกที่มีสิทธิ์หวยบันทึกผลแล้วส่งการ์ดได้ (ส่งทดสอบเฉพาะผู้ดูแล)
  *
  * ⚠️⚠️ **เขียนแบบเติมช่องว่างเท่านั้น** (`sequence-merge.ts`) — ตาราง `lottery_datasets`
  * มีคนเขียน 2 ทาง: หน้านี้ กับ `sync_to_supabase.py` ฝั่ง Streamlit ที่ส่ง sequence
@@ -13,7 +13,7 @@
  * (ยืนยันกับข้อมูลจริง 161,430/161,430 งวด) · กรอกมาทั้งคู่แล้วไม่ตรง = ปฏิเสธ
  */
 
-import { requireAdmin, requireLotteryViewer } from "@/lib/auth";
+import { requireLotteryViewer } from "@/lib/auth";
 import { appUrl, env } from "@/lib/env";
 import { HttpError, ok, route } from "@/lib/http";
 import { readJsonBody } from "@/lib/ingest-auth";
@@ -177,9 +177,12 @@ interface SavePayload {
 }
 
 export const POST = route(async (request) => {
-  await requireAdmin(request);
+  const user = await requireLotteryViewer(request);
 
   const body = (await readJsonBody(request, MAX_BODY_BYTES)) as SavePayload;
+  if (body.test === true && !user.isAdmin) {
+    throw new HttpError(403, "ส่งรายงานทดสอบได้เฉพาะผู้ดูแล", "not_admin");
+  }
   const date = parseDate(body.date ?? null);
   const rows = await loadPortfolios();
   const row = pickPortfolio(rows, body.portfolioId ?? null);
