@@ -436,8 +436,11 @@ export function MultiEquityChart({
 export function MonthlyPnlBars({
   months,
   dividers,
+  maxAbsProfit,
 }: {
   months: { label: string; profit: number }[];
+  /** Shared scale when showing separate yearly charts. */
+  maxAbsProfit?: number;
   /** [ป้ายปี, index ของเดือนแรกของปีนั้น] */
   dividers: [string, number][];
 }) {
@@ -450,7 +453,7 @@ export function MonthlyPnlBars({
   const TOP = 14;
   const BOTTOM = 16;
   const width = Math.max(300, months.length * (BAR + GAP) + GAP);
-  const max = Math.max(1, ...months.map((m) => Math.abs(m.profit)));
+  const max = Math.max(1, maxAbsProfit ?? 0, ...months.map((m) => Math.abs(m.profit)));
   const mid = TOP + (H2 - TOP - BOTTOM) / 2;
   const half = (H2 - TOP - BOTTOM) / 2;
   const xOf = (i: number) => GAP + i * (BAR + GAP);

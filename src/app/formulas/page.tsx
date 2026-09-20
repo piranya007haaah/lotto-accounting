@@ -470,19 +470,13 @@ export default function FormulasPage() {
     }
   }, [api, bet, capital, choice, formula, mode, openRow, payout, testYear, trainYears]);
 
-  /** [ป้ายปี, index ของเดือนแรกของปีนั้น] — เส้นคั่นของบาร์กำไรรายเดือน */
-  const wfYearMarks = useMemo(() => {
+  /** แสดงทุกปีเป็นแถว แทนกราฟยาวที่ซ่อนปีหลังนอกจอ */
+  const wfMonthlyYears = useMemo(() => {
     if (!wf) return [];
-    const out: [string, number][] = [];
-    let last = "";
-    wf.monthly.forEach((month, i) => {
-      if (month.year !== last) {
-        // เดือนแรกสุดไม่ต้องมีเส้น — มันคือขอบซ้ายของกราฟอยู่แล้ว
-        if (i > 0) out.push([`25${month.year}`, i]);
-        last = month.year;
-      }
-    });
-    return out;
+    return wf.folds.map((fold) => ({
+      year: fold.year,
+      months: wf.monthly.filter((month) => month.year === fold.year),
+    })).filter((group) => group.months.length > 0);
   }, [wf]);
 
   const kinds = useMemo(() => {
@@ -1018,10 +1012,22 @@ export default function FormulasPage() {
                           {wf.monthly.length > 1 ? (
                             <div className="mt-2">
                               <SectionTitle>กำไรรายเดือน (walk-forward)</SectionTitle>
-                              <MonthlyPnlBars
-                                months={wf.monthly.map((month) => ({ label: month.label, profit: month.profit }))}
-                                dividers={wfYearMarks}
-                              />
+                              <p className="dim mb-2 text-[12px]">
+                                ทุกปีที่ทดสอบได้ {yearSpanLabel(wfMonthlyYears.map((group) => group.year))}
+                                {" · "}ปีแรกที่มีข้อมูลใช้ฝึกสูตร · ทุกกราฟใช้สเกลเดียวกัน
+                              </p>
+                              <div className="space-y-3">
+                                {wfMonthlyYears.map((group) => (
+                                  <div key={group.year}>
+                                    <h4 className="text-sm font-semibold">ปี 25{group.year}</h4>
+                                    <MonthlyPnlBars
+                                      months={group.months.map((month) => ({ label: month.label, profit: month.profit }))}
+                                      dividers={[]}
+                                      maxAbsProfit={Math.max(1, ...wf.monthly.map((month) => Math.abs(month.profit)))}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
                               <p className="dim mt-1 text-[12px] leading-relaxed">
                                 บวก {wf.monthly.filter((month) => month.profit >= 0).length} เดือน · ลบ{" "}
                                 {wf.monthly.filter((month) => month.profit < 0).length} เดือน จาก {wf.monthly.length} เดือน
