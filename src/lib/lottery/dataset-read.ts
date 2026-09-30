@@ -40,12 +40,14 @@ export async function readAllDatasetRows(options?: {
   upToYear?: string;
   /** ไม่เอา sequence มาด้วย — ใช้ตอนทำรายการตัวเลือก (ทั้งตาราง ~0.8 MB) */
   withSequence?: boolean;
+  /** Include calendar metadata for monthly Lab experiments. */
+  withCalendar?: boolean;
   /** 2 = สองบน/สองล่าง · 3 = สามบน · ไม่ระบุ = เอาทั้งคู่ (ต้องดู `digits` ของแต่ละแถวเอง) */
   digits?: 2 | 3;
 }): Promise<DatasetRow[]> {
   const columns = options?.withSequence === false
     ? "lottery, position, year, flag, digits"
-    : "lottery, position, year, flag, digits, sequence";
+    : `lottery, position, year, flag, digits, sequence${options?.withCalendar ? ", is_date_sorted" : ""}`;
 
   const rows: DatasetRow[] = [];
   for (let page = 0; page < MAX_PAGES; page += 1) {
