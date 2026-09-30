@@ -110,6 +110,10 @@ export const GET = route(async (request) => {
   // ระบุหวย+ตำแหน่ง = ขอ "ผลจริงทั้งปี" ของกลุ่มเดียว (ไม่กี่ KB) ไว้ให้หน้าจอ
   // คำนวณสูตรเองในเบราว์เซอร์ — ปรับ n_bet/ทุน/เรตจ่ายแล้วเห็นผลทันทีโดยไม่ยิงเซิร์ฟเวอร์ซ้ำ
   const query = new URL(request.url).searchParams;
+  // Lab reads the full 2-digit history once, with the same viewer authorization.
+  if (query.get("all") === "1" && query.get("digits") === "2") {
+    return ok({ entries: await readAllDatasetRows({ digits: 2, withCalendar: true }) });
+  }
   const lottery = (query.get("lottery") ?? "").trim();
   const position = (query.get("position") ?? "").trim();
   if (lottery && position) {

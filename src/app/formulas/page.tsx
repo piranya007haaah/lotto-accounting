@@ -35,6 +35,7 @@ import {
 const labLoading = () => <Spinner label="กำลังเปิดการทดลอง…" />;
 const MonthWindowExplorer = dynamic(() => import("@/components/MonthWindowExplorer").then((m) => m.MonthWindowExplorer), { loading: labLoading });
 const TmbExperiment = dynamic(() => import("@/components/TmbExperiment").then((m) => m.TmbExperiment), { loading: labLoading });
+const Hvip109Experiment = dynamic(() => import("@/components/Hvip109Experiment").then((m) => m.Hvip109Experiment), { loading: labLoading });
 const Tb9Experiment = dynamic(() => import("@/components/Tb9Experiment").then((m) => m.Tb9Experiment), { loading: labLoading });
 
 /**
@@ -144,7 +145,7 @@ export default function FormulasPage() {
   const { api, canViewLottery, isAdmin } = useAuth();
 
   const [section, setSection] = useState<"main" | "lab">("main");
-  const [experiment, setExperiment] = useState<"months" | "tb9" | "tmb">("months");
+  const [experiment, setExperiment] = useState<"months" | "tb9" | "tmb" | "hvip109">("months");
   const view = section === "main" ? "year" : experiment;
   const [catalogueAttempt, setCatalogueAttempt] = useState(0);
   const [groups, setGroups] = useState<GroupsResponse["groups"]>([]);
@@ -516,7 +517,7 @@ export default function FormulasPage() {
     <div className="space-y-3.5">
       <PageHeader
         title="สูตร"
-        subtitle={view === "tmb" ? "ทดลอง Top/Mid/Bottom · ตัดและเติมจากอดีต" : view === "tb9" ? "ทดลอง TB9-Fixed v1.0 · ชุดคงที่รายเดือน" : view === "months" ? "เทียบกรอบย้อนหลังและสูตรจากเดือนก่อนทดสอบ" : `เรียงตามกำไรของปี test ${testYear || "—"} · ${rows?.length ?? 0} หวย`}
+        subtitle={view === "hvip109" ? "ทดลอง Top10 + Mid9 · กรองร้อน 60 วัน + คะแนนรายหลัก" : view === "tmb" ? "ทดลอง Top/Mid/Bottom · ตัดและเติมจากอดีต" : view === "tb9" ? "ทดลอง TB9-Fixed v1.0 · ชุดคงที่รายเดือน" : view === "months" ? "เทียบกรอบย้อนหลังและสูตรจากเดือนก่อนทดสอบ" : `เรียงตามกำไรของปี test ${testYear || "—"} · ${rows?.length ?? 0} หวย`}
       />
 
       <div className="flex flex-wrap gap-2" role="group" aria-label="หมวดหน้าสูตร">
@@ -537,11 +538,12 @@ export default function FormulasPage() {
           <div className="flex flex-wrap gap-2" role="group" aria-label="เลือกการทดลอง">
             <Chip active={experiment === "months"} onClick={() => setExperiment("months")}>เทียบกรอบรายเดือน</Chip>
             <Chip active={experiment === "tmb"} onClick={() => setExperiment("tmb")}>ทดลอง TMB</Chip>
+            <Chip active={experiment === "hvip109"} onClick={() => setExperiment("hvip109")}>ทดลอง HVIP-109</Chip>
             <Chip active={experiment === "tb9"} onClick={() => setExperiment("tb9")}>ทดลอง TB9</Chip>
           </div>
         </section>
       ) : null}
-      {view === "tmb" ? <><TmbExperiment groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : view === "tb9" ? <><Tb9Experiment groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : view === "months" ? <><MonthWindowExplorer groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : <>
+      {view === "hvip109" ? <><Hvip109Experiment groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : view === "tmb" ? <><TmbExperiment groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : view === "tb9" ? <><Tb9Experiment groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : view === "months" ? <><MonthWindowExplorer groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : <>
       <section className="card space-y-2.5 px-3.5 py-3">
         <div>
           <p className="field-label">สูตร</p>
