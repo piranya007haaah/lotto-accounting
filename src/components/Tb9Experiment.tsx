@@ -15,7 +15,7 @@ export function Tb9Experiment({ groups }: { groups: { lottery: string; position:
   const [rows, setRows] = useState<Draw[] | null>(null), [error, setError] = useState("");
   const [crossCheck, setCrossCheck] = useState("");
   const [month, setMonth] = useState(""), [bet, setBet] = useState("1"), [retry, setRetry] = useState(0);
-  const [tab, setTab] = useState("months"), [revisions, setRevisions] = useState<Snapshot[]>([]);
+  const [tab, setTab] = useState("draws"), [revisions, setRevisions] = useState<Snapshot[]>([]);
   const [note, setNote] = useState(""), [saving, setSaving] = useState(false), [stored, setStored] = useState<Snapshot | null>(null);
   const activeMonth = useRef(month);
   useEffect(() => { activeMonth.current = month; }, [month]);
@@ -90,12 +90,17 @@ export function Tb9Experiment({ groups }: { groups: { lottery: string; position:
     </section>
     {report?.error ? <Alert tone="error">{report.error}</Alert> : null}
     {report?.error && revisions.length ? <section className="card space-y-2 p-3.5"><p>เปิดชุดเดิมที่บันทึกไว้ (ข้อมูลปัจจุบันคำนวณไม่ได้)</p>{revisions.map((s, i) => <button key={s.revision_id} className="block underline" onClick={() => setStored(s)}>revision {i + 1} · {s.generated_at}</button>)}</section> : null}
+    {history.length ? <section className="card space-y-3 p-3.5"><SectionTitle>ทดสอบได้ {history.filter(h => h.result).length}/{history.length} เดือน · ลาวสตาร์สองบน</SectionTitle><p className="text-sm">ช่วงเทียบเอกสาร ม.ค. 2024–ส.ค. 2026: คำนวณได้ {comparable.length}/32 เดือน · ถูก {total.wins}/{total.days} งวด · กำไร {formatSigned(total.profit)} · ROI {total.cost ? (total.profit / total.cost * 100).toFixed(4) : "—"}%</p><p className="dim text-xs">เอกสารอ้างอิง 973 งวด ถูก 548 กำไร 2,802 ที่เงินแทง 1 · ผลต่างอาจเกิดจากข้อมูลคนละเวอร์ชัน</p>
+          <div className="max-h-96 overflow-auto"><table className="w-full whitespace-nowrap text-left text-xs"><thead><tr><th className="p-2">เดือน</th><th className="p-2">เลข</th><th className="p-2">ถูก/งวด</th><th className="p-2 text-right">กำไร</th></tr></thead><tbody>{[...history].reverse().map((h) => <tr key={h.month} className="row"><td className="p-2"><button className="underline" onClick={() => { setStored(null); setMonth(h.month); }}>{h.month}</button></td>{h.result ? <><td className="p-2">{h.selection!.candidate_count}</td><td className="p-2">{h.result.wins}/{h.result.draws.length}</td><td className="p-2 text-right">{formatSigned(h.result.profit)}</td></> : <td className="p-2" colSpan={3}>{h.error}</td>}</tr>)}</tbody></table></div></section> : null}
     {current && result ? <>
       <section className="card space-y-3 p-3.5">
-        <SectionTitle>{month} · {current.candidate_count} เลข</SectionTitle>
+        <SectionTitle>ลาวสตาร์ · สองบน · ข้อมูลถึง {rows?.[rows.length - 1].date}</SectionTitle>
+        <details key={month} className="border-b py-3">
+          <summary className="cursor-pointer text-sm">{month} · {current.candidate_count} เลข · ถูก {result.wins}/{result.draws.length} · กำไร {formatSigned(result.profit)}</summary>
+          <div className="mt-3 space-y-3">
         <p className="text-sm">ฝึก {current.training_start} ถึงก่อน {current.training_end_exclusive} · {current.training_draws} งวด</p>
         <p>Top {current.audit.filter((a) => a.reason === "top_all").length} · Bottom {current.audit.filter((a) => a.reason === "bottom_gap").length} · Mid เติม {current.audit.filter((a) => a.reason === "mid_fill").length}</p>
-        <p className="tnum rounded-xl bg-[var(--accent-tint)] p-3 leading-8">{current.candidates.join(" ")}</p>
+        <p className="tnum text-sm leading-7">{current.candidates.join(" ")}</p>
         <p>ถูก {result.wins}/{result.draws.length} งวด · ต้นทุน {result.cost.toLocaleString()} · รับ {result.received.toLocaleString()} · กำไร {formatSigned(result.profit)} · ROI {result.roi.toFixed(2)}%</p>
         {missing.length ? <Alert tone="warn">เดือนนี้มีผลขาด {missing.length} วัน: {missing.join(", ")} · ผลรวมเฉพาะงวดที่มีข้อมูล</Alert> : null}
         <details><summary className="cursor-pointer font-semibold">คลัง snapshot ทดลองในเครื่อง ({revisions.length} revision)</summary>
@@ -104,13 +109,13 @@ export function Tb9Experiment({ groups }: { groups: { lottery: string; position:
           {stored ? <><p className="mt-2 break-all text-xs">SHA256 {stored.data_version}</p><button className="mt-2 underline" onClick={download}>ดาวน์โหลด snapshot JSON พร้อม audit</button></> : <button className="mt-2 underline" disabled={saving} onClick={save}>{saving ? "กำลังบันทึก…" : "บันทึก snapshot ในเครื่อง"}</button>}
           {note ? <p role="status" className="mt-2 text-sm">{note}</p> : null}
         </details>
-      </section>
-      <div className="flex gap-2 overflow-x-auto">{[["months", "ผลย้อนหลัง"], ["draws", "รายงวด"], ["audit", "ตรวจ 100 เลข"]].map(([id, label]) => <Chip key={id} active={tab === id} onClick={() => setTab(id)}>{label}</Chip>)}</div>
-      <section className="card space-y-3 p-3.5">
-        {tab === "months" ? <><SectionTitle>ชุดคงที่ใหม่ทุกเดือน · ผลจำลองจากข้อมูลปัจจุบัน</SectionTitle><p className="text-sm">ช่วงเทียบเอกสาร ม.ค. 2024–ส.ค. 2026: คำนวณได้ {comparable.length}/32 เดือน · ถูก {total.wins}/{total.days} งวด · กำไร {formatSigned(total.profit)} · ROI {total.cost ? (total.profit / total.cost * 100).toFixed(4) : "—"}%</p><p className="dim text-xs">เอกสารอ้างอิง 973 งวด ถูก 548 กำไร 2,802 ที่เงินแทง 1 · ผลต่างอาจเกิดจากข้อมูลคนละเวอร์ชัน</p>
-          <div className="max-h-96 overflow-auto"><table className="w-full text-left text-xs"><thead><tr><th>เดือน</th><th>เลข</th><th>ถูก/งวด</th><th className="text-right">กำไร</th></tr></thead><tbody>{[...history].reverse().map((h) => <tr key={h.month} className="row"><td className="py-3"><button className="underline" onClick={() => { setStored(null); setMonth(h.month); }}>{h.month}</button></td>{h.result ? <><td>{h.selection!.candidate_count}</td><td>{h.result.wins}/{h.result.draws.length}</td><td className="text-right">{formatSigned(h.result.profit)}</td></> : <td colSpan={3}>{h.error}</td>}</tr>)}</tbody></table></div></> : null}
+      <div className="flex gap-2 overflow-x-auto">{[["draws", "รายงวด"], ["audit", "ตรวจ 100 เลข"]].map(([id, label]) => <Chip key={id} active={tab === id} onClick={() => setTab(id)}>{label}</Chip>)}</div>
+      <div className="space-y-3">
         {tab === "draws" ? <><SectionTitle>ผลรายงวด · {month}</SectionTitle><div className="max-h-96 overflow-auto"><table className="w-full text-left text-xs"><thead><tr><th>วันที่</th><th>ผล</th><th>ถูก</th><th>กำไร</th><th>สะสม</th></tr></thead><tbody>{result.draws.map((d) => <tr className="row" key={d.date}><td className="py-3">{d.date}</td><td>{d.top2}</td><td>{d.won ? "✓" : "−"}</td><td>{formatSigned(d.profit)}</td><td>{formatSigned(d.cumulative)}</td></tr>)}</tbody></table>{!result.draws.length ? <p className="py-3">ยังไม่มีผลเดือนนี้</p> : null}</div></> : null}
         {tab === "audit" ? <><SectionTitle>ตรวจครบ 100 เลข · เรียงตามอันดับความถี่</SectionTitle><p className="dim text-xs">g = งวดจริงหลังออกล่าสุด · ≥ หมายถึงไม่เคยพบ อายุจึงเป็นค่าต่ำสุด · T = เกณฑ์อายุทดลอง · Bottom หมายถึงความถี่ต่ำ</p><div className="max-h-96 overflow-auto"><table className="w-full whitespace-nowrap text-left text-xs"><thead><tr>{["อันดับ", "เลข", "กลุ่ม", "c", "ล่าสุด", "g", "p", "T", "g/T", "เหตุผล"].map((h) => <th className="p-2" key={h}>{h}</th>)}</tr></thead><tbody>{current.audit.map((a) => <tr className="row" key={a.number}>{[a.rank, a.number, a.group, a.count, a.last_date ?? "ไม่เคยพบ", `${a.gap_is_lower_bound ? "≥" : ""}${a.gap}`, a.p.toFixed(6), a.threshold, (a.gap / a.threshold).toFixed(3), a.reason ?? "ไม่คัด"].map((v, i) => <td className="p-2" key={i}>{v}</td>)}</tr>)}</tbody></table></div></> : null}
+      </div>
+          </div>
+        </details>
       </section>
     </> : null}
   </div>;
