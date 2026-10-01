@@ -36,7 +36,7 @@ const labLoading = () => <Spinner label="กำลังเปิดการท
 const MonthWindowExplorer = dynamic(() => import("@/components/MonthWindowExplorer").then((m) => m.MonthWindowExplorer), { loading: labLoading });
 const AllLotteryExperiment = dynamic(() => import("@/components/AllLotteryExperiment").then((m) => m.AllLotteryExperiment), { loading: labLoading });
 const Hvip109Experiment = dynamic(() => import("@/components/Hvip109Experiment").then((m) => m.Hvip109Experiment), { loading: labLoading });
-
+const LotteryStatisticsExport = dynamic(() => import("@/components/LotteryStatisticsExport").then((m) => m.LotteryStatisticsExport), { loading: () => <Spinner label="กำลังเปิด Export สถิติ…" /> });
 
 /**
  * กลุ่มของหวยตามคำท้ายชื่อ — หวยตัวเดียวกันมักมีหลายรอบต่อวัน (ปกติ/VIP/พิเศษ)
@@ -181,6 +181,7 @@ export default function FormulasPage() {
   const [sendError, setSendError] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [showNumbers, setShowNumbers] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   /** ผลหวยดิบของกลุ่มที่เคยเปิด — กดสลับไปมาแล้วไม่ต้องโหลดซ้ำ */
   const cache = useRef(new Map<string, EntriesResponse["entries"]>());
 
@@ -517,8 +518,13 @@ export default function FormulasPage() {
     <div className="space-y-3.5">
       <PageHeader
         title="สูตร"
+        action={<button type="button" className="btn btn-ghost flex-none" disabled={!groups.length} onClick={() => { setOpenKey(null); setExportOpen(true); }}>Export สถิติ</button>}
         subtitle={view === "hvip109" ? "ทดลอง Top10 + Mid9 · กรองร้อน 60 วัน + คะแนนรายหลัก" : view === "tmb" ? "ทดลอง Top/Mid/Bottom · ตัดและเติมจากอดีต" : view === "tb9" ? "ทดลอง TB9-Fixed v1.0 · ชุดคงที่รายเดือน" : view === "months" ? "เทียบกรอบย้อนหลังและสูตรจากเดือนก่อนทดสอบ" : `เรียงตามกำไรของปี test ${testYear || "—"} · ${rows?.length ?? 0} หวย`}
       />
+
+      {exportOpen ? <Modal title="Export สถิติหวย" subtitle="เลือกหลายหวยและปีข้อมูล แล้วดาวน์โหลด Excel ไฟล์เดียว" onClose={() => setExportOpen(false)}>
+        <LotteryStatisticsExport groups={groups} years={years} />
+      </Modal> : null}
 
       <div className="flex flex-wrap gap-2" role="group" aria-label="หมวดหน้าสูตร">
         <Chip active={section === "main"} onClick={() => setSection("main")}>อันดับรายปี</Chip>
