@@ -7,23 +7,24 @@ import { monthLabel, type MonthEntry } from '@/lib/lottery/month-window';
 import type { TmbReport } from '@/lib/lottery/tmb-experiment';
 import { formatSigned } from '@/lib/format';
 const keyOf=(g:{lottery:string;position:string})=>JSON.stringify([g.lottery,g.position]);
-export function TmbExperiment({groups}:{groups:{lottery:string;position:string}[]}) {
+export function TmbExperiment({groups,provided}:{groups:{lottery:string;position:string}[];provided?:{report:TmbReport;year:number;bet:number;payout:number}}) {
   const {api}=useAuth();
-  const [key,setKey]=useState(''),[entries,setEntries]=useState<MonthEntry[]|null>(null),[year,setYear]=useState(2026);
-  const [bet,setBet]=useState('1'),[payout,setPayout]=useState('100'),[error,setError]=useState(''),[busy,setBusy]=useState(false),[retry,setRetry]=useState(0);
-  const [result,setResult]=useState<TmbReport|null>(null);
+  const [key,setKey]=useState(''),[entries,setEntries]=useState<MonthEntry[]|null>(null),[year,setYear]=useState(provided?.year??2026);
+  const [bet,setBet]=useState(String(provided?.bet??1)),[payout,setPayout]=useState(String(provided?.payout??100)),[error,setError]=useState(''),[busy,setBusy]=useState(false),[retry,setRetry]=useState(0);
+  const [computedResult,setResult]=useState<TmbReport|null>(null);
+  const result=provided?.report??computedResult;
   const group=groups.find(g=>keyOf(g)===key)??groups.find(g=>g.lottery==='หวยฮานอย VIP'&&g.position==='สองบน')??groups[0];
   const lottery=group?.lottery,position=group?.position;
   useEffect(()=>{
-    if(!lottery||!position)return;
+    if(provided||!lottery||!position)return;
     let cancelled=false;setEntries(null);setResult(null);setError('');setBusy(true);
     void api<{entries:MonthEntry[]}>(`/api/lottery/datasets?${new URLSearchParams({lottery,position,digits:'2'})}`).then(d=>{
       if(!cancelled){setEntries(d.entries.filter(e=>e.digits===2));}
     }).catch(e=>{if(!cancelled){setError(e instanceof Error?e.message:'โหลดไม่สำเร็จ');setBusy(false);}});
     return()=>{cancelled=true;};
-  },[api,lottery,position,retry]);
+  },[api,lottery,position,retry,provided]);
   useEffect(()=>{
-    if(!entries)return;
+    if(provided||!entries)return;
     setResult(null);setError('');setBusy(true);
     let worker:Worker|undefined;
     const timer=setTimeout(()=>{
@@ -35,11 +36,11 @@ export function TmbExperiment({groups}:{groups:{lottery:string;position:string}[
       }catch{setBusy(false);setError('เปิดตัวคำนวณไม่สำเร็จ');}
     },200);
     return()=>{clearTimeout(timer);worker?.terminate();};
-  },[entries,year,bet,payout,retry]);
+  },[entries,year,bet,payout,retry,provided]);
   const years=useMemo(()=>[...new Set([2026,...(entries??[]).map(e=>Number(e.year)+1957)])].sort((a,b)=>b-a),[entries]);
   function download(){if(!result)return;const url=URL.createObjectURL(new Blob([JSON.stringify({lottery,position,bet:Number(bet),payout:Number(payout),...result},null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=`TMB-${lottery}-${position}-${year}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
   return <div className="space-y-3.5">
-    <section className="card space-y-3 p-3.5">
+    {!provided?<section className="card space-y-3 p-3.5">
       <SectionTitle>ทดลอง TMB v0.1 · ตามแนวคิดจากเสียง</SectionTitle>
       <p className="muted text-sm">7 กลุ่มผสม × ย้อนหลัง 3–12 เดือน × 40–60 เลข · ชุดใหม่ต้นเดือน ใช้ทั้งเดือน</p>
       <Alert tone="warn">ผลย้อนหลังยังไม่ยืนยันผลในอนาคต · คัดสูตรจาก 6 เดือนก่อนหน้า โดยไม่ใช้ผลเดือนทดสอบ · P95 เป็นเกณฑ์ทดลอง ไม่ใช่ขีดจำกัดตามธรรมชาติ</Alert>
@@ -59,7 +60,7 @@ export function TmbExperiment({groups}:{groups:{lottery:string;position:string}[
       </div></details>
       {error?<Alert tone="error">{error} <button className="underline" onClick={()=>setRetry(v=>v+1)}>ลองใหม่</button></Alert>:null}
       {busy?<Spinner/>:null}
-    </section>
+    </section>:null}
     {result?<>
       <section className="card space-y-3 p-3.5">
         <SectionTitle>{lottery} · {position} · ปี {year+543}</SectionTitle>
