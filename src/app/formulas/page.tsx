@@ -34,9 +34,9 @@ import {
 // ไม่โหลด engine/หน้าทดลองทั้งสามชุดตอนเปิดอันดับรายปี
 const labLoading = () => <Spinner label="กำลังเปิดการทดลอง…" />;
 const MonthWindowExplorer = dynamic(() => import("@/components/MonthWindowExplorer").then((m) => m.MonthWindowExplorer), { loading: labLoading });
-const TmbExperiment = dynamic(() => import("@/components/TmbExperiment").then((m) => m.TmbExperiment), { loading: labLoading });
+const AllLotteryExperiment = dynamic(() => import("@/components/AllLotteryExperiment").then((m) => m.AllLotteryExperiment), { loading: labLoading });
 const Hvip109Experiment = dynamic(() => import("@/components/Hvip109Experiment").then((m) => m.Hvip109Experiment), { loading: labLoading });
-const Tb9Experiment = dynamic(() => import("@/components/Tb9Experiment").then((m) => m.Tb9Experiment), { loading: labLoading });
+
 
 /**
  * กลุ่มของหวยตามคำท้ายชื่อ — หวยตัวเดียวกันมักมีหลายรอบต่อวัน (ปกติ/VIP/พิเศษ)
@@ -543,7 +543,7 @@ export default function FormulasPage() {
           </div>
         </section>
       ) : null}
-      {view === "hvip109" ? <><Hvip109Experiment groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : view === "tmb" ? <><TmbExperiment groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : view === "tb9" ? <><Tb9Experiment groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : view === "months" ? <><MonthWindowExplorer groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : <>
+      {view === "hvip109" ? <><Hvip109Experiment groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : view === "tmb" ? <><AllLotteryExperiment key="tmb" formula="TMB" groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : view === "tb9" ? <><AllLotteryExperiment key="tb9" formula="TB9" groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : view === "months" ? <><MonthWindowExplorer groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : <>
       <section className="card space-y-2.5 px-3.5 py-3">
         <div>
           <p className="field-label">สูตร</p>
