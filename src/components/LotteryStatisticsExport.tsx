@@ -97,7 +97,11 @@ export function LotteryStatisticsExport({ groups, years }: {
 
   return (
     <div className="space-y-4">
+      {process.env.NEXT_PUBLIC_STATISTICS_PREVIEW_LABEL && (
+        <Alert tone="info">{process.env.NEXT_PUBLIC_STATISTICS_PREVIEW_LABEL}</Alert>
+      )}
       <p className="muted text-[13px]">รวมสถิติ 2 ตัวไว้ใน Excel ไฟล์เดียว: สรุปงวดจริง · ความถี่เลข 00–99 · ความถี่หลักสิบและหลักหน่วย</p>
+      <p className="dim text-[12px]">ข้อมูลที่มี: {new Set(options.map((group) => group.lottery)).size} หวย · {options.length} กลุ่ม · {years.length} ปี</p>
       <fieldset disabled={busy} className="space-y-2">
         <legend className="field-label">ปีข้อมูลที่ใช้คำนวณสถิติ</legend>
         <div className="flex flex-wrap gap-1.5">
