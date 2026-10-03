@@ -145,7 +145,7 @@ export default function FormulasPage() {
   const { api, canViewLottery, isAdmin } = useAuth();
 
   const [section, setSection] = useState<"main" | "lab">("main");
-  const [experiment, setExperiment] = useState<"months" | "tb9" | "tmb" | "hvip109">("months");
+  const [experiment, setExperiment] = useState<"months" | "tb9" | "tmb" | "hvip109" | "phupha76" | "saithan65">("months");
   const view = section === "main" ? "year" : experiment;
   const [catalogueAttempt, setCatalogueAttempt] = useState(0);
   const [groups, setGroups] = useState<GroupsResponse["groups"]>([]);
@@ -519,7 +519,7 @@ export default function FormulasPage() {
       <PageHeader
         title="สูตร"
         action={<button type="button" className="btn btn-ghost flex-none" disabled={!groups.length} onClick={() => { setOpenKey(null); setExportOpen(true); }}>Export สถิติ</button>}
-        subtitle={view === "hvip109" ? "ทดลอง Top10 + Mid9 · กรองร้อน 60 วัน + คะแนนรายหลัก" : view === "tmb" ? "ทดลอง Top/Mid/Bottom · ตัดและเติมจากอดีต" : view === "tb9" ? "ทดลอง TB9-Fixed v1.0 · ชุดคงที่รายเดือน" : view === "months" ? "เทียบกรอบย้อนหลังและสูตรจากเดือนก่อนทดสอบ" : `เรียงตามกำไรของปี test ${testYear || "—"} · ${rows?.length ?? 0} หวย`}
+        subtitle={view === "phupha76" || view === "saithan65" ? "ทดลองคะแนนความถี่ผสมรายหลัก · เลือกอันดับ 31–60 · ล็อกชุดทั้งเดือน" : view === "hvip109" ? "ทดลอง Top10 + Mid9 · กรองร้อน 60 วัน + คะแนนรายหลัก" : view === "tmb" ? "ทดลอง Top/Mid/Bottom · ตัดและเติมจากอดีต" : view === "tb9" ? "ทดลอง TB9-Fixed v1.0 · ชุดคงที่รายเดือน" : view === "months" ? "เทียบกรอบย้อนหลังและสูตรจากเดือนก่อนทดสอบ" : `เรียงตามกำไรของปี test ${testYear || "—"} · ${rows?.length ?? 0} หวย`}
       />
 
       {exportOpen ? <Modal title="Export สถิติหวย" subtitle="เลือกหลายหวยและปีข้อมูล แล้วดาวน์โหลด Excel ไฟล์เดียว" onClose={() => setExportOpen(false)}>
@@ -546,10 +546,12 @@ export default function FormulasPage() {
             <Chip active={experiment === "tmb"} onClick={() => setExperiment("tmb")}>ทดลอง TMB</Chip>
             <Chip active={experiment === "hvip109"} onClick={() => setExperiment("hvip109")}>ทดลอง HVIP-109</Chip>
             <Chip active={experiment === "tb9"} onClick={() => setExperiment("tb9")}>ทดลอง TB9</Chip>
+            <Chip active={experiment === "phupha76"} onClick={() => setExperiment("phupha76")}>ทดลอง ลาวภูผา76</Chip>
+            <Chip active={experiment === "saithan65"} onClick={() => setExperiment("saithan65")}>ทดลอง ลาวสายธาร65</Chip>
           </div>
         </section>
       ) : null}
-      {view === "hvip109" ? <><Hvip109Experiment groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : view === "tmb" ? <><AllLotteryExperiment key="tmb" formula="TMB" groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : view === "tb9" ? <><AllLotteryExperiment key="tb9" formula="TB9" groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : view === "months" ? <><MonthWindowExplorer groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : <>
+      {view === "phupha76" || view === "saithan65" ? <><AllLotteryExperiment key={view} formula={view} groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : view === "hvip109" ? <><Hvip109Experiment groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : view === "tmb" ? <><AllLotteryExperiment key="tmb" formula="TMB" groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : view === "tb9" ? <><AllLotteryExperiment key="tb9" formula="TB9" groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : view === "months" ? <><MonthWindowExplorer groups={groups} />{!groups.length && error ? <Alert tone="error">{error}</Alert> : null}</> : <>
       <section className="card space-y-2.5 px-3.5 py-3">
         <div>
           <p className="field-label">สูตร</p>
