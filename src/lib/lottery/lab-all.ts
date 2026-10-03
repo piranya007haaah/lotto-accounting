@@ -2,16 +2,21 @@ import { analyzeTmb, type TmbReport } from './tmb-experiment';
 import { tb9Fixed, CANCELED, HISTORY_START, monthDate, type Selection, type Draw } from './tb9-fixed';
 import { computeRiskMetrics } from './engine';
 import { monthCalendar, type MonthEntry } from './month-window';
-export type LabFormula = 'TMB' | 'TB9';
+import { analyzeMid30, isMid30Formula, type Mid30Formula, type Mid30Month } from './mid30';
+export type LabFormula = 'TMB' | 'TB9' | Mid30Formula;
 export type LabGroup = { lottery: string; position: string };
 export type LabOptions = { formula: LabFormula; year: number; bet: number; payout: number; strict: boolean };
 export type Tb9Month = { selection: Selection; draws: (Draw & { won: boolean; profit: number; cumulative: number })[]; wins: number; cost: number; profit: number; unobserved: number; partial: boolean };
 export type LabSummary = { months: number; draws: number; wins: number; cost: number; profit: number; roi: number; maxDD: number; lossStreak: number; lossAmount: number; asOf: string; skipped: string[]; baseProfit?: number };
-export type LabReport = { summary: LabSummary; tmb?: TmbReport; tb9?: Tb9Month[] };
+export type LabReport = { summary: LabSummary; tmb?: TmbReport; tb9?: Tb9Month[]; mid30?: Mid30Month[] };
 export const labKey = (g: LabGroup) => JSON.stringify([g.lottery, g.position]);
 export function analyzeLabGroup(entries: MonthEntry[], group: LabGroup, options: LabOptions): LabReport {
   const { formula, year, bet, payout, strict } = options;
   if (!Number.isInteger(year) || year < 2000 || year > 2099 || !Number.isFinite(bet) || bet <= 0 || bet > 1e6 || !Number.isFinite(payout) || payout <= 0 || payout > 10000) throw new Error('ปี เงินแทง หรือเรตจ่ายไม่ถูกต้อง');
+  if (isMid30Formula(formula)) {
+    const report = analyzeMid30(entries, formula, year, bet, payout, strict);
+    return { mid30: report.months, summary: report.summary };
+  }
   if (formula === 'TMB') {
     const tmb = analyzeTmb({ entries, year, bet, payout });
     return { tmb, summary: { months: tmb.months.length, draws: tmb.days, wins: tmb.wins, cost: tmb.cost, profit: tmb.profit, roi: tmb.roi, maxDD: tmb.maxDD, lossStreak: tmb.lossStreak, lossAmount: tmb.lossAmount, asOf: tmb.asOf, skipped: tmb.skipped, baseProfit: tmb.baseProfit } };

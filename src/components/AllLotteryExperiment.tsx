@@ -7,14 +7,18 @@ import { MonthlyPnlBars } from './PortfolioCharts';
 import { formatSigned } from '@/lib/format';
 import { labKey, type LabFormula, type LabGroup, type LabOptions, type LabSummary, type LabReport } from '@/lib/lottery/lab-all';
 import type { MonthEntry } from '@/lib/lottery/month-window';
+import { isMid30Formula, MID30_FORMULAS } from '@/lib/lottery/mid30';
 const TmbDetail = dynamic(() => import('./TmbExperiment').then(m => m.TmbExperiment), { loading: () => <Spinner /> });
 const LaoOriginal = dynamic(() => import('./Tb9Experiment').then(m => m.Tb9Experiment), { loading: () => <Spinner /> });
+const Mid30Detail = dynamic(() => import('./Mid30Detail').then(m => m.Mid30Detail), { loading: () => <Spinner /> });
 type Entry = MonthEntry & LabGroup;
 type Result = LabGroup & { summary?: LabSummary; error?: string };
 type Response = Result & { id: number; type: 'batch' | 'detail'; report?: LabReport; group: LabGroup; done: number; total: number };
 export function AllLotteryExperiment({ groups, formula }: { groups: LabGroup[]; formula: LabFormula }) {
   const { api } = useAuth();
-  const [year, setYear] = useState(new Date().getFullYear()), [bet, setBet] = useState('1'), [payout, setPayout] = useState('100'), [strict, setStrict] = useState(false);
+  const mid30 = isMid30Formula(formula) ? MID30_FORMULAS[formula] : null;
+  const formulaName = mid30?.name ?? formula;
+  const [year, setYear] = useState(new Date().getFullYear()), [bet, setBet] = useState('1'), [payout, setPayout] = useState('100'), [strict, setStrict] = useState(!!mid30);
   const [results, setResults] = useState<Result[]>([]), [running, setRunning] = useState(false), [progress, setProgress] = useState(''), [error, setError] = useState('');
   const [selected, setSelected] = useState<LabGroup | null>(null), [detail, setDetail] = useState<LabReport | null>(null), [detailBusy, setDetailBusy] = useState(false), [query, setQuery] = useState(''), [originalOpen, setOriginalOpen] = useState(false);
   const cache = useRef<Entry[] | null>(null), worker = useRef<Worker | null>(null), runId = useRef(0);
@@ -54,18 +58,18 @@ export function AllLotteryExperiment({ groups, formula }: { groups: LabGroup[]; 
   function download(payload: unknown, name: string) { const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
   return <div className="space-y-3.5">
     <section className="card space-y-3 p-3.5">
-      <SectionTitle>ทดลอง {formula} · ทุกหวย 2 ตัว</SectionTitle>
-      <p className="muted text-sm">{formula === 'TMB' ? '7 กลุ่ม Top/Mid/Bottom × 3–12 เดือน × 40–60 เลข · คัดด้วย 6 เดือนก่อนหน้า' : 'Top 34 + Bottom ที่ g ≥ T · เติม Mid ให้ครบ 45 · ฝึก 9 เดือนปฏิทิน · ประวัติเริ่ม 2023-01-01'} · ชุดใหม่ต้นเดือน ใช้ทั้งเดือน</p>
-      <Alert tone="warn">{formula === 'TB9' ? 'ต้นฉบับใช้ลาวสตาร์สองบน หวยอื่นและสองล่างเป็นการขยายการทดลอง · ' : ''}ผลย้อนหลังยังไม่ยืนยันผลในอนาคต อันดับรายหวยอาจเกิดจากความบังเอิญ</Alert>
+      <SectionTitle>ทดลอง {formulaName} · ทุกหวย 2 ตัว</SectionTitle>
+      <p className="muted text-sm">{mid30 ? `${mid30.original} · ความถี่คู่ ${mid30.frequencyMonths} เดือน + หลักสิบ/หน่วย ${mid30.digitMonths} เดือน · เลือกอันดับ 31–60 จำนวน 30 เลข` : formula === 'TMB' ? '7 กลุ่ม Top/Mid/Bottom × 3–12 เดือน × 40–60 เลข · คัดด้วย 6 เดือนก่อนหน้า' : 'Top 34 + Bottom ที่ g ≥ T · เติม Mid ให้ครบ 45 · ฝึก 9 เดือนปฏิทิน · ประวัติเริ่ม 2023-01-01'} · ชุดใหม่ต้นเดือน ใช้ทั้งเดือน</p>
+      <Alert tone="warn">{mid30 ? 'ต้นฉบับใช้ลาวพัฒนาสองบน หวยอื่นและสองล่างเป็นการขยายการทดลอง · ' : formula === 'TB9' ? 'ต้นฉบับใช้ลาวสตาร์สองบน หวยอื่นและสองล่างเป็นการขยายการทดลอง · ' : ''}ผลย้อนหลังยังไม่ยืนยันผลในอนาคต อันดับรายหวยอาจเกิดจากความบังเอิญ</Alert>
       <fieldset disabled={running} className="space-y-3"><div className="grid grid-cols-2 gap-2">
         <label><span className="field-label">เงินแทงต่อเลข</span><input className="field" inputMode="decimal" value={bet} onChange={e => { clear(); setBet(e.target.value); }} /></label>
         <label><span className="field-label">เรตจ่ายรวม (เท่า)</span><input className="field" inputMode="decimal" value={payout} onChange={e => { clear(); setPayout(e.target.value); }} /></label>
         <label className="col-span-2"><span className="field-label">ปีทดสอบ พ.ศ.</span><select className="field" value={year} onChange={e => { clear(); setYear(Number(e.target.value)); }}>{years.map(y => <option key={y} value={y}>{y + 543}</option>)}</select></label>
       </div>
-      {formula === 'TB9' ? <><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={strict} onChange={e => { clear(); setStrict(e.target.checked); }} />ตรวจประวัติครบทุกวัน</label><p className="dim text-xs">{strict ? 'ตรวจจาก 2023-01-01 ถึงก่อนเดือนทดสอบ · xx = วันงดยืนยัน · วันงด 8 วันในเอกสารใช้เฉพาะลาวสตาร์สองบน · -- ไม่ถือเป็นวันงด' : 'ทดลองเฉพาะงวดที่มีผล: ต้องมีผลในทุกเดือนฝึก แต่ข้อมูลขาดอาจเปลี่ยนชุดเลขและผลลัพธ์ · -- ไม่ถือเป็นวันงด · อายุเลขนับงวดจริง'}</p></> : <p className="dim text-xs">คัดกลุ่ม กรอบ และจำนวนเลขจากอดีตเท่านั้น · P95 เป็นเกณฑ์ทดลอง · วันไม่มีข้อมูลถูกข้าม ไม่ยืนยันว่าเป็นวันงด · เดือนฝึกว่างหรือปีขาดจะข้าม</p>}
+      {formula === 'TB9' || mid30 ? <><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={strict} onChange={e => { clear(); setStrict(e.target.checked); }} />ตรวจประวัติครบทุกวัน</label><p className="dim text-xs">{mid30 ? (strict ? `ตรวจครบช่วงฝึกย้อนหลัง ${mid30.frequencyMonths} เดือนถึงก่อนเดือนทดสอบ · xx = วันงดยืนยัน · -- เป็นข้อมูลไม่ยืนยัน จึงข้ามเดือนที่ประวัติไม่ครบ` : 'ทดลองเฉพาะงวดที่มีผล: ต้องมีผลในทุกเดือนฝึก · แสดงจำนวนวันที่ไม่ยืนยัน · ข้อมูลขาดอาจเปลี่ยนชุดเลขและผลลัพธ์ · -- ไม่ถือเป็นวันงด') : strict ? 'ตรวจจาก 2023-01-01 ถึงก่อนเดือนทดสอบ · xx = วันงดยืนยัน · วันงด 8 วันในเอกสารใช้เฉพาะลาวสตาร์สองบน · -- ไม่ถือเป็นวันงด' : 'ทดลองเฉพาะงวดที่มีผล: ต้องมีผลในทุกเดือนฝึก แต่ข้อมูลขาดอาจเปลี่ยนชุดเลขและผลลัพธ์ · -- ไม่ถือเป็นวันงด · อายุเลขนับงวดจริง'}</p></> : <p className="dim text-xs">คัดกลุ่ม กรอบ และจำนวนเลขจากอดีตเท่านั้น · P95 เป็นเกณฑ์ทดลอง · วันไม่มีข้อมูลถูกข้าม ไม่ยืนยันว่าเป็นวันงด · เดือนฝึกว่างหรือปีขาดจะข้าม</p>}
       </fieldset>
       <details className="text-sm"><summary className="cursor-pointer">กติกาทดลองและข้อจำกัด</summary><div className="muted mt-2 space-y-2 text-xs">
-        {formula === 'TMB' ? <><p>Top 34 / Mid 33 / Bottom 33 · เท่ากันใช้เลขน้อยก่อน · ผสมกลุ่มโดยสลับหยิบ กลุ่มเดี่ยวเติมจากกลุ่มที่เหลือให้ครบ 40–60 เลข</p><p>ตัดความถี่ &gt; P95 ของความถี่ 100 เลขในหน้าต่างฝึก · เติมเลขที่อายุ &gt; P95 ของช่วงไม่ออกที่จบแล้ว โดยหยิบอายุมากก่อนแล้วเติมตามกลุ่มให้จำนวนเดิม · อายุเลขไม่เคยพบเป็นค่าต่ำสุด</p><p>คัดสูตร/กรอบ/จำนวนเลขด้วยกำไรรวม 6 เดือนก่อนหน้า · เทียบชุดเดิมที่ใช้กลุ่ม/กรอบ/จำนวนเลขเดียวกัน · ตารางสูตรดีสุดทั้งปีในรายละเอียดเป็นการรู้ผลแล้ว ใช้เลือกอนาคตไม่ได้</p></> : <><p>จัดอันดับความถี่ 9 เดือนก่อนทดสอบ · Top 34 ทั้งหมด + Bottom ที่ g ≥ T · เติม Mid ตาม g/T ให้ครบอย่างน้อย 45 เลข · p = (ความถี่ + 1)/(งวดฝึก + 100) · T = ceil(log(0.5)/log(1−p))</p><p>g นับงวดจริงตั้งแต่ผลล่าสุดจากประวัติเริ่ม 2023-01-01 · เลขไม่เคยพบใช้จำนวนงวดประวัติเป็นค่าต่ำสุด · ค่า 0.5 ไม่ใช่ความแม่นยำ 50% · เรตจ่ายต้นฉบับ 100 เท่า เปลี่ยนเรตคือการจำลองเพิ่มเติม</p></>}
+        {mid30 ? <><p>P = (c+1)/(Nf+100) · D = (t+1)(u+1)/(Nd+10)² · คะแนน S = 0.5P + 0.5D · จัดอันดับ 00–99 คะแนนมากก่อน เท่ากันเลขน้อยก่อน</p><p>เลือกเฉพาะอันดับ 31–60 รวม 30 เลข · ใช้เดือนปฏิทินย้อนหลังตามสูตร · ใช้ผลถึงวันสุดท้ายของเดือนก่อนหน้า ล็อกชุดตลอดเดือนทดสอบ · ไม่ปรับกรอบหรือจำนวนเลขจากผลทดสอบ</p></> : formula === 'TMB' ? <><p>Top 34 / Mid 33 / Bottom 33 · เท่ากันใช้เลขน้อยก่อน · ผสมกลุ่มโดยสลับหยิบ กลุ่มเดี่ยวเติมจากกลุ่มที่เหลือให้ครบ 40–60 เลข</p><p>ตัดความถี่ &gt; P95 ของความถี่ 100 เลขในหน้าต่างฝึก · เติมเลขที่อายุ &gt; P95 ของช่วงไม่ออกที่จบแล้ว โดยหยิบอายุมากก่อนแล้วเติมตามกลุ่มให้จำนวนเดิม · อายุเลขไม่เคยพบเป็นค่าต่ำสุด</p><p>คัดสูตร/กรอบ/จำนวนเลขด้วยกำไรรวม 6 เดือนก่อนหน้า · เทียบชุดเดิมที่ใช้กลุ่ม/กรอบ/จำนวนเลขเดียวกัน · ตารางสูตรดีสุดทั้งปีในรายละเอียดเป็นการรู้ผลแล้ว ใช้เลือกอนาคตไม่ได้</p></> : <><p>จัดอันดับความถี่ 9 เดือนก่อนทดสอบ · Top 34 ทั้งหมด + Bottom ที่ g ≥ T · เติม Mid ตาม g/T ให้ครบอย่างน้อย 45 เลข · p = (ความถี่ + 1)/(งวดฝึก + 100) · T = ceil(log(0.5)/log(1−p))</p><p>g นับงวดจริงตั้งแต่ผลล่าสุดจากประวัติเริ่ม 2023-01-01 · เลขไม่เคยพบใช้จำนวนงวดประวัติเป็นค่าต่ำสุด · ค่า 0.5 ไม่ใช่ความแม่นยำ 50% · เรตจ่ายต้นฉบับ 100 เท่า เปลี่ยนเรตคือการจำลองเพิ่มเติม</p></>}
         <p>เลขหายไปนานไม่ได้ทำให้โอกาสงวดถัดไปสูงขึ้นโดยอัตโนมัติ · เดือนล่าสุดอาจยังไม่ครบ · ข้อมูลแก้ไขทำให้ผลและชุดเลขเปลี่ยนได้</p>
       </div></details>
       <button className="btn btn-primary" disabled={running || !groups.length} onClick={() => void run()}>{running ? `กำลังทดสอบ ${progress}` : `ทดสอบทุกหวย (${groups.length} กลุ่ม)`}</button>
@@ -84,6 +88,7 @@ export function AllLotteryExperiment({ groups, formula }: { groups: LabGroup[]; 
     {detail && selected ? <>
       <button className="underline text-sm" onClick={() => download({ group: selected, options, ...detail }, `${formula}-${selected.lottery}-${selected.position}-${year}.json`)}>ดาวน์โหลดผลรายหวยพร้อมชุดเลขและ audit</button>
       {detail.tmb ? <TmbDetail key={labKey(selected) + year} groups={[selected]} provided={{ report: detail.tmb, year, bet: Number(bet), payout: Number(payout) }} /> : null}
+      {detail.mid30 ? <Mid30Detail group={selected} report={detail} strict={strict} payout={payout} /> : null}
       {detail.tb9 ? <section className="card space-y-3 p-3.5"><SectionTitle>{selected.lottery} · {selected.position} · ข้อมูลถึง {detail.summary.asOf}</SectionTitle>
         <p className="dim text-xs">{strict ? 'ตรวจประวัติครบทุกวัน' : 'ทดลองเฉพาะผลที่มีข้อมูล'} · ข้าม {detail.summary.skipped.length} เดือน · เรตจ่าย {payout} เท่า</p>
         <MonthlyPnlBars months={detail.tb9.map(m => ({ label: m.selection.target_month, profit: m.profit }))} dividers={[]} />
